@@ -914,5 +914,12 @@ namespace FactSet
           exact sc_sub.left
         . exact h_hom.right
 
-end FactSet
+  theorem every_stong_core_is_weak_core
+  (fs : FactSet sig) :
+  fs.isStrongCore → fs.isWeakCore := by
+  unfold isStrongCore isWeakCore
+  intro h1 h2 h3
+  specialize h1 h2 h3
+  exact ⟨h1.1, h1.2.1⟩
 
+end FactSet
