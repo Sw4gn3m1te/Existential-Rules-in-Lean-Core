@@ -1,27 +1,5 @@
-/-
-Copyright 2026 Lukas Gerlach
-Released under Apache 2.0 license as described in the file LICENSE.
--/
-
-module
-
-public import BasicLeanDatastructures.List.EraseDupsKeepRight
-public import ExistentialRules.Models.Basic
-
-/-!
-# Cores
-
-In this file, we define cores of fact sets. Namely, we define `FactSet.isWeakCore` and `FactSet.isStrongCore`.
-`FactSet`s that are models and cores are interesting since there are (intuitively speaking) the smallest possible models.
-Under certain condition, the chase is able to produce a core directly, which is very desirable since the result of the chase is also always a universal model.
-But this is discussed in other files. Here, we are only concerned with the definition of cores on `FactSet`s and some of their properties.
--/
-
-/-!
-## Some Auxiliary Definitions and Theorems on Lists and Functions
-
-Before we can go into the actual definitions, we need a lot of machinery, mainly about functions to be able to state properties like injectivity and surjectivity possibly only about a list of set of elements and not the whole domain of the function.
--/
+import ExistentialRules.Models.Basic
+import ExistentialRules.ChaseSequence.Basic
 
 namespace List
 
@@ -982,5 +960,32 @@ theorem strong_core_of_universal_model_is_universal_model
   intro h1 h2 h3
   specialize h1 h2 h3
   exact ⟨h1.1, h1.2.1⟩
+
+  theorem weak_core_exists_iff_finite
+  (fs : FactSet sig) :
+  fs.isWeakCore ↔ fs.terms.finite := by
+  constructor
+  sorry
+  intro hfin
+  have db : Database sig := by
+    exact Database.mk
+  have rs : RuleSet sig := by sorry
+  have kb : KnowledgeBase sig := KnowledgeBase.mk db rs
+  have obs : ObsoletenessCondition sig := by sorry
+  have cb : ChaseBranch obs kb := by sorry
+  have db_fin_list : db.toFactSet.val.finite := by
+    exact db.toFactSet.2.1
+  have cb_term : cb.result.finite := by
+    sorry
+
+
+  rw [ChaseBranch.terminates_iff_result_finite]
+
+  unfold isWeakCore
+  unfold Set.finite
+  intro h
+  exists []
+  sorry
+  sorry
 
 end FactSet
