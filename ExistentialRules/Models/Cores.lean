@@ -1,4 +1,5 @@
 import ExistentialRules.Models.Basic
+import ExistentialRules.ChaseSequence.Basic
 
 namespace List
 
@@ -921,5 +922,32 @@ namespace FactSet
   intro h1 h2 h3
   specialize h1 h2 h3
   exact ⟨h1.1, h1.2.1⟩
+
+  theorem weak_core_exists_iff_finite
+  (fs : FactSet sig) :
+  fs.isWeakCore ↔ fs.terms.finite := by
+  constructor
+  sorry
+  intro hfin
+  have db : Database sig := by
+    exact Database.mk
+  have rs : RuleSet sig := by sorry
+  have kb : KnowledgeBase sig := KnowledgeBase.mk db rs
+  have obs : ObsoletenessCondition sig := by sorry
+  have cb : ChaseBranch obs kb := by sorry
+  have db_fin_list : db.toFactSet.val.finite := by
+    exact db.toFactSet.2.1
+  have cb_term : cb.result.finite := by
+    sorry
+
+
+  rw [ChaseBranch.terminates_iff_result_finite]
+
+  unfold isWeakCore
+  unfold Set.finite
+  intro h
+  exists []
+  sorry
+  sorry
 
 end FactSet
