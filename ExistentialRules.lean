@@ -17,3 +17,4 @@ import ExistentialRules.Triggers.Basic
 import ExistentialRules.Triggers.Obsoleteness
 import ExistentialRules.Triggers.RTrigger
 
+import ExistentialRules.ChaseSequence.Core

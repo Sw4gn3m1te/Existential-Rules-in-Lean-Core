@@ -929,8 +929,7 @@ namespace FactSet
   constructor
   sorry
   intro hfin
-  have db : Database sig := by
-    exact Database.mk
+  have db : Database sig := by sorry
   have rs : RuleSet sig := by sorry
   have kb : KnowledgeBase sig := KnowledgeBase.mk db rs
   have obs : ObsoletenessCondition sig := by sorry
@@ -940,14 +939,6 @@ namespace FactSet
   have cb_term : cb.result.finite := by
     sorry
 
-
-  rw [ChaseBranch.terminates_iff_result_finite]
-
   unfold isWeakCore
-  unfold Set.finite
-  intro h
-  exists []
   sorry
-  sorry
-
 end FactSet
