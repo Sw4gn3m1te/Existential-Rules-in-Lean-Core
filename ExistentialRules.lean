@@ -17,7 +17,7 @@ import ExistentialRules.ChaseSequence.ChaseDerivationSkeleton
 import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Universality
 import ExistentialRules.ChaseSequence.Deterministic
-import ExistentialRules.ChaseSequence.Nontermination.RpcLike
+import ExistentialRules.ChaseSequence.Core
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings
