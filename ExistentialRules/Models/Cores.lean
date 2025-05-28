@@ -923,22 +923,17 @@ namespace FactSet
   specialize h1 h2 h3
   exact ⟨h1.1, h1.2.1⟩
 
-  theorem weak_core_exists_iff_finite
-  (fs : FactSet sig) :
-  fs.isWeakCore ↔ fs.terms.finite := by
+
+  theorem exists_weak_core_for_finite_set
+  (fs : FactSet sig) (fs_finite : fs.finite) :
+  ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc ⊆ fs := by
+  exists fs
   constructor
   sorry
-  intro hfin
-  have db : Database sig := by sorry
-  have rs : RuleSet sig := by sorry
-  have kb : KnowledgeBase sig := KnowledgeBase.mk db rs
-  have obs : ObsoletenessCondition sig := by sorry
-  have cb : ChaseBranch obs kb := by sorry
-  have db_fin_list : db.toFactSet.val.finite := by
-    exact db.toFactSet.2.1
-  have cb_term : cb.result.finite := by
-    sorry
+  apply Set.subset_refl
 
-  unfold isWeakCore
-  sorry
+  theorem weak_core_exists_iff_finite
+  (fs : FactSet sig) :
+  fs.isWeakCore ↔ fs.terms.finite := by sorry
+
 end FactSet
