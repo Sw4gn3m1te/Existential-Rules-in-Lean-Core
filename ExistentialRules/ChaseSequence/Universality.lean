@@ -838,3 +838,24 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             simp [Set.element, GroundTermMapping.applyFactSet]
             exists e
 
+theorem terminating_sequence_iff_universal (cb : ChaseBranch obs kb):
+cb.result.finite ↔ FactSet.universallyModelsKb cb.result kb := by
+  unfold FactSet.universallyModelsKb
+  constructor
+  intro cb_res_fin
+  constructor
+  sorry
+  intro fs1 h2
+  sorry
+  intro h
+  rcases h with ⟨hl, hr⟩
+  specialize hr kb.db.toFactSet
+  sorry
+
+theorem universal_if_terminating_sequence (cb : ChaseBranch obs kb):
+  cb.result.finite → FactSet.universallyModelsKb cb.result kb := by
+    sorry
+    -- rw [ChaseBranch.terminates_iff_result_finite] ??
+
+theorem kb_if_self_model (kb : KnowledgeBase sig) : kb.db.toFactSet.val.modelsKb kb := by
+  sorry
