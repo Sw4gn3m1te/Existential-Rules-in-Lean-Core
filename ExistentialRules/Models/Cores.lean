@@ -926,11 +926,28 @@ namespace FactSet
 
   theorem exists_weak_core_for_finite_set
   (fs : FactSet sig) (fs_finite : fs.finite) :
-  ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc ⊆ fs := by
+  ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by
   exists fs
   constructor
   sorry
+  unfold FactSet.homSubset
+  constructor
   apply Set.subset_refl
+  unfold GroundTermMapping.isHomomorphism
+  have gtm : GroundTermMapping sig := fun x => x
+
+  exists gtm
+  constructor
+  intro t
+  cases eq : t with
+    | func f ts ar =>
+      simp [GroundTerm.func]
+    | const c =>
+      simp [GroundTerm.const]
+      
+
+
+  sorry
 
   theorem weak_core_exists_iff_finite
   (fs : FactSet sig) :
