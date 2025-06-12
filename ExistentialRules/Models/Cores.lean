@@ -924,30 +924,63 @@ namespace FactSet
   exact ⟨h1.1, h1.2.1⟩
 
 
+  theorem empty_set_is_weak_core (wc : FactSet sig) : wc = ∅ → wc.isWeakCore := by
+    intro wc_empty
+    rw [wc_empty]
+    intro gtm ghom
+    constructor
+    intro _ _ contra _
+    contradiction
+    intro h1 h2 h3 h4 h5
+    unfold FactSet.terms at h3
+    rcases h3 with ⟨_, contra, _⟩
+    contradiction
+
   theorem exists_weak_core_for_finite_set
   (fs : FactSet sig) (fs_finite : fs.finite) :
   ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by
-  exists fs
-  constructor
-  sorry
-  unfold FactSet.homSubset
-  constructor
-  apply Set.subset_refl
-  unfold GroundTermMapping.isHomomorphism
-  have gtm : GroundTermMapping sig := fun x => x
+  rcases fs_finite with ⟨l, h1, h2⟩
+  let set_l : Set (Fact sig) := l.toSet
+  induction l with
+    | nil =>
+      exists set_l
+      have set_l_empty : set_l = ∅ := by
+        rfl
+      rw [set_l_empty]
+      constructor
+      apply empty_set_is_weak_core
+      rfl
+      unfold homSubset
+      constructor
+      simp [Set.subset]
+      intro fs2 cont
+      contradiction
+      have fs_empty : fs = ∅ := by sorry -- fs sollte doch hier leer sein da l leer ist und l von fs_finite stammt oder ?
+      rw [fs_empty]
+      unfold GroundTermMapping.isHomomorphism
+      let gtm : GroundTermMapping sig := (fun x => x)
+      exists gtm
+      constructor
+      unfold GroundTermMapping.isIdOnConstants
+      intro gt
+      cases eq : gt with
+        | func f ts ar =>
+          simp [GroundTerm.func]
+        | const c =>
+          simp [GroundTerm.const]
+          rfl
+      · unfold GroundTermMapping.applyFactSet -- applying a fact set to the empty set should do nothing and hence yield the emptyset ?
+        intro f f2
+        sorry -- contradiction
 
-  exists gtm
-  constructor
-  intro t
-  cases eq : t with
-    | func f ts ar =>
-      simp [GroundTerm.func]
-    | const c =>
-      simp [GroundTerm.const]
-      
+    | cons hd tl ih =>
+        exists set_l
+        constructor
+        intro gtm ghom
+        constructor
+        intro f h4 h5
+        repeat sorry
 
-
-  sorry
 
   theorem weak_core_exists_iff_finite
   (fs : FactSet sig) :

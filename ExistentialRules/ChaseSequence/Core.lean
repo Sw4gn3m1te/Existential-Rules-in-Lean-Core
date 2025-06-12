@@ -14,4 +14,4 @@ def ChaseNode.isWeakCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs
 def ChaseNode.isStrongCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
  Prop := FactSet.isStrongCore node.fact.val
 
-theorem ChaseBranch.sequence_equals_parallel_step (cb : ChaseBranch obs kb) (ts : Set (PreTrigger sig)) : x = x := by sorry
+theorem ChaseBranch.sequence_equals_parallel_step (cb : ChaseBranch obs kb) (ts : Set (PreTrigger sig)) :
