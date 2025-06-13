@@ -936,16 +936,29 @@ namespace FactSet
     rcases h3 with ⟨_, contra, _⟩
     contradiction
 
+  theorem apply_fact_set_to_empty_is_empty (gtm : GroundTermMapping sig) (fs : FactSet sig) (fs_emtpy : fs = ∅) :
+    gtm.applyFactSet fs ⊆ fs := by
+      rw [Set.subset]
+      rw [fs_emtpy]
+      intro f fu
+      have c : f ∈ gtm.applyFactSet ∅ → false := by
+        intro ⟨f2, ⟨contra, g⟩⟩
+        contradiction
+      specialize c fu
+      contradiction
+
+
   theorem exists_weak_core_for_finite_set
   (fs : FactSet sig) (fs_finite : fs.finite) :
   ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by
   rcases fs_finite with ⟨l, h1, h2⟩
-  let set_l : Set (Fact sig) := l.toSet
+  have set_l : Set (Fact sig) := l.toSet
+  exists set_l
   induction l with
     | nil =>
-      exists set_l
       have set_l_empty : set_l = ∅ := by
-        rfl
+        -- rfl
+        sorry -- when 955 is with let this works, however i cannot apply ih in 992 if i do, why is that ?
       rw [set_l_empty]
       constructor
       apply empty_set_is_weak_core
@@ -969,21 +982,48 @@ namespace FactSet
         | const c =>
           simp [GroundTerm.const]
           rfl
-      · unfold GroundTermMapping.applyFactSet -- applying a fact set to the empty set should do nothing and hence yield the emptyset ?
-        intro f f2
-        sorry -- contradiction
-
+      · apply apply_fact_set_to_empty_is_empty
+        rfl
     | cons hd tl ih =>
-        exists set_l
-        constructor
-        intro gtm ghom
-        constructor
-        intro f h4 h5
-        repeat sorry
+        have tl_nodup : tl.Nodup := by
+          simp at h1
+          exact h1.2
+        specialize ih tl_nodup
+        apply ih
 
+        intro f
+        specialize h2 f
+        constructor
+        intro f_in_tl
+        have f_in_hdtl : f ∈ hd :: tl ↔ f ∈ tl := by
+          cases Decidable.em (f ∈ tl) with
+            | inl e_in =>
+              simp
+              intro _
+              exact e_in
+            | inr e_out =>
+              contradiction
 
-  theorem weak_core_exists_iff_finite
-  (fs : FactSet sig) :
-  fs.isWeakCore ↔ fs.terms.finite := by sorry
+        rw [← h2]
+        cases Decidable.em (f = hd) with
+          | inl e_in =>
+            have hd_not_in_tl : ¬ hd ∈ tl := by
+              simp at h1
+              exact h1.1
+            rw [e_in] at f_in_tl
+            contradiction
+          | inr e_out =>
+            rw [f_in_hdtl] at h2
+            rw [← f_in_hdtl] at f_in_tl
+            exact f_in_tl
+
+        intro f_in_fs
+        rw [← h2] at f_in_fs
+        simp at f_in_fs
+        rcases f_in_fs with f_eq_hd | f_in_tl
+        rw [f_eq_hd]
+        sorry -- head cannot be in tail => wrong
+        exact f_in_tl
+
 
 end FactSet
