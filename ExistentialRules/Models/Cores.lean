@@ -947,17 +947,79 @@ namespace FactSet
       specialize c fu
       contradiction
 
+theorem list_empty_is_empty_set (l : List α) : l.length = 0 → l.toSet = ∅ := by
+  simp
+  intro l_empty
+  rw [l_empty]
+  trivial
 
   theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length) :
       ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
     induction length generalizing l with
-    | zero => sorry
-    | succ n ih => sorry
-    -- or
-    induction length using Nat.strongRecOn generalizing l with
-    | ind n ih => sorry
+    | zero =>
+      exists ∅
+      constructor
+      apply empty_set_is_weak_core
+      rfl
+      unfold homSubset
+      constructor
+      simp [Set.subset]
+      intro fs2 cont
+      contradiction
+      unfold GroundTermMapping.isHomomorphism
+      exists (fun x => x)
+      constructor
+      unfold GroundTermMapping.isIdOnConstants
+      intro gt
+      cases eq : gt with
+        | func f ts ar =>
+          simp [GroundTerm.func]
+        | const c =>
+          simp [GroundTerm.const]
+      · rw [list_empty_is_empty_set l length_l]
+        apply apply_fact_set_to_empty_is_empty
+        rfl
+      | succ n ih =>
 
-  theorem exists_weak_core_for_finite_set
+        sorry
+
+theorem list_with_leq_zero_len_not_empty (l : List α) :
+  l.length ≥ 1 → ¬ l.isEmpty := by
+    intro len_geq_1
+
+    sorry
+
+
+
+theorem list_prop_sub_ex_element_outside
+(l : List α) (sub : List α) (subset_l : sub ⊆ l) (neq_l : sub ≠ l)
+(length_l : l.length = length) (least_two :length ≥ 2) :
+  ∃ (e : α), e ∈ l → e ∉ sub := by
+  have sub_len_le : sub.length ≤ l.length := by List.Sublist.length_le
+  induction least_two using Nat.le.rec with
+    | refl =>
+
+      have elem : _ := l.getLast
+      have l_not_empty : l ≠ [] := by sorry
+      specialize elem l_not_empty
+      exists elem
+      intro elem_in
+
+    | step least_two ih =>
+
+      sorry
+
+
+  --theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length) :
+   --   ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
+   -- induction length generalizing l with
+   -- | zero => sorry
+   -- | succ n ih => sorry
+    -- or
+   -- induction length using Nat.strongRecOn generalizing l with
+   -- | ind n ih => sorry
+
+  theorem exists_weak_core_for_finite_set2
   (fs : FactSet sig) (fs_finite : fs.finite) :
   ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
   rcases fs_finite with ⟨l, h1, h2⟩
@@ -966,7 +1028,7 @@ namespace FactSet
   /- exists set_l -/
   induction l.length generalizing fs with
     | zero =>
-      have fs_empty : fs = ∅ := by
+      let fs_empty : fs = ∅ := by
         apply funext
         intro e
         specialize h2 e
@@ -975,7 +1037,6 @@ namespace FactSet
         simp [Set.empty]
       have set_l_empty : set_l = ∅ := by
         rfl
-        sorry -- when 955 is with let this works, however i cannot apply ih in 992 if i do, why is that ?
       rw [set_l_empty]
       constructor
       apply empty_set_is_weak_core
@@ -986,7 +1047,13 @@ namespace FactSet
       intro fs2 cont
       contradiction
       have fs_empty : fs = ∅ := by
-        sorry -- fs sollte doch hier leer sein da l leer ist und l von fs_finite stammt oder ?
+        unfold Set.empty
+        apply funext
+        intro f
+        specialize h2 f
+        simp only [Set.element] at h2
+        rw [← h2]
+        simp
       rw [fs_empty]
       unfold GroundTermMapping.isHomomorphism
       let gtm : GroundTermMapping sig := (fun x => x)
