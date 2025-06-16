@@ -953,162 +953,198 @@ theorem list_empty_is_empty_set (l : List α) : l.length = 0 → l.toSet = ∅ :
   rw [l_empty]
   trivial
 
-  theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length) :
-      ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
-    induction length generalizing l with
-    | zero =>
-      exists ∅
-      constructor
-      apply empty_set_is_weak_core
-      rfl
-      unfold homSubset
-      constructor
-      simp [Set.subset]
-      intro fs2 cont
+theorem hom_subset_of_empty (fs : FactSet sig) : fs = ∅ → homSubset fs fs := by
+  unfold homSubset
+  intro fs_empty
+  rw [fs_empty]
+  simp [Set.subset]
+  exists (fun x => x)
+  constructor
+  unfold GroundTermMapping.isIdOnConstants
+  intro gt
+  cases eq : gt with
+    | func f ts ar =>
+      simp [GroundTerm.func]
+    | const c =>
+      simp [GroundTerm.const]
+  · apply apply_fact_set_to_empty_is_empty
+    rfl
+
+theorem non_empty_list_has_length_gt_zero (l : List α) : l.length > 0 ↔ l ≠ [] := by
+  constructor
+  intro l_gt_zero l_empty
+  unfold List.length at l_gt_zero
+  cases l with
+    | nil =>
       contradiction
-      unfold GroundTermMapping.isHomomorphism
-      exists (fun x => x)
-      constructor
-      unfold GroundTermMapping.isIdOnConstants
-      intro gt
-      cases eq : gt with
-        | func f ts ar =>
-          simp [GroundTerm.func]
-        | const c =>
-          simp [GroundTerm.const]
-      · rw [list_empty_is_empty_set l length_l]
-        apply apply_fact_set_to_empty_is_empty
-        rfl
-      | succ n ih =>
+    | cons hd tl =>
+      contradiction
+  intro l_empty
+  cases l with
+    | nil =>
+      contradiction
+    | cons hd tl =>
+      simp
 
-        sorry
-
-theorem list_with_leq_zero_len_not_empty (l : List α) :
-  l.length ≥ 1 → ¬ l.isEmpty := by
-    intro len_geq_1
-
-    sorry
+  theorem list_with_leq_zero_len_not_empty (l : List α) :
+    l.length ≥ 1 → ¬ l.isEmpty := by
+      intro len_geq_1
+      unfold List.length at len_geq_1
+      cases l with
+        | nil =>
+          contradiction
+        | cons hd tl =>
+          simp
 
 
-
+  --have sub_len_le : sub.length ≤ l.length := by List.Sublist.length_le
 theorem list_prop_sub_ex_element_outside
-(l : List α) (sub : List α) (subset_l : sub ⊆ l) (neq_l : sub ≠ l)
-(length_l : l.length = length) (least_two :length ≥ 2) :
+(l : List α) (sub : List α) (subset_l : sub ⊆ l) (neq_l : sub ≠ l) (length_l : l.length = length) (least_two :length ≥ 2) :
   ∃ (e : α), e ∈ l → e ∉ sub := by
-  have sub_len_le : sub.length ≤ l.length := by List.Sublist.length_le
   induction least_two using Nat.le.rec with
     | refl =>
-
-      have elem : _ := l.getLast
-      have l_not_empty : l ≠ [] := by sorry
-      specialize elem l_not_empty
-      exists elem
-      intro elem_in
-
+      have e : _ := l.getLast
+      have l_non_empty : l ≠ [] := by
+        cases l with
+          | nil =>
+            contradiction
+          | cons hd tl =>
+            simp
+      specialize e l_non_empty
+      exists e
+      intro e_in_l
+      sorry
     | step least_two ih =>
-
       sorry
 
 
-  --theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length) :
-   --   ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
-   -- induction length generalizing l with
-   -- | zero => sorry
-   -- | succ n ih => sorry
-    -- or
-   -- induction length using Nat.strongRecOn generalizing l with
-   -- | ind n ih => sorry
+
+  theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
+    ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
+--      induction length generalizing l with
+--      | zero =>
+--        sorry
+--      | succ n ih =>
+--        sorry
+  -- or
+      induction length using Nat.strongRecOn generalizing l with
+        | ind n ih =>
+            cases l with
+              | nil =>
+                rw [list_empty_is_empty_set]
+                exists ∅
+                constructor
+                apply empty_set_is_weak_core; rfl
+                apply hom_subset_of_empty; rfl
+                simp
+              | cons hd tl =>
+                sorry
 
   theorem exists_weak_core_for_finite_set2
   (fs : FactSet sig) (fs_finite : fs.finite) :
-  ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
-  rcases fs_finite with ⟨l, h1, h2⟩
+    ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
+      rcases fs_finite with ⟨l, l_nodup, h⟩
+      sorry
 
-  let set_l : Set (Fact sig) := l.toSet
-  /- exists set_l -/
-  induction l.length generalizing fs with
-    | zero =>
-      let fs_empty : fs = ∅ := by
-        apply funext
-        intro e
-        specialize h2 e
-        simp only [Set.element] at h2
-        rw [← h2]
-        simp [Set.empty]
-      have set_l_empty : set_l = ∅ := by
-        rfl
-      rw [set_l_empty]
-      constructor
-      apply empty_set_is_weak_core
-      rfl
-      unfold homSubset
-      constructor
-      simp [Set.subset]
-      intro fs2 cont
-      contradiction
-      have fs_empty : fs = ∅ := by
-        unfold Set.empty
-        apply funext
-        intro f
-        specialize h2 f
-        simp only [Set.element] at h2
-        rw [← h2]
-        simp
-      rw [fs_empty]
-      unfold GroundTermMapping.isHomomorphism
-      let gtm : GroundTermMapping sig := (fun x => x)
-      exists gtm
-      constructor
-      unfold GroundTermMapping.isIdOnConstants
-      intro gt
-      cases eq : gt with
-        | func f ts ar =>
-          simp [GroundTerm.func]
-        | const c =>
-          simp [GroundTerm.const]
+  theorem exists_weak_core_for_finite_setx
+  (fs : FactSet sig) (fs_finite : fs.finite) :
+    ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
+      rcases fs_finite with ⟨l, h1, h2⟩
+      let set_l : Set (Fact sig) := l.toSet
+      /- exists set_l -/
+      induction l.length generalizing fs with
+        | zero =>
+          let fs_empty : fs = ∅ := by
+            apply funext
+            intro e
+            specialize h2 e
+            simp only [Set.element] at h2
+            rw [← h2]
+            simp [Set.empty]
+          have set_l_empty : set_l = ∅ := by
+            rfl
+          rw [set_l_empty]
+          constructor
+          apply empty_set_is_weak_core
           rfl
-      · apply apply_fact_set_to_empty_is_empty
-        rfl
-    | succ n ih =>
-        have tl_nodup : tl.Nodup := by
-          simp at h1
-          exact h1.2
-        specialize ih tl_nodup
-        apply ih
-
-        intro f
-        specialize h2 f
-        constructor
-        intro f_in_tl
-        have f_in_hdtl : f ∈ hd :: tl ↔ f ∈ tl := by
-          cases Decidable.em (f ∈ tl) with
-            | inl e_in =>
-              simp
-              intro _
-              exact e_in
-            | inr e_out =>
-              contradiction
-
-        rw [← h2]
-        cases Decidable.em (f = hd) with
-          | inl e_in =>
-            have hd_not_in_tl : ¬ hd ∈ tl := by
+          unfold homSubset
+          constructor
+          simp [Set.subset]
+          intro fs2 cont
+          contradiction
+          have fs_empty : fs = ∅ := by
+            unfold Set.empty
+            apply funext
+            intro f
+            specialize h2 f
+            simp only [Set.element] at h2
+            rw [← h2]
+            simp
+          rw [fs_empty]
+          unfold GroundTermMapping.isHomomorphism
+          let gtm : GroundTermMapping sig := (fun x => x)
+          exists gtm
+          constructor
+          unfold GroundTermMapping.isIdOnConstants
+          intro gt
+          cases eq : gt with
+            | func f ts ar =>
+              simp [GroundTerm.func]
+            | const c =>
+              simp [GroundTerm.const]
+              rfl
+          · apply apply_fact_set_to_empty_is_empty
+            rfl
+        | succ n ih =>
+            have tl_nodup : tl.Nodup := by
               simp at h1
-              exact h1.1
-            rw [e_in] at f_in_tl
-            contradiction
-          | inr e_out =>
-            rw [f_in_hdtl] at h2
-            rw [← f_in_hdtl] at f_in_tl
+              exact h1.2
+            specialize ih tl_nodup
+            apply ih
+
+            intro f
+            specialize h2 f
+            constructor
+            intro f_in_tl
+            have f_in_hdtl : f ∈ hd :: tl ↔ f ∈ tl := by
+              cases Decidable.em (f ∈ tl) with
+                | inl e_in =>
+                  simp
+                  intro _
+                  exact e_in
+                | inr e_out =>
+                  contradiction
+
+            rw [← h2]
+            cases Decidable.em (f = hd) with
+              | inl e_in =>
+                have hd_not_in_tl : ¬ hd ∈ tl := by
+                  simp at h1
+                  exact h1.1
+                rw [e_in] at f_in_tl
+                contradiction
+              | inr e_out =>
+                rw [f_in_hdtl] at h2
+                rw [← f_in_hdtl] at f_in_tl
+                exact f_in_tl
+
+            intro f_in_fs
+            rw [← h2] at f_in_fs
+            simp at f_in_fs
+            rcases f_in_fs with f_eq_hd | f_in_tl
+            rw [f_eq_hd]
+            sorry -- head cannot be in tail => wrong
             exact f_in_tl
 
-        intro f_in_fs
-        rw [← h2] at f_in_fs
-        simp at f_in_fs
-        rcases f_in_fs with f_eq_hd | f_in_tl
-        rw [f_eq_hd]
-        sorry -- head cannot be in tail => wrong
-        exact f_in_tl
+
+theorem hom_non_injective_not_weak_core (h : GroundTermMapping sig) (wc : FactSet sig) (fs : FactSet sig) :
+  Function.injective_for_domain_set h fs.terms ↔ fs.isWeakCore := by
+    constructor
+    intro h_injective gtm ghom
+    constructor
+    intro f h2 f_not_in_fs
+    unfold Function.injective_for_domain_set at h_injective
+    repeat sorry
 
 
 end FactSet
