@@ -986,16 +986,33 @@ theorem strong_core_of_universal_model_is_universal_model
       contradiction
 
 
+  theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length) :
+      ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
+    induction length generalizing l with
+    | zero => sorry
+    | succ n ih => sorry
+    -- or
+    induction length using Nat.strongRecOn generalizing l with
+    | ind n ih => sorry
+
   theorem exists_weak_core_for_finite_set
   (fs : FactSet sig) (fs_finite : fs.finite) :
-  ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by
+  ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
   rcases fs_finite with ⟨l, h1, h2⟩
-  have set_l : Set (Fact sig) := l.toSet
-  exists set_l
-  induction l with
-    | nil =>
+
+  let set_l : Set (Fact sig) := l.toSet
+  /- exists set_l -/
+  induction l.length generalizing fs with
+    | zero =>
+      have fs_empty : fs = ∅ := by
+        apply funext
+        intro e
+        specialize h2 e
+        simp only [Set.element] at h2
+        rw [← h2]
+        simp [Set.empty]
       have set_l_empty : set_l = ∅ := by
-        -- rfl
+        rfl
         sorry -- when 955 is with let this works, however i cannot apply ih in 992 if i do, why is that ?
       rw [set_l_empty]
       constructor
@@ -1006,7 +1023,8 @@ theorem strong_core_of_universal_model_is_universal_model
       simp [Set.subset]
       intro fs2 cont
       contradiction
-      have fs_empty : fs = ∅ := by sorry -- fs sollte doch hier leer sein da l leer ist und l von fs_finite stammt oder ?
+      have fs_empty : fs = ∅ := by
+        sorry -- fs sollte doch hier leer sein da l leer ist und l von fs_finite stammt oder ?
       rw [fs_empty]
       unfold GroundTermMapping.isHomomorphism
       let gtm : GroundTermMapping sig := (fun x => x)
@@ -1022,7 +1040,7 @@ theorem strong_core_of_universal_model_is_universal_model
           rfl
       · apply apply_fact_set_to_empty_is_empty
         rfl
-    | cons hd tl ih =>
+    | succ n ih =>
         have tl_nodup : tl.Nodup := by
           simp at h1
           exact h1.2
