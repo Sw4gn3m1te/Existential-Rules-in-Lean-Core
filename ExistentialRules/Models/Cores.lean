@@ -996,14 +996,46 @@ theorem non_empty_list_has_length_gt_zero (l : List α) : l.length > 0 ↔ l ≠
         | cons hd tl =>
           simp
 
+    theorem id_is_hom (fs : FactSet sig) : GroundTermMapping.isHomomorphism (fun x => x) fs fs := by
+    unfold GroundTermMapping.isHomomorphism
+    constructor
+    unfold GroundTermMapping.isIdOnConstants
+    intro gt
+    cases eq : gt with
+      | func f ts ar =>
+        simp [GroundTerm.func]
+      | const c =>
+        simp [GroundTerm.const]
+    · unfold GroundTermMapping.applyFactSet
+      sorry
+
+
 
   --have sub_len_le : sub.length ≤ l.length := by List.Sublist.length_le
 theorem list_prop_sub_ex_element_outside
-(l : List α) (sub : List α) (subset_l : sub ⊆ l) (neq_l : sub ≠ l) (length_l : l.length = length) (least_two :length ≥ 2) :
+(l : List α) (subset_l : sub ⊆ l) (neq_l : sub.toSet ≠ l.toSet) (length_l : l.length = length) (least_two :length ≥ 2) (l_nodup : l.Nodup) :
   ∃ (e : α), e ∈ l → e ∉ sub := by
+  have e : _ := l.getLast
+
+  induction length with
+    | zero =>
+      rw [List.length_eq_zero_iff.mp length_l] at subset_l
+      rw [List.length_eq_zero_iff.mp length_l, List.subset_nil.mp subset_l] at neq_l
+      simp at neq_l -- contradiction also works here
+    | succ length ih =>
+      have l_non_empty : l ≠ [] := by
+        cases l with
+        | nil =>
+          contradiction
+        | cons hd tl =>
+          simp
+      specialize e l_non_empty
+      exists e
+      intro e_in_l
+      intro c
+
   induction least_two using Nat.le.rec with
     | refl =>
-      have e : _ := l.getLast
       have l_non_empty : l ≠ [] := by
         cases l with
           | nil =>
@@ -1013,8 +1045,17 @@ theorem list_prop_sub_ex_element_outside
       specialize e l_non_empty
       exists e
       intro e_in_l
-      sorry
-    | step least_two ih =>
+
+    | @step m least_two ih =>
+      have l_non_empty : l ≠ [] := by
+        cases l with
+          | nil =>
+            contradiction
+          | cons hd tl =>
+            simp
+      specialize e l_non_empty
+      exists e
+      intro e_in_l
       sorry
 
 
@@ -1029,22 +1070,40 @@ theorem list_prop_sub_ex_element_outside
   -- or
       induction length using Nat.strongRecOn generalizing l with
         | ind n ih =>
-            cases l with
-              | nil =>
-                rw [list_empty_is_empty_set]
-                exists ∅
-                constructor
-                apply empty_set_is_weak_core; rfl
-                apply hom_subset_of_empty; rfl
-                simp
-              | cons hd tl =>
-                sorry
+            by_cases h : (∃ (sub : FactSet sig), sub ⊆ l.toSet ∧ sub ≠ l.toSet ∧ sub.homSubset l.toSet)
+            rcases h with ⟨sub, h2, h3, h4⟩
+            -- is not weak core
+            sorry
+            simp only [ne_eq, not_exists, not_and] at h
 
+            specialize h l.toSet
+
+            simp only [not_true_eq_false, false_implies, implies_true] at h
+
+            -- is weak core
   theorem exists_weak_core_for_finite_set2
   (fs : FactSet sig) (fs_finite : fs.finite) :
     ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
       rcases fs_finite with ⟨l, l_nodup, h⟩
       sorry
+
+theorem snens (l : List (Fact sig)):
+ (∃ (sub : FactSet sig), sub ⊆ l.toSet ∧ sub ≠ l.toSet ∧ sub.homSubset l.toSet) ↔ ¬ isWeakCore l.toSet := by
+  constructor
+  intro ⟨h1, h2, h3, h4⟩
+  have ex_elem : ∃ e, e ∈ l.toSet ∧ ¬ e ∈ h1 := sorry
+  rcases ex_elem with ⟨e , ⟨e_in_l, e_nin_h1⟩⟩
+  unfold isWeakCore
+  simp only [Classical.not_forall, not_imp, not_and]
+  exists (fun x => x)
+  simp only [exists_prop]
+  constructor
+  apply id_is_hom
+  intro gtm_st
+  unfold Function.injective_for_domain_set
+
+
+
 
   theorem exists_weak_core_for_finite_setx
   (fs : FactSet sig) (fs_finite : fs.finite) :
