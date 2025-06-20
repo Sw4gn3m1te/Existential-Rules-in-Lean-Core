@@ -1012,7 +1012,7 @@ namespace FactSet
       rw [Fact.mk.injEq] at af
       simp only [List.map_id_fun, id_eq] at af
       rcases af with ⟨lrs, rhs⟩
-      have f1_eq_f2 : f1 = f2 := by sorry
+      have f1_eq_f2 : f1 = f2 := by rw [Fact.mk.injEq, lrs, rhs]; constructor <;> rfl
       rw [f1_eq_f2]
       exact f2_in_fs
 
@@ -1039,7 +1039,7 @@ theorem list_prop_sub_ex_element_outside
       exists e
       intro e_in_l
       intro c
-      
+
 
   induction least_two using Nat.le.rec with
     | refl =>
@@ -1087,42 +1087,66 @@ theorem list_prop_sub_ex_element_outside
       repeat sorry
 
 
+  theorem List.length_lt_of_proper_subset (l sub : List α) (nodup : sub.Nodup) (subset : sub.toSet ⊆ l.toSet) (neq : sub.toSet ≠ l.toSet) : sub.length < l.length := by
+    induction l with
+    | nil => sorry
+    | cons hd tl ih =>
+      sorry
+
   theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
     ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
       induction length using Nat.strongRecOn generalizing l with
         | ind n ih =>
-          by_cases h : (∃ (sub : FactSet sig), sub ⊆ l.toSet ∧ sub ≠ l.toSet ∧ sub.homSubset l.toSet)
-          rcases h with ⟨sub, h2, h3, h4⟩
-          specialize ih (n - 1)
-          by_cases n_zero : (n = 0)
-          exists ∅
-          constructor
-          apply empty_set_is_weak_core; rfl
-          rw [n_zero] at length_l
-          rw [list_empty_is_empty_set l length_l]
-          apply hom_subset_of_empty; rfl
-          have x : _ := ih sorry l.tail (list_tail_len_lt_list_len l length_l)
-          have y : _ := ex_subset_iff_not_weak_core l.tail
-          rcases y with ⟨lhs, rhs⟩
-          rcases x with ⟨fs, fs_wc, fs_hom_ss_tl⟩
-          exists fs
-          constructor
-          exact fs_wc
-          rcases fs_hom_ss_tl with ⟨fs_ss_tl, ⟨gtm ,ghom⟩⟩
-          rw [homSubset]
-          constructor
-          have ss : l.tail.toSet ⊆ l.toSet := by sorry -- needs l.Nodup ?
-          apply Set.subset_trans fs_ss_tl ss
-          let fn : GroundTermMapping sig := (fun t =>
-            have dec := Classical.propDecidable (t ∈ FactSet.terms l.tail.toSet)
-            ite (t ∈ FactSet.terms l.tail.toSet) (sorry) (t))
-          exists fn
-          constructor
-          sorry -- const
-          sorry -- apply fact set
-          -- die beiden sollen wahrscheinlich iwi in das ite encoded sein ?
-          simp only [ne_eq, not_exists, not_and] at h
-          sorry
+          by_cases h : (∃ (sub : List (Fact sig)), sub.toSet ⊆ l.toSet ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet)
+          . rcases h with ⟨sub', h2, h3, h4⟩
+            let sub := sub'.eraseDupsKeepRight
+            have sub_eq_sub' : sub.toSet = sub'.toSet := by
+              apply funext
+              intro e
+              apply propext
+              have := @List.mem_toSet _ sub' e
+              unfold Set.element at this
+              rw [this]
+              have := @List.mem_toSet _ sub e
+              unfold Set.element at this
+              rw [this]
+              apply List.mem_eraseDupsKeepRight
+            specialize ih sub.length
+            by_cases n_zero : (n = 0)
+            . exists ∅
+              constructor
+              apply empty_set_is_weak_core; rfl
+              rw [n_zero] at length_l
+              rw [list_empty_is_empty_set l length_l]
+              apply hom_subset_of_empty; rfl
+            . have x : _ := ih (by
+                rw [← length_l]
+                apply List.length_lt_of_proper_subset
+                . apply List.nodup_eraseDupsKeepRight
+                . intro e e_mem; apply h2; rw [List.mem_toSet, List.mem_eraseDupsKeepRight] at e_mem; rw [List.mem_toSet]; exact e_mem
+                . intro contra
+                  apply h3
+                  rw [← contra]
+                  rw [sub_eq_sub']
+              ) sub rfl
+              have y : _ := ex_subset_iff_not_weak_core sub
+              rcases y with ⟨lhs, rhs⟩
+              rcases x with ⟨fs, fs_wc, fs_hom_ss_tl⟩
+              exists fs
+              constructor
+              . exact fs_wc
+              . rw [sub_eq_sub'] at fs_hom_ss_tl
+                rcases fs_hom_ss_tl with ⟨fs_ss_tl, ⟨gtm ,ghom⟩⟩
+                rw [homSubset]
+                constructor
+                . apply Set.subset_trans fs_ss_tl h2
+                . rcases h4 with ⟨h4_sub, h4_hom, h4_hom_hom⟩
+                  exists gtm ∘ h4_hom
+                  apply GroundTermMapping.isHomomorphism_compose
+                  . exact h4_hom_hom
+                  . exact ghom
+          . simp only [ne_eq, not_exists, not_and] at h
+            sorry
 
 
 
