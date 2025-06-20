@@ -1022,7 +1022,7 @@ theorem list_prop_sub_ex_element_outside
 (l : List α) (subset_l : sub ⊆ l) (neq_l : sub.toSet ≠ l.toSet) (length_l : l.length = length) (least_two :length ≥ 2) (l_nodup : l.Nodup) :
   ∃ (e : α), e ∈ l → e ∉ sub := by
   have e : _ := l.getLast
-
+  apply Classical.choice
   induction length with
     | zero =>
       rw [List.length_eq_zero_iff.mp length_l] at subset_l
@@ -1039,6 +1039,7 @@ theorem list_prop_sub_ex_element_outside
       exists e
       intro e_in_l
       intro c
+      
 
   induction least_two using Nat.le.rec with
     | refl =>
@@ -1064,6 +1065,26 @@ theorem list_prop_sub_ex_element_outside
       intro e_in_l
       sorry
 
+  theorem list_tail_len_lt_list_len (l : List α) : l.length = n → l.tail.length = n-1 := by
+    simp
+    intro l_len
+    rw [l_len]
+
+  theorem ex_subset_iff_not_weak_core (l : List (Fact sig)):
+    (∃ (sub : FactSet sig), sub ⊆ l.toSet ∧ sub ≠ l.toSet ∧ sub.homSubset l.toSet) ↔ ¬ isWeakCore l.toSet := by
+      constructor
+      intro ⟨fs, h1, h2, h3⟩
+      have ex_elem : ∃ e, e ∈ l.toSet ∧ ¬ e ∈ fs := sorry
+      rcases ex_elem with ⟨e , ⟨e_in_l, e_nin_fs⟩⟩
+      unfold isWeakCore
+      simp only [Classical.not_forall, not_imp, not_and]
+      exists id -- gesucht: strong homomorphism
+      simp only [exists_prop]
+      constructor
+      apply id_is_hom
+      intro gtm_id_str
+      unfold Function.injective_for_domain_set
+      repeat sorry
 
 
   theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
@@ -1072,10 +1093,39 @@ theorem list_prop_sub_ex_element_outside
         | ind n ih =>
           by_cases h : (∃ (sub : FactSet sig), sub ⊆ l.toSet ∧ sub ≠ l.toSet ∧ sub.homSubset l.toSet)
           rcases h with ⟨sub, h2, h3, h4⟩
-          specialize ih (n-1)
-          apply ih
+          specialize ih (n - 1)
+          by_cases n_zero : (n = 0)
+          exists ∅
+          constructor
+          apply empty_set_is_weak_core; rfl
+          rw [n_zero] at length_l
+          rw [list_empty_is_empty_set l length_l]
+          apply hom_subset_of_empty; rfl
+          have x : _ := ih sorry l.tail (list_tail_len_lt_list_len l length_l)
+          have y : _ := ex_subset_iff_not_weak_core l.tail
+          rcases y with ⟨lhs, rhs⟩
+          rcases x with ⟨fs, fs_wc, fs_hom_ss_tl⟩
+          exists fs
+          constructor
+          exact fs_wc
+          rcases fs_hom_ss_tl with ⟨fs_ss_tl, ⟨gtm ,ghom⟩⟩
+          rw [homSubset]
+          constructor
+          have ss : l.tail.toSet ⊆ l.toSet := by sorry -- needs l.Nodup ?
+          apply Set.subset_trans fs_ss_tl ss
+          let fn : GroundTermMapping sig := (fun t =>
+            have dec := Classical.propDecidable (t ∈ FactSet.terms l.tail.toSet)
+            ite (t ∈ FactSet.terms l.tail.toSet) (sorry) (t))
+          exists fn
+          constructor
+          sorry -- const
+          sorry -- apply fact set
+          -- die beiden sollen wahrscheinlich iwi in das ite encoded sein ?
+          simp only [ne_eq, not_exists, not_and] at h
           sorry
-          
+
+
+
 
 
     /--
@@ -1121,22 +1171,6 @@ theorem list_prop_sub_ex_element_outside
     ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
       rcases fs_finite with ⟨l, l_nodup, h⟩
       sorry
-
-  theorem snens (l : List (Fact sig)):
-  (∃ (sub : FactSet sig), sub ⊆ l.toSet ∧ sub ≠ l.toSet ∧ sub.homSubset l.toSet) ↔ ¬ isWeakCore l.toSet := by
-    constructor
-    intro ⟨fs, h1, h2, h3⟩
-    have ex_elem : ∃ e, e ∈ l.toSet ∧ ¬ e ∈ fs := sorry
-    rcases ex_elem with ⟨e , ⟨e_in_l, e_nin_fs⟩⟩
-    unfold isWeakCore
-    simp only [Classical.not_forall, not_imp, not_and]
-    exists id -- gesucht: strong homomorphism
-    simp only [exists_prop]
-    constructor
-    apply id_is_hom
-    intro gtm_id_str
-    unfold Function.injective_for_domain_set
-
 
 
 
