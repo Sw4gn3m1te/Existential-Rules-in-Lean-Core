@@ -947,11 +947,18 @@ namespace FactSet
       specialize c fu
       contradiction
 
-  theorem list_empty_is_empty_set (l : List α) : l.length = 0 → l.toSet = ∅ := by
+  theorem list_len_zero_eq_empty (l : List α) : l.length = 0 → l.toSet = ∅ := by
     simp
     intro l_empty
     rw [l_empty]
     trivial
+
+  theorem empty_list_eq_empty_set (l : List α) : l = [] ↔ l.toSet = ∅ := by
+    rw [← List.length_eq_zero_iff]
+    constructor
+    apply list_len_zero_eq_empty
+    intro x
+    sorry
 
   theorem hom_subset_of_empty (fs : FactSet sig) : fs = ∅ → homSubset fs fs := by
     unfold homSubset
@@ -1071,7 +1078,7 @@ theorem list_prop_sub_ex_element_outside
     rw [l_len]
 
   theorem ex_subset_iff_not_weak_core (l : List (Fact sig)):
-    (∃ (sub : FactSet sig), sub ⊆ l.toSet ∧ sub ≠ l.toSet ∧ sub.homSubset l.toSet) ↔ ¬ isWeakCore l.toSet := by
+    (∃ (sub : List (Fact sig)), sub.toSet ⊆ l.toSet ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) ↔ ¬ isWeakCore l.toSet := by
       constructor
       intro ⟨fs, h1, h2, h3⟩
       have ex_elem : ∃ e, e ∈ l.toSet ∧ ¬ e ∈ fs := sorry
@@ -1084,14 +1091,29 @@ theorem list_prop_sub_ex_element_outside
       apply id_is_hom
       intro gtm_id_str
       unfold Function.injective_for_domain_set
+
       repeat sorry
 
-
-  theorem List.length_lt_of_proper_subset (l sub : List α) (nodup : sub.Nodup) (subset : sub.toSet ⊆ l.toSet) (neq : sub.toSet ≠ l.toSet) : sub.length < l.length := by
-    induction l with
-    | nil => sorry
-    | cons hd tl ih =>
+  theorem nex_subset_iff_weak_core (l : List (Fact sig)):
+    ¬ (∃ (sub : List (Fact sig)), sub.toSet ⊆ l.toSet ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) ↔ isWeakCore l.toSet := by
+      -- this is just the negation of above
+      constructor
+      intro h
       sorry
+
+  theorem List.length_lt_of_proper_subset (l sub : List α) (sub_nodup : sub.Nodup) (subset : sub.toSet ⊆ l.toSet) (neq : sub.toSet ≠ l.toSet) : sub.length < l.length := by
+    have l_len : ∃ (n : Nat), l.length = n := by exists l.length
+    rcases l_len with ⟨n, has_len_n⟩
+    by_cases h : (sub.length < n)
+    rw [has_len_n]
+    exact h
+    have g : sub.toSet ⊆ l.toSet ∧ sub.toSet ≠ l.toSet → sub.length < l.length := by
+      intro ⟨ss, _⟩
+      sorry
+    simp at h
+    apply g
+    exact ⟨subset, neq⟩
+
 
   theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
     ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
@@ -1111,13 +1133,13 @@ theorem list_prop_sub_ex_element_outside
               unfold Set.element at this
               rw [this]
               apply List.mem_eraseDupsKeepRight
-            specialize ih sub.length
+            specialize ih sub.length  -- m < n
             by_cases n_zero : (n = 0)
             . exists ∅
               constructor
               apply empty_set_is_weak_core; rfl
               rw [n_zero] at length_l
-              rw [list_empty_is_empty_set l length_l]
+              rw [list_len_zero_eq_empty l length_l]
               apply hom_subset_of_empty; rfl
             . have x : _ := ih (by
                 rw [← length_l]
@@ -1145,8 +1167,20 @@ theorem list_prop_sub_ex_element_outside
                   apply GroundTermMapping.isHomomorphism_compose
                   . exact h4_hom_hom
                   . exact ghom
-          . simp only [ne_eq, not_exists, not_and] at h
-            sorry
+          -- l.toSet is wc
+          · have x : FactSet.isWeakCore l.toSet := by
+              rw [← nex_subset_iff_weak_core]
+              exact h
+            exists l.toSet
+            constructor
+            exact x
+            rw [homSubset]
+            constructor
+            apply Set.subset_refl
+            exists id
+            apply id_is_hom
+
+
 
 
 
