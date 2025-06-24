@@ -1046,10 +1046,10 @@ theorem list_prop_sub_ex_element_outside
           contradiction
         | cons hd tl =>
           simp
+      simp
       specialize e l_non_empty
       exists e
       intro e_in_l
-      intro c
       sorry
 
     theorem Set.eq_empty_of_subset_empty {α : Type u} {s : Set α} :
@@ -1112,17 +1112,87 @@ theorem list_prop_sub_ex_element_outside
       rw [ex_subset_iff_not_weak_core]
       simp
 
-  theorem List.length_lt_of_proper_subset (l sub : List α) (sub_nodup : sub.Nodup) (subset : sub.toSet ⊆ l.toSet) (neq : sub.toSet ≠ l.toSet) : sub.length < l.length := by
-    have l_len : ∃ (n : Nat), l.length = n := by exists l.length
-    rcases l_len with ⟨n, has_len_n⟩
-    by_cases h : (sub.length < n)
-    rw [has_len_n]
-    exact h
-    simp at h
-    rw [Nat.le_iff_lt_or_eq] at h
-    rw [← has_len_n] at h
-    rcases h with lt | eq
-    repeat sorry
+  theorem List.length_lt_of_proper_subset (l sub : List α) (sub_nodup : sub.Nodup) (subset : sub.toSet ⊆ l.toSet) (neq : sub.toSet ≠ l.toSet) :
+    sub.length < l.length := by
+      have l_len : ∃ (n : Nat), l.length = n := by exists l.length
+      rcases l_len with ⟨n, has_len_n⟩
+      by_cases h : (sub.length < n)
+      rw [has_len_n]
+      exact h
+      simp at h
+      rw [Nat.le_iff_lt_or_eq] at h
+      rw [← has_len_n] at h
+      rcases h with lt | eq
+      rw [has_len_n]
+      unfold List.length
+      cases sub with
+        | nil =>
+          contradiction
+        | cons hd tl =>
+          simp only [gt_iff_lt]
+          simp only [List.length_cons] at lt
+          rw [has_len_n] at lt
+          sorry
+      · unfold Set.subset at subset
+        simp only [ne_eq] at neq
+        have ex : ∃e, e∈ sub.toSet ∧ ¬ e ∈ l.toSet := by
+          rw [eq] at has_len_n
+
+        rcases ex with ⟨e, e_in_sub, e_nin_l⟩
+        specialize subset e e_in_sub
+        contradiction
+
+  theorem neq_set_ex_diff_element (a b : Set α) : a ≠ b ↔ (∃ c, (c ∈ a ∧ ¬ c ∈ b) ∨ (¬ c ∈ a ∧ c ∈ b)) := by
+    constructor
+    intro neq
+    have h : (a ≠ ∅ ∧ b ≠ ∅) := by sorry
+    rcases h with ⟨ane, bne⟩
+    
+    cases Classical.em (a = ∅) with
+      | inr a_ne =>
+        cases Classical.em (b = ∅) with
+          | inr b_ne =>
+            sorry
+          | inl b_e =>
+            have a_elem : ∃ e, e ∈ a := by sorry
+
+
+      | inl a_e =>
+        cases Classical.em (b = ∅) with
+          | inr b_ne =>
+            sorry
+          | inl b_e =>
+            sorry
+
+    rcases h with ⟨a_nil, b_nil⟩
+    · rw [← b_nil] at a_nil
+      contradiction
+    · have h2 : a ≠ ∅ ∨ b ≠ ∅ := by sorry
+      rcases  h2 with a_ne | b_ne
+      · have a_elem : ∃ e, e ∈ a := by sorry
+        rcases a_elem with ⟨e, e_in_a⟩
+
+
+
+
+    have b_elem : ∃ e, e ∈ b := by
+      apply Classical.byContradiction
+      intro c
+      sorry
+    rcases b_elem with ⟨e, e_in_b⟩
+    exists e
+    sorry
+
+    rcases a_elem with ⟨e, e_in_a⟩
+    exists e
+    repeat constructor
+    exact e_in_a
+
+
+
+
+
+
 
   theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
     ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
@@ -1193,6 +1263,10 @@ theorem list_prop_sub_ex_element_outside
   (fs : FactSet sig) (fs_finite : fs.finite) :
     ∀ sub, sub ⊆ fs -> ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset sub := by
       rcases fs_finite with ⟨l, l_nodup, h⟩
+      intro sub sub_fs
+      exists ∅
+      constructor
+      apply empty_set_is_weak_core; rfl
       sorry
 
 theorem hom_non_injective_not_weak_core (h : GroundTermMapping sig) (wc : FactSet sig) (fs : FactSet sig) :
