@@ -962,6 +962,9 @@ namespace FactSet
       | nil =>
         rw [List.length_nil]
       | cons hd tl =>
+        apply Classical.byContradiction
+        intro c
+        -- contradiction
         sorry
 
   theorem hom_subset_of_empty (fs : FactSet sig) : fs = ∅ → homSubset fs fs := by
@@ -1092,6 +1095,26 @@ theorem list_prop_sub_ex_element_outside
       apply empty_set_is_weak_core; rfl
 
 
+  theorem ex_hom_for_sub_if_ex_hom_for_set (fs sub : FactSet sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs sub) (subset : sub ⊆ fs) :
+    ∃ (gtm' : GroundTermMapping sig), gtm'.isHomomorphism sub sub := by
+
+      let gtm' : GroundTermMapping sig := fun t =>
+        have dec := Classical.propDecidable (t ∈ sub.terms)
+        ite (t ∈ sub.terms) (t) (t)
+
+      exists gtm'
+      constructor
+      -- const
+      intro gt
+      cases eq : gt with
+        | func =>
+          simp only [GroundTerm.func]
+        | const c =>
+          simp only [GroundTerm.const]
+          sorry
+      -- apply fact set
+      sorry
+
   theorem ex_subset_iff_not_weak_core (l : List (Fact sig)):
     (∃ (sub : List (Fact sig)), sub.toSet ⊆ l.toSet ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) ↔ ¬ isWeakCore l.toSet := by
       constructor
@@ -1107,11 +1130,17 @@ theorem list_prop_sub_ex_element_outside
       let sub' := sub.eraseDupsKeepRight
       have sub_eq_sub' : sub.toSet = sub'.toSet := by sorry -- by .toSet
       -- sub is wc
+      -- muss bei cases oder so wie ↓
+      -- have sub_is_wc : FactSet.isWeakCore sub.toSet := by sorry
+
       by_cases sub_is_wc : (FactSet.isWeakCore sub.toSet)
       unfold isWeakCore at sub_is_wc
+      -- we have hom from l.toSet to sub.toSet thus restricting the domain should retain hom. -> ausgelagert in 1098 (sorry)
       have ex_sub_to_sub_hom : ∃ (gtm_sub : GroundTermMapping sig), gtm_sub.isHomomorphism sub.toSet sub.toSet := by
-        -- we have hom from l.toSet to sub.toSet thus restricting the domain should retain hom.
-        sorry
+        apply ex_hom_for_sub_if_ex_hom_for_set l.toSet sub.toSet gtm_l_sub
+        exact gtm_is_hom
+        exact sub_ss
+
       rcases ex_sub_to_sub_hom with ⟨sub_gtm, sub_gtm_is_hom⟩
       specialize sub_is_wc sub_gtm sub_gtm_is_hom
       rcases sub_is_wc with ⟨lhs, rhs⟩
@@ -1123,35 +1152,36 @@ theorem list_prop_sub_ex_element_outside
         have p : ∃ a, a ∈ FactSet.terms sub.toSet ∧ (sub_gtm a = t)  := by
           sorry -- by list_prop_sub_ex_element_outside (maybe must not be empty)
         have dec := Classical.propDecidable (t ∈ FactSet.terms sub.toSet)
-        if t_mem : t ∈ FactSet.terms sub.toSet
-        then
-          sub_gtm t
-        else
-          Classical.choose (p)
+        ite (t ∈ FactSet.terms sub.toSet) (sub_gtm t) (Classical.choose (p))
 
       have gtm'_is_hom : gtm'.isHomomorphism l.toSet l.toSet := by
         constructor
+        -- id on const
         intro t
         cases eq : t with
-          | func => simp [GroundTerm.func]
+          | func => simp only [GroundTerm.func]
           | const c =>
+            simp only [GroundTerm.const]
             unfold gtm'
             by_cases h : (GroundTerm.const c ∈ FactSet.terms sub.toSet)
             -- inside case
             unfold GroundTerm.const at h
-            simp
+            simp [h]
             sorry
             -- outside case
-            simp
+            unfold GroundTerm.const at h
+            simp [h]
             sorry
-          -- looks like 730 ?
 
+      -- looks like 730 ?
+      -- apply fact set
       exists gtm', gtm'_is_hom
       intro gtm'_str
       apply Classical.byContradiction
       intro contra
       simp only [Classical.not_not] at contra
       unfold Function.injective_for_domain_set at contra
+
       sorry -- we mapped sth. from l to sub, so this should be true ?
 
       -- case that sub is not wc
@@ -1159,17 +1189,20 @@ theorem list_prop_sub_ex_element_outside
       unfold isWeakCore at sub_is_wc
       simp only [Classical.not_forall, not_imp, not_and] at sub_is_wc
       rcases sub_is_wc with ⟨gtm_sub_sub, gtm_sub_sub_hom, gtm_sub_sub_str⟩
-      -- by cases until we reach ∅ ??
       sorry
+
       intro n_wc
       unfold isWeakCore at n_wc
       simp only [Classical.not_forall, not_imp, not_and] at n_wc
-      rcases n_wc with ⟨gtm, ghom, gstr⟩
-      exists ∅
+      rcases n_wc with ⟨gtm_l_l, gtm_hom, gtm_str⟩
+      exists []
       constructor
       sorry -- emptyset is always subset
       constructor
       sorry -- as in 1124 notices maybe l should be non-empty this would make this trivial
+      unfold homSubset
+      constructor
+      sorry
       sorry -- is this trivially true or false ?
 
 
@@ -1219,6 +1252,20 @@ theorem list_prop_sub_ex_element_outside
       | inr a_ne =>
         cases Classical.em (b = ∅) with
           | inr b_ne =>
+            apply Classical.byContradiction
+            intro contra
+            simp only [not_exists, not_or, not_and, Classical.not_not] at contra
+            have e_in_a : ∃ e, e ∈ a := by
+              apply Set.not_empty_contains_element
+              exact a_ne
+            have f_in_b : ∃ f, f ∈ b := by
+              apply Set.not_empty_contains_element
+              exact b_ne
+            rcases e_in_a with ⟨e, e_in_a⟩
+            rcases f_in_b with ⟨f, f_in_b⟩
+            specialize contra e
+            rcases contra with ⟨c_lhr, c_rhs⟩
+            specialize c_lhr e_in_a
             sorry
           | inl b_e =>
             have a_elem : ∃ e, e ∈ a := by sorry
@@ -1341,3 +1388,4 @@ theorem hom_non_injective_not_weak_core (h : GroundTermMapping sig) (wc : FactSe
 
 
 end FactSet
+
