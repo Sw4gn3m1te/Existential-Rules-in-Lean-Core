@@ -953,22 +953,8 @@ namespace FactSet
     rw [l_empty]
     rfl
 
-  theorem test (l : List α) : @List.toSet α [] = ∅ := by
-    sorry
-
-  theorem empty_list_eq_empty_set (l : List α) : l = [] ↔ l.toSet = ∅ := by
-    rw [← List.length_eq_zero_iff]
-    constructor
-    apply list_len_zero_eq_empty
-    intro h
-    cases l with
-      | nil =>
-        rw [List.length_nil]
-      | cons hd tl =>
-        apply Classical.byContradiction
-        intro c
-        -- contradiction
-        sorry
+  theorem empty_list_eq_empty_set : @List.toSet α [] = ∅ := by
+    rfl
 
   theorem hom_subset_of_empty (fs : FactSet sig) : fs = ∅ → homSubset fs fs := by
     unfold homSubset
@@ -1033,7 +1019,7 @@ namespace FactSet
     rw [f1_eq_f2]
     exact f2_in_fs
 
-theorem list_prop_sub_ex_element_outside
+theorem List.ex_elem_outside_prop_subset
   (l : List α) (subset_l : sub ⊆ l) (neq_l : ¬sub.toSet = l.toSet) :
     ∃ (e : α), e ∈ l ∧ ¬ e ∈ sub := by
 
@@ -1119,10 +1105,6 @@ theorem list_prop_sub_ex_element_outside
       have ex_out :  ∃ e, e ∈ l.toSet ∧ ¬ e ∈ sub.toSet := by
         sorry
 
-      rcases ex_out with ⟨o, o_in_l, o_nin_sub⟩
-      have p : PreGroundTerm sig :=
-      exists p
-
   theorem nex_subset_iff_weak_core (l : List (Fact sig)):
     ¬ (∃ (sub : List (Fact sig)), sub.toSet ⊆ l.toSet ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) ↔ (isWeakCore l.toSet) := by
       rw [← Classical.not_iff]
@@ -1134,7 +1116,7 @@ theorem list_prop_sub_ex_element_outside
       have l_len : ∃ (n : Nat), l.length = n := by exists l.length
       rcases l_len with ⟨n, has_len_n⟩
       have ex_out : ∃ e, e ∈ l.toSet ∧ ¬ e ∈ sub.toSet := by
-        -- apply list_prop_sub_ex_element_outside
+        -- apply List.ex_elem_outside_prop_subset
         sorry
       rcases ex_out with ⟨e, e_in_l, e_nin_sub⟩
       apply Classical.byContradiction
@@ -1145,7 +1127,7 @@ theorem list_prop_sub_ex_element_outside
       rcases contra with gt | eq
       unfold Set.subset at subset
       specialize subset e
-      
+
 
       by_cases h : (sub.length < n)
       rw [has_len_n]
@@ -1167,7 +1149,7 @@ theorem list_prop_sub_ex_element_outside
       · unfold Set.subset at subset
         simp only [ne_eq] at neq
         have ex : ∃ e, e ∈ l.toSet ∧ ¬ e ∈ sub.toSet := by
-          -- apply list_prop_sub_ex_element_outside
+          -- apply List.ex_elem_outside_prop_subset
           sorry
           rw [eq] at has_len_n
 
