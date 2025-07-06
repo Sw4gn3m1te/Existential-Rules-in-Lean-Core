@@ -3,7 +3,6 @@ import ExistentialRules.ChaseSequence.Basic
 
 namespace Set
 
-
   def ssubset (X Y : Set α) : Prop := X ⊆ Y ∧ X ≠ Y
   infix:50 " ⊂ " => ssubset
 
@@ -46,6 +45,8 @@ end Set
 
 
 namespace List
+
+  def toSet' (l : List α) : α → Prop := fun x => x ∈ l
 
   theorem length_le_of_nodup_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : as.length ≤ bs.length := by
     induction as generalizing bs with
