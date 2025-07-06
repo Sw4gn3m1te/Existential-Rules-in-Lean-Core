@@ -1,6 +1,49 @@
 import ExistentialRules.Models.Basic
 import ExistentialRules.ChaseSequence.Basic
-import BasicLeanDatastructures.List.Basic
+
+namespace Set
+
+
+  def ssubset (X Y : Set α) : Prop := X ⊆ Y ∧ X ≠ Y
+  infix:50 " ⊂ " => ssubset
+
+  def singleton (a : α) : Set α := fun x => x = a
+
+  theorem not_empty_contains_element (X : Set α) : X ≠ ∅ -> ∃ e, e ∈ X := by
+      intro neq
+      apply Classical.byContradiction
+      intro contra
+      apply neq
+      apply funext
+      intro x
+      apply propext
+      simp only [not_exists] at contra
+      unfold Set.empty
+      specialize contra x
+      unfold Set.element at contra
+      simp only [iff_false]
+      exact contra
+
+  theorem eq_empty_of_subset_empty {α : Type u} {X : Set α} : X ⊆ ∅ → X = ∅ := by
+    intro subset
+    apply Classical.byContradiction
+    intro contra
+    rw [← ne_eq] at contra
+    have ex_elem : ∃ e, e ∈ X := by
+      apply Set.not_empty_contains_element
+      exact contra
+    rcases ex_elem with ⟨e, e_in_X⟩
+    rw [Set.subset] at subset
+    specialize subset e e_in_X
+    contradiction
+
+  theorem empty_subset_of_each (X : Set α) : ∅ ⊆ X := by
+    unfold Set.subset
+    intro e e_in_empty
+    contradiction
+
+end Set
+
 
 namespace List
 
@@ -42,6 +85,210 @@ namespace List
           rw [List.mem_erase_of_ne]
           exact mem_bs
           exact neq
+
+
+  theorem eq_empty_if_len_zero (l : List α) : l.length = 0 → l.toSet = ∅ := by
+    simp only [List.length_eq_zero_iff]
+    intro l_empty
+    rw [l_empty]
+    rfl
+
+  theorem empty_eq_empty_set : @List.toSet α [] = ∅ := by
+    rfl
+
+  theorem empty_eq_empty_set' : @List.toSet' α [] = ∅ := by
+    unfold List.toSet'
+    funext a
+    simp only [List.not_mem_nil]
+    apply propext
+    constructor
+    intro contra
+    contradiction
+    intro contra
+    contradiction
+
+  theorem non_empty_has_length_gt_zero (l : List α) : l.length > 0 ↔ l ≠ [] := by
+    constructor
+    intro l_gt_zero l_empty
+    unfold List.length at l_gt_zero
+    cases l with
+      | nil =>
+        contradiction
+      | cons hd tl =>
+        contradiction
+    intro l_empty
+    cases l with
+      | nil =>
+        contradiction
+      | cons hd tl =>
+        simp
+
+  theorem list_gt_one_len_not_empty (l : List α) : l.length ≥ 1 → ¬ l.isEmpty := by
+    intro len_geq_1
+    unfold List.length at len_geq_1
+    cases l with
+      | nil =>
+        contradiction
+      | cons hd tl =>
+        simp
+
+  theorem ex_elem_outside_prop_subset (l : List α) (subset_l : sub ⊆ l) (neq_l : ¬sub.toSet = l.toSet) : ∃ (e : α), e ∈ l ∧ ¬ e ∈ sub := by
+    apply Classical.byContradiction
+    intro contra
+    simp only [not_exists, not_and, Classical.not_not] at contra
+    apply neq_l
+    funext a
+    ext
+    change a ∈ sub.toSet ↔ a ∈ l.toSet
+    simp only [List.mem_toSet]
+    exact ⟨fun h' => subset_l h', contra a⟩
+
+  theorem mem_iff_toSet_mem (l : List α) (e : α) : e ∈ l ↔ e ∈ l.toSet := by
+    induction l with
+      | nil =>
+        simp only [List.not_mem_nil, false_iff]
+        exact id
+      | cons hd tl ih =>
+        unfold List.toSet
+        simp only [List.mem_cons]
+        constructor
+        intro e_in_l
+        change e ∈ fun e => e = hd ∨ e ∈ tl.toSet
+        rcases e_in_l with e_hd | e_tl
+        left
+        exact e_hd
+        right
+        rw [← ih]
+        exact e_tl
+        intro e_tls
+        change e ∈ fun e => e = hd ∨ e ∈ tl.toSet at e_tls
+        rcases e_tls with e_hd | e_tl
+        left
+        exact e_hd
+        right
+        rw [ih]
+        exact e_tl
+
+  theorem toSet_iff_toSet' (l : List α) : l.toSet = l.toSet' := by
+    cases l with
+      | nil =>
+        funext a
+        apply propext
+        rw [List.empty_eq_empty_set', List.empty_eq_empty_set]
+      | cons hd tl =>
+        funext a
+        apply propext
+        constructor
+        intro h
+        change a ∈ (hd :: tl)
+        simp only [List.mem_cons]
+        cases h with
+          | inl h =>
+            left
+            apply h
+          | inr h =>
+            right
+            exact (mem_iff_toSet_mem tl a).mpr h
+        intro h
+        unfold List.toSet
+        change a ∈ (hd :: tl).toSet
+        change a ∈ fun e => e = hd ∨ a ∈ tl.toSet
+        rcases h with a_hs | ⟨a_tl, h⟩
+        left
+        rfl
+        right
+        exact (mem_iff_toSet_mem tl a).mp h
+
+  theorem subset_mono [DecidableEq α] (l tl : List α) (hd : α) (subset : (hd :: tl) ⊆ l) : tl ⊆ l := by
+    induction (hd :: tl) with
+      | nil =>
+        exact List.subset_of_cons_subset subset
+      | cons hd2 tl2 ih =>
+        exact ih
+
+  theorem subset_if_sublist (l sub : List α) : sub ⊆ l → sub.toSet ⊆ l.toSet := by
+    intro subset
+    repeat rw [List.toSet_iff_toSet']
+    apply subset
+
+  theorem singleton_union_erase_singleton_eq [DecidableEq α] (l : List α) (e : α) (e_in_l : e ∈ l) : (Set.singleton e) ∪ (l.erase e).toSet = l.toSet := by
+    unfold Set.union
+    funext a
+    apply propext
+    constructor
+    intro h
+    rcases h with lhs | rhs
+    sorry
+    rw [List.toSet_iff_toSet'] at rhs
+    rw [List.toSet_iff_toSet']
+    exact List.mem_of_mem_erase rhs
+    intro h
+    right
+    sorry
+
+  theorem length_lt_of_proper_subset [DecidableEq α] (l sub : List α) (sub_nodup : sub.Nodup) (subset : sub ⊆ l) (neq : sub.toSet ≠ l.toSet) : sub.length < l.length := by
+    induction sub generalizing l with
+      | nil =>
+        exact List.length_lt_of_drop_ne_nil fun a => neq (congrArg List.toSet (id (Eq.symm a)))
+      | cons hd tl ih =>
+        have hd_in_l : hd ∈ l := by
+          rw [mem_iff_toSet_mem]
+          have subset' : (hd::tl).toSet ⊆ l.toSet := by
+            exact subset_if_sublist l (hd :: tl) subset
+          unfold Set.subset at subset'
+          specialize subset' hd
+          apply subset'
+          unfold List.toSet
+          left
+          rfl
+        have subset' : (hd :: tl).toSet ⊆ l.toSet := by
+          exact subset_if_sublist l (hd :: tl) subset
+        have hd_nin_tl : ¬ hd ∈ tl := by
+          rw [List.nodup_cons] at sub_nodup
+          exact sub_nodup.1
+        have tl_nodup : tl.Nodup := by
+          unfold List.Nodup
+          exact List.Pairwise.of_cons sub_nodup
+        have tl_sub_lerase : tl ⊆ (l.erase hd) := by
+          intro e e_in_tl
+          refine (List.mem_erase_of_ne ?_).mpr ?_
+          have e_in_hdtl : e ∈ (hd :: tl) := by exact List.mem_cons_of_mem hd e_in_tl
+          by_cases c : (e = hd)
+          unfold List.Nodup at sub_nodup
+          exact ne_of_mem_of_not_mem e_in_tl hd_nin_tl
+          exact c
+          have : e ∈ (hd :: tl) := by exact List.mem_cons_of_mem hd e_in_tl
+          rw [mem_iff_toSet_mem] at this
+          specialize subset' e this
+          exact (mem_iff_toSet_mem l e).mpr subset'
+
+        have lerase_len_lt : (l.erase hd).length = l.length - 1 := by
+          exact List.length_erase_of_mem hd_in_l
+        have tl_neq_lerase : tl.toSet ≠ (l.erase hd).toSet := by
+          unfold Set.subset at tl_sub_lerase
+          let S : Set α := Set.singleton hd
+          have t1 : (hd :: tl).toSet = S ∪ tl.toSet := by rfl
+          have t2 : l.toSet = S ∪ (l.erase hd).toSet := by
+            exact Eq.symm (singleton_union_erase_singleton_eq l hd hd_in_l)
+          have t3 : S ∪ tl.toSet ≠ S ∪ (l.erase hd).toSet := by
+            rw [t1, t2] at neq
+            exact neq
+          exact fun a => t3 (congrArg S.union a)
+
+        specialize ih (l.erase hd) tl_nodup tl_sub_lerase tl_neq_lerase
+        have tl_len_eq_hdtl_len_lt : tl.length = (hd::tl).length -1 := by rfl
+        rw [lerase_len_lt, tl_len_eq_hdtl_len_lt] at ih
+        exact Nat.succ_lt_of_lt_pred ih
+
+  theorem ex_elem_to_set_neq_empty (l : List α) (e : α) (e_in_l : e ∈ l) : l.toSet ≠ ∅ := by
+    apply Classical.byContradiction
+    intro contra
+    simp only [ne_eq, Classical.not_not] at contra
+    rw [List.mem_iff_toSet_mem] at e_in_l
+    unfold Set.element at e_in_l
+    rw [contra] at e_in_l
+    contradiction
+
 end List
 
 namespace Function
@@ -994,21 +1241,6 @@ namespace FactSet
   right
   exact h
 
-  theorem Set.singleton_union_erase_singleton_eq [DecidableEq α] (l : List α) (e : α) (e_in_l : e ∈ l) : (Set.singleton e) ∪ (l.erase e).toSet = l.toSet := by
-    unfold Set.union
-    funext a
-    apply propext
-    constructor
-    intro h
-    rcases h with lhs | rhs
-    sorry
-    rw [List.toSet_iff_toSet'] at rhs
-    rw [List.toSet_iff_toSet']
-    exact List.mem_of_mem_erase rhs
-    intro h
-    right
-    sorry
-
   theorem every_set_has_subset_weakcore : ∀ (fs : FactSet sig), fs ≠ ∅ → ∃ (wc : FactSet sig), wc ⊆ fs ∧ wc.isWeakCore := by
     intro fs fs_nempty
     exists ∅
@@ -1092,7 +1324,7 @@ namespace FactSet
       rcases this with ⟨idc, af⟩
       contradiction
       sorry
-      
+
       /-- have : ∃ e, e ∈ l := by
         sorry
       rcases this with ⟨e, e_in_l⟩
