@@ -3,7 +3,6 @@ import ExistentialRules.ChaseSequence.Basic
 
 namespace Set
 
-
   def ssubset (X Y : Set α) : Prop := X ⊆ Y ∧ X ≠ Y
   infix:50 " ⊂ " => ssubset
 
@@ -47,34 +46,11 @@ end Set
 
 namespace List
 
-/-!
-### Auxiliary Theorems on Lists
--/
+  def toSet' (l : List α) : α → Prop := fun x => x ∈ l
 
-/-- If a list is duplicate free and the sublist of another list, then the second list is at least as long as the first. -/
-theorem length_le_of_nodup_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : as.length ≤ bs.length := by
-  induction as generalizing bs with
-  | nil => simp
-  | cons a as ih =>
-    let bs_without_a := bs.erase a
-    simp only [nodup_cons] at nodup
-    specialize ih
-      bs_without_a
-      nodup.right
-      (by intro c c_mem; rw [List.mem_erase_of_ne]; apply all_mem; simp [c_mem]; intro contra; rw [contra] at c_mem; apply nodup.left; exact c_mem)
-    rw [List.length_erase_of_mem (by apply all_mem; simp)] at ih
-    rw [Nat.le_sub_one_iff_lt (by apply List.length_pos_of_mem; apply all_mem a; simp)] at ih
-    apply Nat.succ_le_of_lt
-    exact ih
-
-/-- If a list is duplicate free and the sublist of another list that has the same length, then both lists have exactly the same elements. -/
-theorem equiv_of_nodup_of_length_eq_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (eq_length : as.length = bs.length) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : ∀ e, e ∈ as ↔ e ∈ bs := by
-  intro e
-  constructor
-  . apply all_mem
-  . intro mem_bs
-    induction as generalizing bs e with
-    | nil => cases bs; simp at mem_bs; simp at eq_length
+  theorem length_le_of_nodup_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : as.length ≤ bs.length := by
+    induction as generalizing bs with
+    | nil => simp
     | cons a as ih =>
       let bs_without_a := bs.erase a
       simp only [nodup_cons] at nodup
