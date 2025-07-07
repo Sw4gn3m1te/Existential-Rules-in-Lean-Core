@@ -6,6 +6,19 @@ namespace Set
   def ssubset (X Y : Set α) : Prop := X ⊆ Y ∧ X ≠ Y
   infix:50 " ⊂ " => ssubset
 
+  theorem ext (X Y : Set α) : (∀ e, e ∈ X ↔ e ∈ Y) -> X = Y := by
+    intro h
+    apply funext
+    intro e
+    apply propext
+    specialize h e
+    exact h
+
+  theorem ext_iff (X Y : Set α) : (∀ e, e ∈ X ↔ e ∈ Y) ↔ X = Y := by
+    constructor
+    . apply ext
+    . intro h e; rw [h]
+
   def singleton (a : α) : Set α := fun x => x = a
 
   theorem not_empty_contains_element (X : Set α) : X ≠ ∅ -> ∃ e, e ∈ X := by
@@ -212,6 +225,7 @@ namespace List
     repeat rw [List.toSet_iff_toSet']
     apply subset
 
+  -- TODO: should be obsolete now; delete in this case
   theorem singleton_union_erase_singleton_eq [DecidableEq α] (l : List α) (e : α) (e_in_l : e ∈ l) : (Set.singleton e) ∪ (l.erase e).toSet = l.toSet := by
     unfold Set.union
     funext a
@@ -266,15 +280,47 @@ namespace List
         have lerase_len_lt : (l.erase hd).length = l.length - 1 := by
           exact List.length_erase_of_mem hd_in_l
         have tl_neq_lerase : tl.toSet ≠ (l.erase hd).toSet := by
-          unfold Set.subset at tl_sub_lerase
-          let S : Set α := Set.singleton hd
-          have t1 : (hd :: tl).toSet = S ∪ tl.toSet := by rfl
-          have t2 : l.toSet = S ∪ (l.erase hd).toSet := by
-            exact Eq.symm (singleton_union_erase_singleton_eq l hd hd_in_l)
-          have t3 : S ∪ tl.toSet ≠ S ∪ (l.erase hd).toSet := by
-            rw [t1, t2] at neq
-            exact neq
-          exact fun a => t3 (congrArg S.union a)
+          intro contra
+          apply neq
+          apply Set.ext
+          intro e
+          rw [List.mem_toSet]
+          rw [List.mem_toSet]
+          rw [← Set.ext_iff] at contra
+          specialize contra e
+          rw [List.mem_toSet] at contra
+          rw [List.mem_toSet] at contra
+          rw [List.mem_cons]
+          constructor
+          . intro e_mem
+            cases e_mem with
+            | inl e_mem => rw [e_mem]; exact hd_in_l
+            | inr e_mem =>
+              rw [← List.mem_erase_of_ne]
+              . rw [← contra]; exact e_mem
+              . intro contra
+                apply hd_nin_tl
+                rw [← contra]
+                exact e_mem
+          . intro e_mem
+            cases Decidable.em (e = hd) with
+            | inl e_eq_hd => apply Or.inl; exact e_eq_hd
+            | inr e_neq_hd =>
+              apply Or.inr
+              rw [contra]
+              rw [List.mem_erase_of_ne]
+              . exact e_mem
+              . exact e_neq_hd
+
+          /- unfold Set.subset at tl_sub_lerase -/
+          /- let S : Set α := Set.singleton hd -/
+          /- have t1 : (hd :: tl).toSet = S ∪ tl.toSet := by rfl -/
+          /- have t2 : l.toSet = S ∪ (l.erase hd).toSet := by -/
+          /-   exact Eq.symm (singleton_union_erase_singleton_eq l hd hd_in_l) -/
+          /- have t3 : S ∪ tl.toSet ≠ S ∪ (l.erase hd).toSet := by -/
+          /-   rw [t1, t2] at neq -/
+          /-   exact neq -/
+          /- exact fun a => t3 (congrArg S.union a) -/
 
         specialize ih (l.erase hd) tl_nodup tl_sub_lerase tl_neq_lerase
         have tl_len_eq_hdtl_len_lt : tl.length = (hd::tl).length -1 := by rfl
@@ -1409,3 +1455,4 @@ namespace FactSet
             apply id_is_hom
 
 end FactSet
+
