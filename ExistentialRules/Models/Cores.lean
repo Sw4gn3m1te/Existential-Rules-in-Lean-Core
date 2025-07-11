@@ -64,6 +64,25 @@ namespace Set
     simp only [and_self]
     apply Set.subset_refl
 
+  theorem mem_singleton_iff_eq (e : α) : f ∈ (Set.singleton e) ↔ e = f := by
+    unfold Set.singleton
+    constructor
+    intro h
+    apply Classical.byContradiction
+    intro contra
+    exact Ne.elim (fun a => contra (id (Eq.symm a))) h
+    intro h
+    exact id (Eq.symm h)
+
+  theorem subset_trans_mem (X : Set α) : e ∈ X ∧ X ⊆ Y → e ∈ Y := by
+    intro a
+    obtain ⟨left, right⟩ := a
+    apply right
+    simp_all only
+
+  theorem union_iff (X Y : Set α) (e : α) : e ∈ (X ∪ Y) ↔ e ∈ X ∨ e ∈ Y := by
+    exact Eq.to_iff rfl
+
 
 -- mathlib yoinks
 theorem Eq.subset {α} {s t : Set α} : s = t → s ⊆ t :=
@@ -328,33 +347,20 @@ namespace List
     rw [contra] at e_in_l
     contradiction
 
-    theorem List.eq_mem_iff_eq_to_set (l1 l2 : List α) : (∀ e, e ∈ l1 ↔ e ∈ l2) ↔ l1.toSet = l2.toSet := by
-      constructor
-      intro e
-      funext e'
-      apply propext
-      specialize e e'
-      repeat rw [List.mem_iff_toSet_mem, Set.element] at e
-      exact e
-      intro h e
-      repeat rw [List.mem_iff_toSet_mem]
-      rw [h]
+  theorem eq_mem_iff_eq_to_set (l1 l2 : List α) : (∀ e, e ∈ l1 ↔ e ∈ l2) ↔ l1.toSet = l2.toSet := by
+    constructor
+    intro e
+    funext e'
+    apply propext
+    specialize e e'
+    repeat rw [List.mem_iff_toSet_mem, Set.element] at e
+    exact e
+    intro h e
+    repeat rw [List.mem_iff_toSet_mem]
+    rw [h]
 
-    theorem List.toSet_is_finite_if_nodup (l : List α) : l.toSet.finite := by
-      unfold Set.finite
-      exists l
-      cases l with
-        | nil =>
-          rw [List.empty_eq_empty_set]
-          constructor
-          exact nodup_nil
-          intro e
-          apply Classical.byContradiction
-          intro c
-          simp only [not_mem_nil, false_iff, Classical.not_not] at c
-          contradiction
-        | cons hd tl =>
-          sorry
+  theorem toSet_is_finite [DecidableEq α] (l : List α) : l.toSet.finite := by
+    sorry
 
 
 end List
@@ -584,6 +590,13 @@ namespace Function
     . apply mapping_mem_image_of_mem; exact e_mem
     . rw [(injective_iff_length_image_eq_of_nodup f l nodup).mp inj]
     . exact (surjective_on_target_iff_all_in_image f l l).mp surj
+
+  theorem image_eq_eraseDupsKeepRight_map [DecidableEq β] {f : α -> β} {l : List α} : image f l = (l.map f).eraseDupsKeepRight := by
+    induction l with
+    | nil => simp [image, List.eraseDupsKeepRight]
+    | cons hd tl ih =>
+      simp only [image, List.eraseDupsKeepRight, List.map_cons]
+      simp only [ih, List.mem_eraseDupsKeepRight]
 
 end Function
 
@@ -1326,10 +1339,78 @@ namespace FactSet
       exact subset
 
   theorem length_eraseDupsKeepRight_eq_of_same_elements [DecidableEq α] (l1 l2 : List α) : (∀ e, e ∈ l1 ↔ e ∈ l2) -> l1.eraseDupsKeepRight.length = l2.eraseDupsKeepRight.length := by
-    sorry
+    intro h1
+    cases l1 with
+      | nil =>
+        cases l2 with
+        | nil =>
+          rfl
+        | cons hd' tl' =>
+          specialize h1 hd'
+          simp_all only [List.not_mem_nil, List.mem_cons, true_or, iff_true]
+      | cons hd tl =>
+        cases l2 with
+        | nil =>
+          specialize h1 hd
+          simp_all only [List.mem_cons, true_or, List.not_mem_nil, iff_false, not_true_eq_false]
+        | cons hd' tl' =>
+          simp only [List.mem_cons] at h1
+          specialize h1 ?_
+          exact hd
+          rename_i h2
+          specialize h2 hd'
+          simp_all only [true_or, true_iff, iff_true]
+          cases h1 with
+          | inl h =>
+            cases h2 with
+            | inl h_1 =>
+              subst h
+              simp_all only
+              sorry
+            | inr h_2 =>
+              subst h
+              sorry
+          | inr h_1 =>
+            cases h2 with
+            | inl h =>
+              subst h
+              sorry
+            | inr h_2 =>
+              sorry
+
 
 
   theorem s1 (l1 l2 : List α) : l1 ⊆ l2 ∧ l2 ⊆ l1 ↔ l1 = l2 := by
+    unfold List.instHasSubset List.Subset
+    simp_all only
+    sorry
+
+  theorem x (a b : Prop) : ¬ (a ∧ b) ↔ ¬ a ∨ ¬ b := by apply?
+
+  theorem s3 (e f : Fact sig) (gtm : GroundTermMapping sig) : e ∈ gtm.applyFactSet (Set.singleton f) ↔ e = gtm.applyFact f := by
+    constructor
+    intro h
+    unfold GroundTermMapping.applyFactSet at h
+    rcases h with ⟨f', f'_single, gtm_f'_eq_e⟩
+    rw [← gtm_f'_eq_e]
+    have : f = f' := by
+      rw [← Set.mem_singleton_iff_eq]
+      exact f'_single
+    rw [this]
+    intro h
+    unfold GroundTermMapping.applyFactSet
+    rw [h]
+    refine Set.subset_trans_mem ?_ ?_
+    exact Set.singleton e
+    apply Classical.byContradiction
+    intro contra
+    rw [Classical.not_and_iff_not_or_not] at contra
+    rcases contra with lhs | rhs
+    rw [h] at lhs
+    contradiction
+    sorry
+
+  theorem s4 (l tl : List α) (l_def : l = hd :: tl) (e hd : α) : e ∈ (l).toSet ↔ e = hd ∨ e ∈ tl := by
     sorry
 
   theorem weak_core_of_nex_subset (l : List (Fact sig)):
@@ -1338,14 +1419,13 @@ namespace FactSet
       simp only [not_exists] at h
       intro gtm gtm_hom
       simp only [not_and, ne_eq] at h
-      have l_set_fin : l.toSet.finite := by exact List.List.toSet_is_finite_if_nodup l
+      have l_set_fin : l.toSet.finite := by exact List.toSet_is_finite l
       have inj_str := hom_strong_of_finite_of_injective l.toSet l_set_fin gtm gtm_hom
       specialize h (l.map gtm.applyFact)
-
+      have gtm_hom' := gtm_hom
       have af_sub_l : List.map gtm.applyFact l ⊆ l := by
         unfold GroundTermMapping.isHomomorphism at gtm_hom
         unfold GroundTermMapping.strong at inj_str
-
         rcases gtm_hom with ⟨gtm_c, gtm_af⟩
         cases l with
           | nil =>
@@ -1366,13 +1446,52 @@ namespace FactSet
         have : gtm.applyFactSet l.toSet = (List.map gtm.applyFact l).toSet := by
           apply Set.ext
           intro e
+
+          have lem1 : (List.map gtm.applyFact l).toSet ⊆ l.toSet := by
+            exact List.subset_if_sublist l (List.map gtm.applyFact l) af_sub_l
+
           constructor
           intro h2
-          cases l with
+          induction l with
             | nil =>
               exact gtm_af e h2
-            | cons hd tl =>
-              sorry
+            | cons hd tl ih =>
+              have lem2 : e ∈ (List.map gtm.applyFact (hd :: tl)).toSet ↔ e = gtm.applyFact hd ∨ e ∈ List.map gtm.applyFact tl := by
+                rw [← List.mem_iff_toSet_mem]
+                simp_all only [List.map_cons, List.cons_subset, List.mem_cons, List.mem_map]
+              have lem3 : e ∈ gtm.applyFactSet (hd :: tl).toSet ↔ e ∈ (gtm.applyFactSet (Set.singleton hd) ∪ gtm.applyFactSet tl.toSet) := by sorry
+              rw [lem2]
+              rw [lem3] at h2
+              rcases h2 with lhs | rhs
+              left
+              exact (s3 e hd gtm).mp lhs
+              right
+              rw [List.mem_iff_toSet_mem]
+              apply ih
+              exact List.toSet_is_finite tl
+              refine fun a => ?_
+              repeat sorry
+
+          intro h2
+          induction l with
+            | nil =>
+              exact False.elim (lem1 e (lem1 e (lem1 e (lem1 e h2))))
+            | cons hd tl ih =>
+              have lem2 : e ∈ (List.map gtm.applyFact (hd :: tl)).toSet ↔ e = gtm.applyFact hd ∨ e ∈ List.map gtm.applyFact tl := by
+                rw [← List.mem_iff_toSet_mem]
+                simp_all only [List.map_cons, List.cons_subset, List.mem_cons, List.mem_map]
+              have lem3 : e ∈ gtm.applyFactSet (hd :: tl).toSet ↔ e ∈ (gtm.applyFactSet (Set.singleton hd) ∪ gtm.applyFactSet tl.toSet) := by sorry
+              rw [lem3, Set.union_iff]
+              rw [lem2] at h2
+              rcases h2 with lhs | rhs
+              left
+              exact (s3 e hd gtm).mpr lhs
+              right
+              apply ih
+              exact List.toSet_is_finite tl
+              refine fun a => ?_
+              repeat sorry
+
         constructor
         rw [← this]
         exact gtm_af
@@ -1390,21 +1509,51 @@ namespace FactSet
             exact this
           exact Eq.to_iff (congrFun (congrArg List.toSet (id (Eq.symm this))) e)
 
-        constructor
-        · apply inj_str
-          unfold Function.injective_for_domain_set
-          intro a a' a_in_terms_l a'_in_terms_l gtm_a_eq
-          sorry
-        . unfold Function.injective_for_domain_set
-          sorry
+        rw [propext (and_iff_right_of_imp inj_str)]
+        let terms_list := (l.map Fact.terms).flatten.eraseDupsKeepRight
+        have nodup_terms_list : terms_list.Nodup := by
+          apply List.nodup_eraseDupsKeepRight
+        have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ (terms l.toSet) := by
+          simp only [terms_list]
+          intro e
+          rw [List.mem_eraseDupsKeepRight]
+          unfold FactSet.terms
+          simp only [List.mem_flatten, List.mem_map]
+          constructor
+          intro h
+          rcases h with ⟨ts, ⟨f, f_mem, eq⟩, ts_mem⟩
+          exists f
+          rw [← eq] at ts_mem
+          rw [List.mem_iff_toSet_mem] at f_mem
+          exact ⟨f_mem, ts_mem⟩
+          intro h
+          rcases h with ⟨f, f_mem, e_mem⟩
+          exists f.terms
+          constructor
+          exists f
+          rw [List.mem_iff_toSet_mem]
+          exact ⟨f_mem, rfl⟩
+          exact e_mem
+
+        rw [Function.injective_set_list_equiv gtm (terms l.toSet) terms_list mem_terms_list]
+        rw [Function.injective_iff_length_image_eq_of_nodup]
+        rw [Function.image_eq_eraseDupsKeepRight_map]
+        sorry
+        exact nodup_terms_list
+
+
       | inr l_not_sub_mapped =>
         have neq : (l.map gtm.applyFact).toSet ≠ l.toSet := by
           apply Classical.byContradiction
           intro c
           apply l_not_sub_mapped
-          intro e e_inl
+          intro e e_in_l
           unfold homSubset at hom_subset
           rcases hom_subset with ⟨sub, gtm', gtm'_hom⟩
+          refine List.mem_map.mpr ?_
+          exists e
+          constructor
+          exact e_in_l
           sorry
 
         specialize h neq
@@ -1473,28 +1622,7 @@ namespace FactSet
       sorry
       exists id
       constructor
-
-
-
-      exists []
-      rw [List.empty_eq_empty_set]
-      constructor
-      exact List.nil_subset l
-      constructor
-      exact id (Ne.symm l_nempty)
-      unfold homSubset
-      constructor
-      apply Set.empty_subset_of_each
-      apply Classical.byContradiction
-      intro contra
-      simp only [not_exists] at contra
-      specialize contra id
-      unfold GroundTermMapping.isHomomorphism at contra
-      rw [Classical.not_and_iff_not_or_not] at contra
-      rcases contra with lhs | rhs
-      have : GroundTermMapping.isHomomorphism id l.toSet l.toSet := by exact id_is_hom l.toSet
-      rcases this with ⟨idc, af⟩
-      contradiction
+      sorry
       sorry
 
       /-- have : ∃ e, e ∈ l := by
