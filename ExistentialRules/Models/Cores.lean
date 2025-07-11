@@ -1535,10 +1535,64 @@ namespace FactSet
           exact ⟨f_mem, rfl⟩
           exact e_mem
 
+
+        have closed : ∀ e, e ∈ terms_list -> gtm e ∈ terms_list := by
+          simp only [terms_list]
+          intro e
+          repeat rw [List.mem_eraseDupsKeepRight]
+          simp
+          intro f f_mem e_in_f
+          let f' := gtm.applyFact f
+          have f'_mem : f' ∈ l.toSet := by
+            repeat apply gtm_hom.right
+            unfold GroundTermMapping.applyFactSet
+            exists f
+            constructor
+            rw [← List.mem_iff_toSet_mem]
+            exact f_mem
+            rfl
+          exists f'.terms
+          constructor
+          exists f'
+          constructor
+          rw [List.mem_iff_toSet_mem]
+          exact f'_mem
+          rfl
+          simp only [f', GroundTermMapping.applyFact]
+          rw [List.mem_map]
+          exists e
+
+        have closed' : ∀ e, e ∈ (List.map Fact.terms l).flatten → gtm e ∈ (List.map Fact.terms l).flatten := by
+          sorry
+
+
+        -- 1)
+
+        /-
+        rw [Function.injective_set_list_equiv gtm (terms l.toSet) terms_list mem_terms_list]
+        rw [Function.injective_iff_surjective_of_nodup_of_closed gtm terms_list nodup_terms_list closed]
+        refine (Function.surjective_on_target_iff_all_in_image gtm terms_list terms_list).mpr ?_
+        intro b b_in
+        rw [Function.image_eq_eraseDupsKeepRight_map]
+        simp only [terms_list]
+        sorry
+        -/
+
+
+        -- 2)
+
         rw [Function.injective_set_list_equiv gtm (terms l.toSet) terms_list mem_terms_list]
         rw [Function.injective_iff_length_image_eq_of_nodup]
         rw [Function.image_eq_eraseDupsKeepRight_map]
-        sorry
+        apply length_eraseDupsKeepRight_eq_of_same_elements
+        intro gt
+        specialize mem_terms_list gt
+        constructor
+        intro gt_in_gtm_terms_list
+        rw [← eq] at mem_terms_list
+        apply Function.image_contained_of_closed gtm (List.map Fact.terms l).flatten closed' gt sorry
+        intro h2
+        sorry -- weil l nodup
         exact nodup_terms_list
 
 
@@ -1555,7 +1609,6 @@ namespace FactSet
           constructor
           exact e_in_l
           sorry
-
         specialize h neq
         contradiction
 
