@@ -15,3 +15,8 @@ name = "PossiblyInfiniteTrees"
 git = "https://github.com/monsterkrampe/Possibly-Infinite-Trees.git"
 rev = "main"
 
+[[require]]
+name = "aesop"
+git = "https://github.com/leanprover-community/aesop"
+rev = "v4.21.0"
+
