@@ -6,6 +6,7 @@ import ExistentialRules.ChaseSequence.Basic
 set_option trace.grind.ematch true
 set_option trace.grind.eqc true
 set_option maxHeartbeats 1000000
+-- change 73 to cases h2 in \PossiblyInfiniteTrees\PossiblyInfiniteTrees\PossiblyInfiniteTree\FiniteDegreeTree\Basic.lean
 -/
 
 namespace Set
@@ -378,6 +379,7 @@ namespace List
     rw [h]
 
   theorem toSet_is_finite [DecidableEq α] (l : List α) : l.toSet.finite := by
+    exists l.eraseDupsKeepRight
     sorry
 
   theorem mem_map_iff_mem_map_eraseDupsKeepRight (l : List α) (h : α → β) (e : β) [DecidableEq α] : e ∈ List.map h l ↔ e ∈ List.map h l.eraseDupsKeepRight := by
@@ -1387,7 +1389,12 @@ namespace FactSet
         specialize gtm_af f
         rw [List.mem_iff_toSet_mem]
         apply gtm_af
-        sorry
+        unfold GroundTermMapping.applyFactSet
+        exists f'
+        constructor
+        rw [List.mem_toSet]
+        exact f'_in_l
+        exact f'_eq
 
       specialize h af_sub_l
 
@@ -1477,44 +1484,36 @@ namespace FactSet
         rw [← eq2]
         unfold terms_list
         rw [← List.mem_map_iff_mem_map_eraseDupsKeepRight]
-        -- use grind here
-        --grind
+        -- can also use grind here
+        rw [List.map_flatMap, List.flatMap_map]
+
         constructor
         intro h2
-        rw [List.flatMap, List.map_map]
-        sorry
+        rw [List.mem_flatMap] at h2
+        rcases h2 with ⟨f, f_in, f_eq⟩
+        rw [List.mem_flatMap]
+        exists f
         intro h2
-        rw [List.flatMap]
-        sorry
-
+        rw [List.mem_flatMap]
+        rw [List.mem_flatMap] at h2
+        rcases h2 with ⟨f, f_in, f_eq⟩
+        exists f
         exact nodup_terms_list
 
       | inr l_not_sub_mapped =>
         have neq : (l.map gtm.applyFact).toSet ≠ l.toSet := by
-          -- List.map gtm.applyFact l ⊆ l
-          -- ¬l ⊆ List.map gtm.applyFact
-
-          apply Classical.byContradiction
           intro contra
-          simp only [ne_eq, Classical.not_not] at contra
           apply l_not_sub_mapped
           intro f f_in_l
-          rw [List.mem_map]
-          rw [List.subset_def] at l_not_sub_mapped
-          simp only [List.mem_map, Classical.not_forall, not_exists, not_and, ne_eq] at l_not_sub_mapped
-          rcases l_not_sub_mapped with ⟨e, ⟨e_in_l, e_eq⟩⟩
-          specialize e_eq e e_in_l
-          exists e
-          constructor
-          exact e_in_l
-          rw [← List.eq_mem_iff_eq_to_set] at contra
+          rw [← Set.ext_iff] at contra
           specialize contra f
-          rw [← contra] at f_in_l
-          sorry
+          rw [List.mem_iff_toSet_mem]
+          rw [contra]
+          rw [← List.mem_iff_toSet_mem]
+          exact f_in_l
 
         specialize h neq
         contradiction
-
 
 
   theorem t1 (gtm : GroundTermMapping sig) (fs sub : FactSet sig) (fs_nempty : fs ≠ ∅) : gtm.applyFactSet fs ⊆ sub ∧ sub ⊆ fs ∧ sub ≠ fs → gtm.applyFactSet fs ≠ fs := by
@@ -1611,8 +1610,6 @@ namespace FactSet
                   rw [← contra]
                   rw [sub_eq_sub']
               ) sub rfl
-              have y : _ := ex_subset_iff_not_weak_core sub
-              rcases y with ⟨lhs, rhs⟩
               rcases x with ⟨fs, fs_wc, fs_hom_ss_tl⟩
               exists fs
               constructor
@@ -1631,8 +1628,7 @@ namespace FactSet
                   . exact ghom
           -- l.toSet is wc
           · have x : FactSet.isWeakCore l.toSet := by
-              rw [← nex_subset_iff_weak_core]
-
+              apply weak_core_of_nex_subset
               exact h
             exists l.toSet
             constructor
