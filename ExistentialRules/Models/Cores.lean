@@ -14,35 +14,7 @@ namespace Set
   def ssubset (X Y : Set α) : Prop := X ⊆ Y ∧ X ≠ Y
   infix:50 " ⊂ " => ssubset
 
-  theorem ext (X Y : Set α) : (∀ e, e ∈ X ↔ e ∈ Y) -> X = Y := by
-    intro h
-    apply funext
-    intro e
-    apply propext
-    specialize h e
-    exact h
-
-  theorem ext_iff (X Y : Set α) : (∀ e, e ∈ X ↔ e ∈ Y) ↔ X = Y := by
-    constructor
-    . apply ext
-    . intro h e; rw [h]
-
   def singleton (a : α) : Set α := fun x => x = a
-
-  theorem not_empty_contains_element (X : Set α) : X ≠ ∅ -> ∃ e, e ∈ X := by
-      intro neq
-      apply Classical.byContradiction
-      intro contra
-      apply neq
-      apply funext
-      intro x
-      apply propext
-      simp only [not_exists] at contra
-      unfold Set.empty
-      specialize contra x
-      unfold Set.element at contra
-      simp only [iff_false]
-      exact contra
 
   theorem eq_empty_of_subset_empty {α : Type u} {X : Set α} : X ⊆ ∅ → X = ∅ := by
     intro subset
@@ -377,10 +349,6 @@ namespace List
     intro h e
     repeat rw [List.mem_iff_toSet_mem]
     rw [h]
-
-  theorem toSet_is_finite [DecidableEq α] (l : List α) : l.toSet.finite := by
-    exists l.eraseDupsKeepRight
-    sorry
 
   theorem mem_map_iff_mem_map_eraseDupsKeepRight (l : List α) (h : α → β) (e : β) [DecidableEq α] : e ∈ List.map h l ↔ e ∈ List.map h l.eraseDupsKeepRight := by
     repeat rw [List.mem_map]
@@ -1364,17 +1332,13 @@ namespace FactSet
       specialize subset e h
       exact subset
 
-  theorem length_eraseDupsKeepRight_eq_of_same_elements [DecidableEq α] (l1 l2 : List α) : (∀ e, e ∈ l1 ↔ e ∈ l2) -> l1.eraseDupsKeepRight.length = l2.eraseDupsKeepRight.length := by
-    sorry
-
-
   theorem weak_core_of_nex_subset (l : List (Fact sig)):
     ¬ (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) -> (isWeakCore l.toSet) := by
       intro h
       simp only [not_exists] at h
       intro gtm gtm_hom
       simp only [not_and, ne_eq] at h
-      have l_set_fin : l.toSet.finite := by exact List.toSet_is_finite l
+      have l_set_fin : l.toSet.finite := by exact List.finite_toSet l
       have inj_str := hom_strong_of_finite_of_injective l.toSet l_set_fin gtm gtm_hom
 
       specialize h (l.map gtm.applyFact)
@@ -1455,7 +1419,7 @@ namespace FactSet
         rw [Function.injective_set_list_equiv gtm (terms l.toSet) terms_list mem_terms_list]
         rw [Function.injective_iff_length_image_eq_of_nodup]
         rw [Function.image_eq_eraseDupsKeepRight_map]
-        apply length_eraseDupsKeepRight_eq_of_same_elements
+        apply List.length_eraseDupsKeepRight_eq_of_same_elements
         intro gt
         specialize mem_terms_list gt
 
