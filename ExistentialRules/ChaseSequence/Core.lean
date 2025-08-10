@@ -36,7 +36,8 @@ def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
 -- define CoreChaseBranch as extention from ChaseBranch
 -- Idee, ChaseBranch mit assertion, dass jede Node muss Core sein
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) extends ChaseBranch obs kb where
-  only_cores : sorry -- ∀ node, node ∈ branch, ChaseNode.isStrongCore node
+  only_cores : ∀ (n : Nat), (branch.infinite_list n ≠ none) → ChaseNode.isWeakCore (branch.infinite_list n)
+  -- wie match ich das, ich will for alle elemente wo isSome true ist also das element nicht 'none' ist die node ein core ist
   -- => braucht ggf: define Membership for PossiblyInfiniteList
 
 
@@ -49,8 +50,17 @@ end PossiblyInfiniteList
 -- {{a,b},{a,c},{d}} -> {a,b,c,d}
 def setFlatten (S : Set (Set α)) : Set α := sorry
 
--- theorem 7
+-- theorem 7 (7 depends on 16)
 theorem ExUniversalModelIffCoreChaseHasModel : true := sorry
+
+
+
+  -- what does it mean for a node to be universal
+  def ChaseNode.isUniversal (node : ChaseNode obs rules) : Prop := sorry
+
+  -- core chase preserves universality at every step
+  theorem coreChaseUniversalForEachStep (cb : ChaseBranch obs kb) : ∀ node, node ∈ cb.branch → ChaseNode.isUniversal node := sorry
+
 
   -- theorem 16, part 1 to 5
   -- (rules : Set (TGD sig)) wie ?
@@ -92,6 +102,12 @@ def GroundTermMapping.applyMapSetFactSet (hs : Set (GroundTermMapping sig)) (fs 
   -- {h.applyFactSet fs | h ∈ hs}
 
 -- parallel chase steps can be broken down intro a sequence of single-rule chase steps, both yielding the same result
+
+def CoreChaseBranch.parallel_step : true := sorry
+
+-- this is parallel_step with a core calc afterwards
+def CoreChaseBranch.core_chase_step : true := sorry
+
 theorem ChaseBranch.applyMapSetFactSetEqApplyFactSetSeq (hs : Set (GroundTermMapping sig)) (fs : FactSet sig) : true := sorry
 
   def FactSet.getCore (fs : FactSet sig) : FactSet sig := sorry
@@ -122,7 +138,7 @@ infixr:50 " ≺ " => Rule.prec
 -- the set of constraints in every cycle of G(Σ) is weakly acyclic (G(Σ)) is the chase graph)
 def RuleSet.isStratified (rs : RuleSet sig) : true := sorry
 
-
+-- for defining weakly acyclic
 structure Position (A : Atom sig) where
   R : sig.P
   i : Nat
@@ -130,33 +146,57 @@ structure Position (A : Atom sig) where
 
 
 -- we should realy consider using Mathlib Graphs / SimpleGraphs
-structure Graph α where
+structure Graph where
   V : Set α
   E : Set (α × α)
 
 namespace Graph
 
-  def reachNext (G : Graph α) (v1 v2 : α) : Prop := (v1, v2) ∈ G.E
+  def reachNext (G : Graph) (v1 v2 : α) : Prop := (v1, v2) ∈ G.E
 
   -- show termination, but what if we have reachability by an infinite path, do we care ?
-  def reachable (G : Graph α) (v1 v2 : α) : Prop := ∃ v, (reachNext G v1 v ∧ reachable G v v2)
+  def reachable (G : Graph) (v1 v2 : α) : Prop := ∃ v, (reachNext G v1 v ∧ reachable G v v2)
 
-  def hasLoop (G : Graph α) : Prop := ∃ v, v ∈ G.V → (v, v) ∈ G.E
+  def hasLoop (G : Graph) : Prop := ∃ v, v ∈ G.V → (v, v) ∈ G.E
 
-  def hasCycle (G : Graph α) : Prop := ∃ vs, vs ⊆ G.V → true
+  def hasCycle (G : Graph) : Prop := ∃ vs, vs ⊆ G.V → true
 
 end Graph
 
 -- (rules : Set (TGD sig)) wie ?
-structure DependencyGraph (rules : Set (Rule sig)) extends Graph (Set (Rule sig)) where
-  p1 : true
-  p2 : true
 
+def Function.isInjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (f x = f y → x = y)
+
+def Function.isInjective' (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (x ≠ y → f x ≠ f y)
+
+-- Mathlib.Tactic.Contrapose
+theorem Function.isInjectiveIffisInjective' (f : α → β) (A : Set α) (B : Set β) : Function.isInjective f A B ↔ Function.isInjective' f A B := by
+  unfold isInjective isInjective'
+  constructor
+  intro h x y ⟨x_in_A, y_in_A⟩ neq
+  specialize h x y ⟨x_in_A, y_in_A⟩
+  grind
+  intro h x y ⟨x_in_A, y_in_A⟩ feq
+  specialize h x y ⟨x_in_A, y_in_A⟩
+  grind
+
+
+def Function.isSurjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ y, ∃ x, y ∈ B ∧ x ∈ A → (f x = y)
+
+def Function.bijective (f : α → β) (A : Set α) (B : Set β) : Prop := Function.isInjective f A B ∧ Function.isSurjective f A B
+
+-- def 9 from appendix (weakly acyclic)
+structure DependencyGraph (rules : RuleSet sig) extends Graph (RuleSet sig) where
+  V : {Position.fromAtom A | A ∈ rule ∈ rules}
+  E : sorry
 
 -- rs is wa if its dependency graph has no cycles with an existential edge
-def RuleSet.isWeaklyAcyclic (rs : RuleSet sig) : Prop :=
-  | DependencyGraph.
 
+def DependencyGraph.hasExistentialCycle (G : DependencyGraph rules) : Prop := sorry
+
+-- implement check for cycle with existential edge
+
+def RuleSet.isWeaklyAcyclic (rs : RuleSet sig) : Prop := ¬ DependencyGraph.hasExistentialCycle (DependencyGraph rs)
 
 -- All weakly-acyclic sets of TGDs and EGDs are stratified
 theorem rsWeaklyAcycIfStratified (rs : RuleSet sig) : rs.isWeaklyAcyclic → rs.isStratified := by sorry
@@ -185,9 +225,6 @@ namespace GroundTermMapping
 end GroundTermMapping
 
 
-
-
-
 -- if the body is machted return the head with applied h else do nothing
 -- => we maybe should split this into a Rule.apply that always applies and a Rule.isActive
 --    which returns a prop whenever the body can be matched
@@ -196,19 +233,21 @@ end GroundTermMapping
 def Rule.apply (r : Rule sig) (h : GroundTermMapping sig) (fs : FactSet sig) : FactSet sig := sorry
 
 
+
+
 def FactSet.isFClosedFor (F : Set (GroundTermMapping sig)) (T : FactSet sig) (K : FactSet sig) : Prop := sorry
 
 -- needs refinement
 abbrev ModelSet := Set (FactSet sig)
 -- U must be finite, K cannot
-def isUniversalSetModel (U : Set (FactSet sig)) (K : Set (FactSet sig)) (F : Set (GroundTermMapping sig)) :
-  ∀ M ∈ K, ∃ T ∈ U, FactSet.isFClosedFor F T M ∧
+def isUniversalModelSet  (U : Set (FactSet sig)) (K : Set (FactSet sig)) (F : Set (GroundTermMapping sig)) :
+  ∀ M, M ∈ K → ∃ T, T ∈ U → FactSet.isFClosedFor F T M ∧
   U ⊆ K ∧
   U.finite ∧
-  ¬ ∃ U' ⊂ U, isUniversalSetModel U' U F := by sorry
+  ¬ ∃ U', U' ⊂ U → isUniversalModelSet U' U F := by sorry
 
 -- chase sequence A_0,A_1... is terminating if A_n ⊧ Σ
-theorem ChaseTermIfModel (cb : ChaseBranch obs kb) (sigma : RuleSet sig) : ∃ e ∈ cb.branch, e ⊧ sigma := by sorry
+theorem ChaseTermIfExModel (cb : ChaseBranch obs kb) (rules : RuleSet sig) : ∃ e, e ∈ cb.branch →  FactSet.modelsRules e rules := by sorry
 -- => Membership on possibly infinite List ?
 
 -- All chase results are hom equiv.
