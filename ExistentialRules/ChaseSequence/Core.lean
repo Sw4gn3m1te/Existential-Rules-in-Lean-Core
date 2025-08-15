@@ -35,15 +35,36 @@ def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
 
 -- define CoreChaseBranch as extention from ChaseBranch
 -- Idee, ChaseBranch mit assertion, dass jede Node muss Core sein
+
+def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
+  ¬(∃ trg : (RTrigger obs rules), ∃ (before_core : FactSet sig), trg.val.active before_core ∧ before_core.isWeakCore ∧ before_core ⊆ before.fact) ∧ after = none
+
+def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
+  ∃ trg : (RTrigger obs rules), ∃ (before_core : FactSet sig), trg.val.active before_core ∧ before_core.isWeakCore ∧ before_core ⊆ before.fact ∧ ∃ i, some {
+    fact := ⟨
+      sorry, sorry
+    ⟩
+    origin := some ⟨trg, i⟩ ∧ i.isWeakCore
+  }
+
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) extends ChaseBranch obs kb where
-  only_cores : ∀ (n : Nat), (branch.infinite_list n ≠ none) → ChaseNode.isWeakCore (branch.infinite_list n)
+  only_cores : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun fs => ∃ (wc : FactSet sig), wc.isWeakCore ∧ fs.fact ⊆ wc)
+  trigger_exists : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun before =>
+  let after := branch.infinite_list (n+1)
+  ∃ (wc : FactSet sig), wc.isWeakCore ∧
+  (exists_trigger_opt_fs_core obs kb.rules before after ∨
+  (not_exists_trigger_opt_fs_core obs kb.rules before after)
+  ))
+
+  -- problem: die nodes sind nur nach der core calc cores
+  -- => wir können einfach sagen, dass es für jede node einen core gibt
   -- wie match ich das, ich will for alle elemente wo isSome true ist also das element nicht 'none' ist die node ein core ist
   -- => braucht ggf: define Membership for PossiblyInfiniteList
-
+  -- nutze bereits gezeigtes resultat hier
 
 namespace PossiblyInfiniteList
-
-  def toSet (l : PossiblyInfiniteList α) : Set α := sorry
+  -- save nicht right
+  def toSet (l : PossiblyInfiniteList α) : Option α → Prop := fun x => x.is_some_and (fun f => f ∈ x)
 
 end PossiblyInfiniteList
 
@@ -54,13 +75,12 @@ def setFlatten (S : Set (Set α)) : Set α := sorry
 theorem ExUniversalModelIffCoreChaseHasModel : true := sorry
 
 
-
   -- what does it mean for a node to be universal
   def ChaseNode.isUniversal (node : ChaseNode obs rules) : Prop := sorry
 
   -- core chase preserves universality at every step
   theorem coreChaseUniversalForEachStep (cb : ChaseBranch obs kb) : ∀ node, node ∈ cb.branch → ChaseNode.isUniversal node := sorry
-
+  -- define recurser maybe ?
 
   -- theorem 16, part 1 to 5
   -- (rules : Set (TGD sig)) wie ?
@@ -90,14 +110,19 @@ theorem ExUniversalModelIffCoreChaseHasModel : true := sorry
 -- strong oder weak ?
 theorem coreChaseYieldsCore (cb : CoreChaseBranch obs kb) (core : FactSet sig) : FactSet.isWeakCore cb.result := sorry
 
-
+-- infinte set may not have a core !
 -- finite core chase exists iff finite universal model exists
 -- two distinct core chase branches have the same result
 -- => core chase result does not depend on the order of trigger application
+-- (bis auf isomorphie)
+
+--=> not chase tree
 
 
 -- resulting Factset of applying a set of gtm's to an existing fact set
 -- we need this when implementing a core calculation later
+
+-- eher Listen nutzen
 def GroundTermMapping.applyMapSetFactSet (hs : Set (GroundTermMapping sig)) (fs : FactSet sig) : FactSet sig := sorry
   -- {h.applyFactSet fs | h ∈ hs}
 
@@ -108,8 +133,11 @@ def CoreChaseBranch.parallel_step : true := sorry
 -- this is parallel_step with a core calc afterwards
 def CoreChaseBranch.core_chase_step : true := sorry
 
+
 theorem ChaseBranch.applyMapSetFactSetEqApplyFactSetSeq (hs : Set (GroundTermMapping sig)) (fs : FactSet sig) : true := sorry
 
+
+  -- für eine nicht spezifische implementierung könnte man einfach nur den type angeben welcher einen core forced
   def FactSet.getCore (fs : FactSet sig) : FactSet sig := sorry
 
   -- cores calculation is only neccessary after finitely many steps
@@ -119,6 +147,9 @@ theorem ChaseBranch.applyMapSetFactSetEqApplyFactSetSeq (hs : Set (GroundTermMap
 
 
 -- define structure of TGDs here
+-- alle Regeln sind bereits TGDs aber mit disjunction
+-- regeln sind deterministic wenn der head länge 1 hat
+-- Aufbau {{∧} ∨ {∧} ... }
 structure TGD extends Rule sig where
   -- idee hier ist eine extra liste "existential_binder" zu haben, welche alle existenziell gebundenen vars enthält
   -- "existential_binder_is_distinct" asserted, dass nur neue vars gebunden werden können
@@ -143,7 +174,6 @@ structure Position (A : Atom sig) where
   R : sig.P
   i : Nat
   i_in_range : 1 ≤ i ∧ i ≤ sig.arity R
-
 
 -- we should realy consider using Mathlib Graphs / SimpleGraphs
 structure Graph where
@@ -182,6 +212,8 @@ theorem Function.isInjectiveIffisInjective' (f : α → β) (A : Set α) (B : Se
 
 
 def Function.isSurjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ y, ∃ x, y ∈ B ∧ x ∈ A → (f x = y)
+
+-- instanzieren der Membership class
 
 def Function.bijective (f : α → β) (A : Set α) (B : Set β) : Prop := Function.isInjective f A B ∧ Function.isSurjective f A B
 
