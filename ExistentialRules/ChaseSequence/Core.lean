@@ -19,6 +19,58 @@ def ChaseNode.isWeakCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs
 def ChaseNode.isStrongCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
  Prop := FactSet.isStrongCore node.fact.val
 
+def getCore (fs : FactSet sig) (fs_fin : fs.finite) : ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by sorry
+
+structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
+  fs : FactSet sig
+  fs_fin : fs.finite
+  core : FactSet sig
+  is_core : core.isWeakCore
+  core_sse : core ⊆ fact
+  origin : Option (RTrigger (obs : LaxObsoletenessCondition sig) rules)
+  fs_contains_origin_result : origin.is_none_or (fun origin => origin.val.mapped_head.flatten.toSet ⊆ fs)
+
+
+-- checkt ob wenn man einen trigger (trg) auf einer menge (before) anwendet, die menge (after) rauskommt
+def RTrigger.isStep (trg : Trigger (obs : LaxObsoletenessCondition sig)) (before after : FactSet sig) : Prop :=
+  ∃ fact, fact ∈ before → after = before ∪ (trg.mapped_head).flatten.toSet
+
+def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
+  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.fs ∧ ∃ c,
+    some {
+      fs := before.fs ∪ (trg.val.mapped_head).flatten.toSet
+      fs_fin := by sorry
+      core := c
+      is_core := by sorry
+      core_sse := by sorry
+      origin := trg
+      fs_contains_origin_result := sorry
+    } = after
+
+def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
+  ¬(∃ trg : (RTrigger obs rules), trg.val.active before.fs) ∧ after = none
+
+structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
+  branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
+  database_first : branch.infinite_list 0 = some {
+    fs := kb.db.toFactSet
+    fs_fin := by grind
+    core := sorry
+    is_core := sorry
+    core_sse := by sorry
+    origin := none,
+    fs_contains_origin_result := by simp [Option.is_none_or]
+  }
+
+  only_cores : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun fs => ∃ (wc : FactSet sig), wc.isWeakCore ∧ fs.fs ⊆ wc)
+  triggers_exist : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun before =>
+  let after := branch.infinite_list (n+1)
+  (exists_trigger_opt_fs_core obs kb.rules before after) ∨
+    (not_exists_trigger_opt_fs_core obs kb.rules before after))
+  fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fs))
+    ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fs))
+
+
 ------
 
 -- define some syntactic suggar
@@ -36,25 +88,6 @@ def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
 -- define CoreChaseBranch as extention from ChaseBranch
 -- Idee, ChaseBranch mit assertion, dass jede Node muss Core sein
 
-def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
-  ¬(∃ trg : (RTrigger obs rules), ∃ (before_core : FactSet sig), trg.val.active before_core ∧ before_core.isWeakCore ∧ before_core ⊆ before.fact) ∧ after = none
-
-def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
-  ∃ trg : (RTrigger obs rules), ∃ (before_core : FactSet sig), trg.val.active before_core ∧ before_core.isWeakCore ∧ before_core ⊆ before.fact ∧ ∃ i, some {
-    fact := ⟨
-      sorry, sorry
-    ⟩
-    origin := some ⟨trg, i⟩ ∧ i.isWeakCore
-  }
-
-structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) extends ChaseBranch obs kb where
-  only_cores : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun fs => ∃ (wc : FactSet sig), wc.isWeakCore ∧ fs.fact ⊆ wc)
-  trigger_exists : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun before =>
-  let after := branch.infinite_list (n+1)
-  ∃ (wc : FactSet sig), wc.isWeakCore ∧
-  (exists_trigger_opt_fs_core obs kb.rules before after ∨
-  (not_exists_trigger_opt_fs_core obs kb.rules before after)
-  ))
 
   -- problem: die nodes sind nur nach der core calc cores
   -- => wir können einfach sagen, dass es für jede node einen core gibt
