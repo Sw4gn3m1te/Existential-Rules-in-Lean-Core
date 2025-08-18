@@ -1368,7 +1368,7 @@ theorem strong_core_of_universal_model_is_universal_model
       specialize subset e h
       exact subset
 
-  theorem weak_core_of_nex_subset (l : List (Fact sig)):
+  theorem weak_core_of_neq_subset (l : List (Fact sig)):
     ¬ (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) -> (isWeakCore l.toSet) := by
       intro h
       simp only [not_exists] at h
@@ -1628,7 +1628,7 @@ theorem strong_core_of_universal_model_is_universal_model
                   . exact ghom
           -- l.toSet is wc
           · have x : FactSet.isWeakCore l.toSet := by
-              apply weak_core_of_nex_subset
+              apply weak_core_of_neq_subset
               exact h
             exists l.toSet
             constructor
