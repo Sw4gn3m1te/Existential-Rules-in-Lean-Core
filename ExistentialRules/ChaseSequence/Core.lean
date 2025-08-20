@@ -38,28 +38,21 @@ def RTrigger.isStep (trg : Trigger (obs : LaxObsoletenessCondition sig)) (before
 
 
 def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
-  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.core ∧ ∃ c i,
-    some {
-      fs := before.core ∪ (trg.val.mapped_head).flatten.toSet
-      fs_fin := by sorry
-      core := c
-      is_core := by sorry
-      core_sse := by sorry
-      origin := some ⟨trg, i⟩
-      fs_contains_origin_result := sorry
-    } = after
+  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.core ∧ ∃ (c :FactSet sig) (i : _),
+    after.is_none_or (fun a => a.fs = before.core ∪ (trg.val.mapped_head).flatten.toSet ∧ a.core = c ∧ a.origin = some ⟨trg, i⟩)
 
 def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
+
 
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
   database_first : branch.infinite_list 0 = some {
     fs := kb.db.toFactSet
     fs_fin := by grind
-    core := sorry
+    core := kb.db.toFactSet -- können wir hier davon ausgehen, dass die init db ein core ist ?
     is_core := sorry
-    core_sse := by sorry
+    core_sse := sorry
     origin := none,
     fs_contains_origin_result := by simp [Option.is_none_or]
   }
@@ -77,10 +70,26 @@ namespace CoreChaseBranch
 
   variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-  -- ich will fs.core vom letzten element (also das was nicht none ist aber wo (n+1) none ist)
-  def result (cb : CoreChaseBranch obs kb) : Option (FactSet sig) :=
-    fun fs =>
-    ite (∃ n, (cb.branch.infinite_list n).is_some_and (fun x => x = (cb.branch.infinite_list (n+1) ∧ x = none))) ((cb.branch.infinite_list n).core) (none)
+  def finite (cb : CoreChaseBranch obs kb) : Prop :=
+    ∃ n, (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none)
+
+  def get_n_of_finite_cb (cb : CoreChaseBranch obs kb) (finite : cb.finite) : Nat := by
+    unfold CoreChaseBranch.finite at finite
+    rcases finite with ⟨-, a, b⟩
+
+  def castCbOptionNotNoneToCb (ocb : Option (CoreChaseBranch obs kb)) (not_none : ocb ≠ none) : CoreChaseBranch obs kb := by
+    match ocb with
+      | some cb => exact cb
+      | none => contradiction
+
+
+  def last_element_index (cb : CoreChaseBranch ob kb) (finite : cb.finite) (n : Nat) : Nat :=
+    match cb.branch.infinite_list n with
+      | some cn => last_element_index cb finite (n+1)
+      | none => n-1
+
+  def last_element (cb : CoreChaseBranch ob kb) (finite : cb.finite) : FactSet sig :=
+    (cb.branch.infinite_list (last_element_index cb finite 0)).core
 
 end CoreChaseBranch
 
