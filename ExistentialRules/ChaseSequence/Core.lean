@@ -10,6 +10,13 @@ import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 --import Mathlib.Combinatorics.Graph.Basic
 
 
+/-
+ToDos für Lukas:
+  - Membership definieren
+  - ChaseBranch.fact in ChaseBranch.fs refactorn
+-/
+
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
@@ -19,8 +26,7 @@ def ChaseNode.isWeakCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs
 def ChaseNode.isStrongCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
  Prop := FactSet.isStrongCore node.fact.val
 
-def getCore (fs : FactSet sig) (fs_fin : fs.finite) : ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by sorry
-
+def getCore (fs : FactSet sig) (fs_fin : fs.finite) : {wc : FactSet sig // wc.isWeakCore ∧ wc.homSubset fs} := by sorry
 
 structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   fs : FactSet sig
@@ -73,25 +79,30 @@ namespace CoreChaseBranch
   def finite (cb : CoreChaseBranch obs kb) : Prop :=
     ∃ n, (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none)
 
-  def get_n_of_finite_cb (cb : CoreChaseBranch obs kb) (finite : cb.finite) : Nat := by
-    unfold CoreChaseBranch.finite at finite
-    rcases finite with ⟨-, a, b⟩
+  -- this should be stronger than cb.finite
+  def finite' (cb : CoreChaseBranch obs kb) : Prop :=
+    ∃ n, (cb.branch.infinite_list (n+1) = none)
 
-  def castCbOptionNotNoneToCb (ocb : Option (CoreChaseBranch obs kb)) (not_none : ocb ≠ none) : CoreChaseBranch obs kb := by
+  def castCbOptionNotNoneToCb (ocb : Option (CoreChaseNode obs rules)) (not_none : ocb ≠ none) : CoreChaseNode obs rules := by
     match ocb with
       | some cb => exact cb
       | none => contradiction
 
+   theorem prev_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
+    intro m lt
+    sorry
 
-  def last_element_index (cb : CoreChaseBranch ob kb) (finite : cb.finite) (n : Nat) : Nat :=
+  def last_element_index (cb : CoreChaseBranch ob kb) (finite : cb.finite') (n : Nat) : Nat :=
     match cb.branch.infinite_list n with
       | some cn => last_element_index cb finite (n+1)
       | none => n-1
+      termination_by finite
 
-  def last_element (cb : CoreChaseBranch ob kb) (finite : cb.finite) : FactSet sig :=
-    (cb.branch.infinite_list (last_element_index cb finite 0)).core
+  def result (cb : CoreChaseBranch ob kb) (finite : cb.finite') : FactSet sig :=
+    (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb finite 0)) sorry).core
 
 end CoreChaseBranch
+
 
 ------
 
@@ -126,7 +137,7 @@ end PossiblyInfiniteList
 def setFlatten (S : Set (Set α)) : Set α := sorry
 
 -- theorem 7 (7 depends on 16)
-theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) : cb.result.modelsKb kb → cb.result.universallyModelsKb kb := by
+theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) (finite : cb.finite') : (CoreChaseBranch.result cb finite).modelsKb kb → (CoreChaseBranch.result cb finite).universallyModelsKb kb := by
   unfold FactSet.universallyModelsKb
   intro h
   constructor
@@ -147,35 +158,16 @@ theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) : cb.
   sorry
 
 
-theorem result_models_kb_core (cb : CoreChaseBranch obs kb) : cb.result.modelsKb kb := by
+theorem result_models_kb_core (cb : CoreChaseBranch obs kb) (finite : cb.finite') : (CoreChaseBranch.result cb finite).modelsKb kb := by
   constructor
   . unfold FactSet.modelsDb
     unfold CoreChaseBranch.result
     intro f h
-    exists 0
-    rw [cb.database_first, Option.is_some_and]
-
-    exact h
-  . unfold FactSet.modelsRules
-    intro r h
-    unfold FactSet.modelsRule
-    intro subs subs_loaded
-    apply Classical.byContradiction
-    intro subs_not_obsolete
-    let trg : Trigger obs := ⟨r, subs⟩
-    have trg_loaded : trg.loaded cb.result := by apply subs_loaded
-    have trg_not_obsolete : ¬ obs.cond trg cb.result := by
-      intro contra
-      have obs_impl_sat := obs.cond_implies_trg_is_satisfied contra
-      apply subs_not_obsolete
-      rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
-      exists i
-      exists s'
+    sorry
 
 
 
-theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSet sig) : cb.result.universallyModelsKb kb := by
-
+theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSet sig) (finite : cb.finite') : (CoreChaseBranch.result cb finite).universallyModelsKb kb := by sorry
 
   -- core chase preserves universality at every step -> if it terminates then there is a universal model which is the result of the core chase
   theorem coreChaseUniversalForEachStep (cb : ChaseBranch obs kb) : ∀ node, node ∈ cb.branch → ChaseNode.isUniversal node := sorry
