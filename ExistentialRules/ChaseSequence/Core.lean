@@ -21,34 +21,36 @@ def ChaseNode.isStrongCore {obs : ObsoletenessCondition sig} (node : ChaseNode o
 
 def getCore (fs : FactSet sig) (fs_fin : fs.finite) : ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by sorry
 
+
 structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   fs : FactSet sig
   fs_fin : fs.finite
   core : FactSet sig
   is_core : core.isWeakCore
   core_sse : core ⊆ fact
-  origin : Option (RTrigger (obs : LaxObsoletenessCondition sig) rules)
-  fs_contains_origin_result : origin.is_none_or (fun origin => origin.val.mapped_head.flatten.toSet ⊆ fs)
+  origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
+  fs_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fact)
 
 
 -- checkt ob wenn man einen trigger (trg) auf einer menge (before) anwendet, die menge (after) rauskommt
 def RTrigger.isStep (trg : Trigger (obs : LaxObsoletenessCondition sig)) (before after : FactSet sig) : Prop :=
   ∃ fact, fact ∈ before → after = before ∪ (trg.mapped_head).flatten.toSet
 
+
 def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
-  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.fs ∧ ∃ c,
+  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.core ∧ ∃ c i,
     some {
-      fs := before.fs ∪ (trg.val.mapped_head).flatten.toSet
+      fs := before.core ∪ (trg.val.mapped_head).flatten.toSet
       fs_fin := by sorry
       core := c
       is_core := by sorry
       core_sse := by sorry
-      origin := trg
+      origin := some ⟨trg, i⟩
       fs_contains_origin_result := sorry
     } = after
 
 def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
-  ¬(∃ trg : (RTrigger obs rules), trg.val.active before.fs) ∧ after = none
+  ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
 
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
@@ -62,7 +64,7 @@ structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase s
     fs_contains_origin_result := by simp [Option.is_none_or]
   }
 
-  only_cores : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun fs => ∃ (wc : FactSet sig), wc.isWeakCore ∧ fs.fs ⊆ wc)
+  -- only_cores : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun fs => ∃ (wc : FactSet sig), wc.isWeakCore ∧ fs.fs ⊆ wc)
   triggers_exist : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun before =>
   let after := branch.infinite_list (n+1)
   (exists_trigger_opt_fs_core obs kb.rules before after) ∨
@@ -70,6 +72,17 @@ structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase s
   fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fs))
     ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fs))
 
+
+namespace CoreChaseBranch
+
+  variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+
+  -- ich will fs.core vom letzten element (also das was nicht none ist aber wo (n+1) none ist)
+  def result (cb : CoreChaseBranch obs kb) : Option (FactSet sig) :=
+    fun fs =>
+    ite (∃ n, (cb.branch.infinite_list n).is_some_and (fun x => x = (cb.branch.infinite_list (n+1) ∧ x = none))) ((cb.branch.infinite_list n).core) (none)
+
+end CoreChaseBranch
 
 ------
 
@@ -84,7 +97,6 @@ infixr:65 " ⊧ᵤ" => FactSet.universallyModelsKb
 
 def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
 
-
 -- define CoreChaseBranch as extention from ChaseBranch
 -- Idee, ChaseBranch mit assertion, dass jede Node muss Core sein
 
@@ -97,7 +109,7 @@ def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
 
 namespace PossiblyInfiniteList
   -- save nicht right
-  def toSet (l : PossiblyInfiniteList α) : Option α → Prop := fun x => x.is_some_and (fun f => f ∈ x)
+  def toSet (l : PossiblyInfiniteList α) : Option α → Prop := fun x => x.is_some_and (fun f => f ∈ l)
 
 end PossiblyInfiniteList
 
@@ -105,13 +117,58 @@ end PossiblyInfiniteList
 def setFlatten (S : Set (Set α)) : Set α := sorry
 
 -- theorem 7 (7 depends on 16)
-theorem ExUniversalModelIffCoreChaseHasModel : true := sorry
+theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) : cb.result.modelsKb kb → cb.result.universallyModelsKb kb := by
+  unfold FactSet.universallyModelsKb
+  intro h
+  constructor
+  exact h
+  intro fs fs_mod
+  unfold FactSet.modelsKb FactSet.modelsDb FactSet.modelsRules at h
+  rcases h with ⟨h1, h2⟩
+  have r : Rule sig := sorry
+  specialize h2 r
+  by_cases case : r ∈ kb.rules.rules
+  specialize h2 case
+  unfold FactSet.modelsRule at h2
+  have gtm : GroundTermMapping sig := by sorry
+  have gts : GroundSubstitution sig := by sorry
+  specialize h2 gts
+  exists gtm
+  sorry
+  sorry
 
 
-  -- what does it mean for a node to be universal
-  def ChaseNode.isUniversal (node : ChaseNode obs rules) : Prop := sorry
+theorem result_models_kb_core (cb : CoreChaseBranch obs kb) : cb.result.modelsKb kb := by
+  constructor
+  . unfold FactSet.modelsDb
+    unfold CoreChaseBranch.result
+    intro f h
+    exists 0
+    rw [cb.database_first, Option.is_some_and]
 
-  -- core chase preserves universality at every step
+    exact h
+  . unfold FactSet.modelsRules
+    intro r h
+    unfold FactSet.modelsRule
+    intro subs subs_loaded
+    apply Classical.byContradiction
+    intro subs_not_obsolete
+    let trg : Trigger obs := ⟨r, subs⟩
+    have trg_loaded : trg.loaded cb.result := by apply subs_loaded
+    have trg_not_obsolete : ¬ obs.cond trg cb.result := by
+      intro contra
+      have obs_impl_sat := obs.cond_implies_trg_is_satisfied contra
+      apply subs_not_obsolete
+      rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
+      exists i
+      exists s'
+
+
+
+theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSet sig) : cb.result.universallyModelsKb kb := by
+
+
+  -- core chase preserves universality at every step -> if it terminates then there is a universal model which is the result of the core chase
   theorem coreChaseUniversalForEachStep (cb : ChaseBranch obs kb) : ∀ node, node ∈ cb.branch → ChaseNode.isUniversal node := sorry
   -- define recurser maybe ?
 
@@ -141,7 +198,16 @@ theorem ExUniversalModelIffCoreChaseHasModel : true := sorry
 
 -- core chase result is core
 -- strong oder weak ?
-theorem coreChaseYieldsCore (cb : CoreChaseBranch obs kb) (core : FactSet sig) : FactSet.isWeakCore cb.result := sorry
+theorem coreChaseYieldsCore (cb : CoreChaseBranch obs kb) : cb.result.isWeakCore := by
+  obtain ⟨pil, _, oc, _, _⟩ := cb
+  rcases pil with ⟨l, _⟩
+
+  intro gtm ⟨gtm_c, gtm_fs⟩
+  constructor
+  intro f f_in
+
+
+
 
 -- infinte set may not have a core !
 -- finite core chase exists iff finite universal model exists
