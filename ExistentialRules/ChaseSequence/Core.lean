@@ -141,9 +141,6 @@ namespace CoreChaseBranch
 
   def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
 
-  theorem terminating_eq_index (cb : CoreChaseBranch obs kb) : ((∃ n, (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none)) ∧ (∃ m, (cb.branch.infinite_list m) ≠ none ∧ (cb.branch.infinite_list (m+1) = none))) → m = n := by
-    sorry
-
   theorem last_element_index_eq_termintes'_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (n : Nat) (index_eq : last_element_index cb ter' = n) : (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none) := by
     rcases ter' with ⟨m, not_none, is_none⟩
     have eq : m = n := by sorry
@@ -157,7 +154,7 @@ namespace CoreChaseBranch
     have ter'_copy := ter'
     rcases ter' with ⟨n, some_at_n, non_at_succ_n⟩
     have h2 : cb.last_element_index ter'_copy = n := by sorry -- by last_element_index_eq_termintes'_index
-    
+
     have eq : index = cb.last_element_index ter'_copy := by rfl -- das muss doch auch besser gehen ?
     rw [← eq] at h2
     rw [h2]
@@ -182,7 +179,45 @@ namespace CoreChaseBranch
     exact nh
 
   theorem succ_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
-    sorry
+    intro m gt
+    apply Classical.byContradiction
+    intro contra
+    rcases cb.branch with ⟨l, nh⟩
+    have l_eq : l = cb.branch.infinite_list := by sorry -- by rcases above, but how to "prove" ?
+    rw [← l_eq] at contra is_none_at
+    specialize nh m contra ⟨n, gt⟩
+    contradiction
+
+  theorem terminating_eq_index (cb : CoreChaseBranch obs kb) (m n : Nat) : ((cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none) ∧ (cb.branch.infinite_list m) ≠ none ∧ (cb.branch.infinite_list (m+1) = none)) → m = n := by
+    rintro ⟨h1, h2, h3, h4⟩
+    apply Classical.byContradiction
+    intro contra
+    have : m > n ∨ m < n := by exact Nat.lt_or_gt_of_ne fun a => contra (id (Eq.symm a))
+    rcases this with gt | lt
+    have : ∃ k, n + k = m := by sorry
+    rcases this with ⟨k, add⟩
+    induction k with
+      | zero =>
+        simp only [Nat.add_zero] at add
+        rw [add] at contra
+        contradiction
+      | succ k ih =>
+        apply h3
+        rw [← add]
+        rw [← Nat.add_assoc]
+        apply succ_is_none_if_is_none cb (n + 1) h2 (n + k + 1) (by grind)
+    have : ∃ k, m + k = n := by sorry
+    rcases this with ⟨k, add⟩
+    induction k with
+      | zero =>
+        simp only [Nat.add_zero] at add
+        rw [add] at contra
+        contradiction
+      | succ k ih =>
+        apply h1
+        rw [← add]
+        rw [← Nat.add_assoc]
+        apply succ_is_none_if_is_none cb (m + 1) h4 (m + k + 1) (by grind)
 
   theorem terminating_has_last_index_core (cb : CoreChaseBranch obs kb) : cb.terminates ↔ ∃ n, (cb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> cb.branch.infinite_list m = none := by
   unfold CoreChaseBranch.terminates
@@ -218,21 +253,60 @@ namespace CoreChaseBranch
     apply h
     simp
 
-theorem exLastNodeOfFiniteCoreChaseBranch (cb : CoreChaseBranch obs kb) (finite : cb.finite') : ∃ cn, cn = cb.last_node finite := by
-  exact exists_apply_eq_apply (fun a => a) (cb.last_node finite)
+  theorem exLastNodeOfTerminatingCoreChaseBranch (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ cn, cn = cb.last_node ter' := by
+    exact exists_apply_eq_apply (fun a => a) (cb.last_node ter')
 
-theorem exResultOfFiniteCoreChaseBranch (cb : CoreChaseBranch obs kb) (finite : cb.finite') : ∃ fs, fs = cb.result finite := by
-  exact exists_apply_eq_apply (fun a => a) (cb.result finite)
+  theorem exResultOfTerminatingCoreChaseBranch (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ fs, fs = cb.result ter' := by
+    exact exists_apply_eq_apply (fun a => a) (cb.result ter')
 
-theorem coreChaseResultIsCore (cb : CoreChaseBranch obs kb) (finite : cb.finite') : (cb.result finite).isWeakCore := by
-  unfold CoreChaseBranch.result
-  have : ∃ cn, cn = cb.last_node finite := by exact exLastNodeOfFiniteCoreChaseBranch cb finite
-  rcases this with ⟨cn, cn_last⟩
-  unfold CoreChaseBranch.last_node at cn_last
-  rw [← cn_last]
-  rcases cn with ⟨_,_,_,is_core,_,_,_⟩
-  exact is_core
+  theorem coreChaseResultIsCore (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').isWeakCore := by
+    unfold CoreChaseBranch.result
+    have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
+    rcases this with ⟨cn, cn_last⟩
+    unfold CoreChaseBranch.last_node at cn_last
+    rw [← cn_last]
+    rcases cn with ⟨_,_,_,is_core,_,_,_⟩
+    exact is_core
 
+
+  -- theorem 7 (7 depends on 16)
+  theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb → (CoreChaseBranch.result cb ter').universallyModelsKb kb := by
+    unfold FactSet.universallyModelsKb
+    intro left
+    have right : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
+      intro fs fs_mod
+      let result := cb.result ter'
+      have result_is_core : result.isWeakCore := by apply coreChaseResultIsCore cb
+      specialize result_is_core sorry sorry
+      sorry
+    exact ⟨left, right⟩
+
+
+  theorem result_models_kb_core (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb := by
+    constructor
+    unfold FactSet.modelsDb
+    unfold CoreChaseBranch.result
+    have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
+    rcases this with ⟨cn, cn_last⟩
+    unfold CoreChaseBranch.last_node at cn_last
+    rw [← cn_last]
+    intro f h
+    -- das stimmt doch garnicht fü die core chase ?
+    --> andere def für models benötigt ?
+    sorry
+    sorry
+
+  -- wie will man das zeigen ?
+  --> gibt es keinen core zu infinite sets oder kann es sein, dass es keinen gibt ?
+  theorem eachCoreIsFinite (wc : FactSet sig) (is_core : wc.isWeakCore) : Set.finite wc := by
+    sorry
+
+  theorem result_finite_if_cb_terminates (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
+    have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
+    rcases ter' with ⟨n, is_none⟩
+    rcases this with ⟨cn, last_node⟩
+    refine eachCoreIsFinite (cb.result (Exists.intro n is_none)) ?_
+    exact coreChaseResultIsCore cb (Exists.intro n is_none)
 
 
 end CoreChaseBranch
@@ -278,45 +352,6 @@ def setFlatten (S : Set (Set α)) : Set α := sorry
 
 
 
--- theorem 7 (7 depends on 16)
-theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) (finite : cb.terminates) : (CoreChaseBranch.result cb finite).modelsKb kb → (CoreChaseBranch.result cb finite).universallyModelsKb kb := by
-  unfold FactSet.universallyModelsKb
-  intro left
-  have right : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result finite) m := by
-    intro fs fs_mod
-    let result := cb.result finite
-    have result_is_core : result.isWeakCore := by apply coreChaseResultIsCore cb
-    specialize result_is_core sorry sorry
-    sorry
-  exact ⟨left, right⟩
-
-
-theorem result_models_kb_core (cb : CoreChaseBranch obs kb) (finite : cb.terminates) : (CoreChaseBranch.result cb finite).modelsKb kb := by
-  constructor
-  unfold FactSet.modelsDb
-  unfold CoreChaseBranch.result
-  have : ∃ cn, cn = cb.last_node finite := by exact exLastNodeOfFiniteCoreChaseBranch cb finite
-  rcases this with ⟨cn, cn_last⟩
-  unfold CoreChaseBranch.last_node at cn_last
-  rw [← cn_last]
-  intro f h
-  -- das stimmt doch garnicht fü die core chase ?
-  --> andere def für models benötigt ?
-  sorry
-  sorry
-
--- wie will man das zeigen ?
---> gibt es keinen core zu infinite sets oder kann es sein, dass es keinen gibt ?
-theorem eachCoreIsFinite (wc : FactSet sig) (is_core : wc.isWeakCore) : Set.finite wc := by
-  sorry
-
-
-theorem result_finite_if_cb_finite (cb : CoreChaseBranch obs kb) (finite : cb.finite') : Set.finite (cb.result finite) := by
-  have : ∃ cn, cn = cb.last_node finite := by exact exLastNodeOfFiniteCoreChaseBranch cb finite
-  rcases finite with ⟨n, is_none⟩
-  rcases this with ⟨cn, last_node⟩
-  refine eachCoreIsFinite (cb.result (Exists.intro n is_none)) ?_
-  exact coreChaseResultIsCore cb (Exists.intro n is_none)
 
 theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSet sig) (finite : cb.terminates) : (CoreChaseBranch.result cb finite).universallyModelsKb kb := by sorry
 
