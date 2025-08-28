@@ -123,75 +123,69 @@ namespace CoreChaseBranch
       | some cb => exact cb
       | none => contradiction
 
+  def last_element_index_rec  (cb : CoreChaseBranch ob kb) (ter' : cb.terminates') (n : Nat) : Nat :=
+    match cb.branch.infinite_list n with
+      | none => n-1
+      | some cn =>
+        have : Classical.choose ter' - (n + 1) < Classical.choose ter' - n := by
+          apply Nat.sub_add_lt_sub
+          rcases ter' with ⟨n_max, not_none_at⟩
+          let remaining : Set (CoreChaseNode ob kb.rules) := fun e => ∃ i, e ∈ cb.branch.infinite_list i ∧ n ≤ i ∧ i ≤ n_max
+          apply Classical.byContradiction
+          intro contra
+          simp only [ge_iff_le, Nat.not_le] at contra
+          sorry
+          simp
+        last_element_index_rec cb ter' (n+1)
+      termination_by Classical.choose ter' - n
+
+  def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
+
+  theorem terminating_eq_index (cb : CoreChaseBranch obs kb) : ((∃ n, (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none)) ∧ (∃ m, (cb.branch.infinite_list m) ≠ none ∧ (cb.branch.infinite_list (m+1) = none))) → m = n := by
+    sorry
+
+  theorem last_element_index_eq_termintes'_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (n : Nat) (index_eq : last_element_index cb ter' = n) : (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none) := by
+    rcases ter' with ⟨m, not_none, is_none⟩
+    have eq : m = n := by sorry
+    rw [← eq]
+    exact ⟨not_none, is_none⟩
+
+  theorem last_index_is_some (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : cb.branch.infinite_list (cb.last_element_index ter') ≠ none := by
+    let index : Nat := cb.last_element_index ter'
+    have h1 : index = cb.last_element_index ter' := by rfl
+    rw [← h1]
+    have ter'_copy := ter'
+    rcases ter' with ⟨n, some_at_n, non_at_succ_n⟩
+    have h2 : cb.last_element_index ter'_copy = n := by sorry -- by last_element_index_eq_termintes'_index
+    
+    have eq : index = cb.last_element_index ter'_copy := by rfl -- das muss doch auch besser gehen ?
+    rw [← eq] at h2
+    rw [h2]
+    exact some_at_n
+
+
+  def last_node (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : CoreChaseNode obs kb.rules :=
+    (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb ter')) (by exact last_index_is_some cb ter'))
+
+  def result (cb : CoreChaseBranch ob kb) (ter' : cb.terminates') : FactSet sig :=
+    (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb ter')) (by
+      exact last_index_is_some cb ter')).core
+
   theorem prev_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
     intro m lt
     rcases cb.branch with ⟨l, nh⟩
     have l_eq : l = cb.branch.infinite_list := by sorry -- ???
     rw [l_eq] at nh
     specialize nh n is_some_at ⟨m, lt⟩
-    exact Ne.symm (Eq.mpr_not (congrArg (Eq none) (congrFun l_eq m)) (id (Ne.symm nh)))
+    simp only [← ne_eq]
+    rw [← l_eq] at nh
+    exact nh
 
   theorem succ_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
     sorry
 
-
-
-  theorem finiteYieldsMaxIndex (cb : CoreChaseBranch obs kb) (finite : cb.finite') (max_index : i = last_element_index cb finite 0) : ∀ n, n > i → cb.branch.infinite_list n = none := by
-    intro n gt
-    rcases cb.branch with ⟨l, nh⟩
-    simp only
-    specialize nh i
-    sorry
-
-
-  def last_node (cb : CoreChaseBranch obs kb) (finite : cb.finite') : CoreChaseNode obs kb.rules :=
-    (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb finite 0)) sorry)
-
-  def result (cb : CoreChaseBranch obs kb) (finite : cb.finite') : FactSet sig :=
-    (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb finite 0)) sorry).core
-
-end CoreChaseBranch
-
-
-------
-
--- define some syntactic suggar
-/-
-infixr:65 " ⊧ " => FactSet.modelsKb
-infixr:65 " ⊧ " => FactSet.modelsDb
-infixr:65 " ⊧ " => FactSet.modelsRule
-infixr:65 " ⊧ " => FactSet.modelsRules
-infixr:65 " ⊧ᵤ" => FactSet.universallyModelsKb
--/
-
-def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
-
--- define CoreChaseBranch as extention from ChaseBranch
--- Idee, ChaseBranch mit assertion, dass jede Node muss Core sein
-
-
-  -- problem: die nodes sind nur nach der core calc cores
-  -- => wir können einfach sagen, dass es für jede node einen core gibt
-  -- wie match ich das, ich will for alle elemente wo isSome true ist also das element nicht 'none' ist die node ein core ist
-  -- => braucht ggf: define Membership for PossiblyInfiniteList
-  -- nutze bereits gezeigtes resultat hier
-
-namespace PossiblyInfiniteList
-
-  -- class Membership (α : outParam (Type u)) (γ : Type v)
-
-
-  -- save nicht right
-  def toSet (l : PossiblyInfiniteList α) : Option α → Prop := fun x => x.is_some_and (fun f => f ∈ l)
-
-end PossiblyInfiniteList
-
--- {{a,b},{a,c},{d}} -> {a,b,c,d}
-def setFlatten (S : Set (Set α)) : Set α := sorry
-
--- same as original (kann man das iwi erben i.e. den beweis nicht nochmal komplett genauso hinschreiben ?)
-theorem terminating_has_last_index_core (cb : CoreChaseBranch obs kb) : cb.finite' ↔ ∃ n, (cb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> cb.branch.infinite_list m = none := by
-  unfold CoreChaseBranch.finite'
+  theorem terminating_has_last_index_core (cb : CoreChaseBranch obs kb) : cb.terminates ↔ ∃ n, (cb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> cb.branch.infinite_list m = none := by
+  unfold CoreChaseBranch.terminates
   constructor
   . intro h
     rcases h with ⟨n, h⟩
@@ -238,6 +232,50 @@ theorem coreChaseResultIsCore (cb : CoreChaseBranch obs kb) (finite : cb.finite'
   rw [← cn_last]
   rcases cn with ⟨_,_,_,is_core,_,_,_⟩
   exact is_core
+
+
+
+end CoreChaseBranch
+
+
+------
+
+-- define some syntactic suggar
+/-
+infixr:65 " ⊧ " => FactSet.modelsKb
+infixr:65 " ⊧ " => FactSet.modelsDb
+infixr:65 " ⊧ " => FactSet.modelsRule
+infixr:65 " ⊧ " => FactSet.modelsRules
+infixr:65 " ⊧ᵤ" => FactSet.universallyModelsKb
+-/
+
+def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
+
+-- define CoreChaseBranch as extention from ChaseBranch
+-- Idee, ChaseBranch mit assertion, dass jede Node muss Core sein
+
+
+  -- problem: die nodes sind nur nach der core calc cores
+  -- => wir können einfach sagen, dass es für jede node einen core gibt
+  -- wie match ich das, ich will for alle elemente wo isSome true ist also das element nicht 'none' ist die node ein core ist
+  -- => braucht ggf: define Membership for PossiblyInfiniteList
+  -- nutze bereits gezeigtes resultat hier
+
+namespace PossiblyInfiniteList
+
+  -- class Membership (α : outParam (Type u)) (γ : Type v)
+
+
+  -- save nicht right
+  def toSet (l : PossiblyInfiniteList α) : Option α → Prop := fun x => x.is_some_and (fun f => f ∈ l)
+
+end PossiblyInfiniteList
+
+-- {{a,b},{a,c},{d}} -> {a,b,c,d}
+def setFlatten (S : Set (Set α)) : Set α := sorry
+
+-- same as original (kann man das iwi erben i.e. den beweis nicht nochmal komplett genauso hinschreiben ?)
+
 
 
 -- theorem 7 (7 depends on 16)
