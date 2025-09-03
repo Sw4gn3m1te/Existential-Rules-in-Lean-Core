@@ -16,6 +16,8 @@ ToDos für Lukas:
   - ChaseBranch.fact in ChaseBranch.fs refactorn
 -/
 
+set_option pp.proofs true
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
@@ -74,24 +76,20 @@ namespace CoreChaseBranch
 
   variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-  def finite (cb : CoreChaseBranch obs kb) : Prop :=
-    ∃ n, (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none)
+    -- option.get
+
 
   -- this should be stronger than cb.finite
   def finite' (cb : CoreChaseBranch obs kb) : Prop :=
     ∃ n, (cb.branch.infinite_list n = none)
 
+  def terminates_at_step (cb : CoreChaseBranch obs kb) (n : Nat) : Prop :=
+    (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none)
 
+  def terminates' (cb : CoreChaseBranch obs kb) : Prop :=
+    ∃ n, terminates_at_step cb n
 
-  def last_element_index (cb : CoreChaseBranch ob kb) (finite : cb.finite') (n : Nat) : Nat :=
-  match cb.branch.infinite_list n with
-    | some cn => last_element_index cb finite (n+1)
-    | none => n-1
-    termination_by finite
-
-  def finiteIffFinite'IfNonEmpty (cb : CoreChaseBranch obs kb) (non_empty : ∃ m, cb.branch.infinite_list m ≠ none) : cb.finite ↔ cb.finite' := by
-    unfold finite finite'
-    constructor
+  theorem terminatesIfTerminates' (cb : CoreChaseBranch obs kb) : cb.terminates' → cb.terminates := by
     rintro ⟨n, a, b⟩
     exists (n + 1)
     rintro ⟨n, a⟩
@@ -127,9 +125,13 @@ namespace CoreChaseBranch
     match cb.branch.infinite_list n with
       | none => n-1
       | some cn =>
-        have : Classical.choose ter' - (n + 1) < Classical.choose ter' - n := by
-          apply Nat.sub_add_lt_sub
-          rcases ter' with ⟨n_max, not_none_at⟩
+        have : Classical.choose ter' + 1 - (n + 1) < Classical.choose ter' + 1 - n := by
+          apply Nat.sub_succ_lt_self
+          --apply Nat.sub_add_lt_sub
+          --rcases ter' with ⟨n_max, not_none_at⟩
+          let n_max := Classical.choose ter'
+          have not_none_at := Classical.choose_spec ter'
+          have lt : n < n_max := by sorry
           let remaining : Set (CoreChaseNode ob kb.rules) := fun e => ∃ i, e ∈ cb.branch.infinite_list i ∧ n ≤ i ∧ i ≤ n_max
           apply Classical.byContradiction
           intro contra
@@ -137,11 +139,27 @@ namespace CoreChaseBranch
           sorry
           simp
         last_element_index_rec cb ter' (n+1)
-      termination_by Classical.choose ter' - n
+      termination_by Classical.choose ter' + 1 - n
 
   def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
 
-  theorem last_element_index_eq_termintes'_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (n : Nat) (index_eq : last_element_index cb ter' = n) : (cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none) := by
+  theorem last_element_index_eq_termintes'_index2 (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : last_element_index cb (by exists n) = n := by
+    induction n with
+      | zero =>
+        unfold last_element_index last_element_index_rec
+        rcases term_at_n with ⟨lhs, rhs⟩
+        simp only [lhs]
+        simp only [Nat.zero_le, Nat.sub_eq_zero_of_le, Nat.zero_add]
+
+        sorry
+      | succ n ih =>
+        sorry
+
+  theorem last_element_index_eq_termintes'_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : cb.terminates_at_step (last_element_index cb ter') := by
+    rcases ter' with ⟨n_max, not_none⟩
+    rw [last_element_index_eq_termintes'_index2 cb n_max not_none]
+    exact not_none
+    exact Classical.choose_spec ter'
     rcases ter' with ⟨m, not_none, is_none⟩
     have eq : m = n := by sorry
     rw [← eq]
@@ -170,8 +188,8 @@ namespace CoreChaseBranch
 
   theorem prev_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
     intro m lt
-    rcases cb.branch with ⟨l, nh⟩
-    have l_eq : l = cb.branch.infinite_list := by sorry -- ???
+    rcases EQ : cb.branch with ⟨l, nh⟩
+    have l_eq : l = cb.branch.infinite_list := by rw [EQ] -- ???
     rw [l_eq] at nh
     specialize nh n is_some_at ⟨m, lt⟩
     simp only [← ne_eq]
@@ -194,7 +212,10 @@ namespace CoreChaseBranch
     intro contra
     have : m > n ∨ m < n := by exact Nat.lt_or_gt_of_ne fun a => contra (id (Eq.symm a))
     rcases this with gt | lt
-    have : ∃ k, n + k = m := by sorry
+    have : ∃ k, n + k = m := by
+      apply Nat.le.dest
+      apply Nat.le_of_lt
+      exact gt
     rcases this with ⟨k, add⟩
     induction k with
       | zero =>
@@ -254,10 +275,10 @@ namespace CoreChaseBranch
     simp
 
   theorem exLastNodeOfTerminatingCoreChaseBranch (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ cn, cn = cb.last_node ter' := by
-    exact exists_apply_eq_apply (fun a => a) (cb.last_node ter')
+    exists cb.last_node ter'
 
   theorem exResultOfTerminatingCoreChaseBranch (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ fs, fs = cb.result ter' := by
-    exact exists_apply_eq_apply (fun a => a) (cb.result ter')
+    exists cb.result ter'
 
   theorem coreChaseResultIsCore (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').isWeakCore := by
     unfold CoreChaseBranch.result
@@ -267,6 +288,9 @@ namespace CoreChaseBranch
     rw [← cn_last]
     rcases cn with ⟨_,_,_,is_core,_,_,_⟩
     exact is_core
+
+  -- if cb.terminates → cb.result.universalmodels kb ∧ Set.fintie cb.result
+  -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
 
 
   -- theorem 7 (7 depends on 16)
@@ -291,6 +315,7 @@ namespace CoreChaseBranch
     unfold CoreChaseBranch.last_node at cn_last
     rw [← cn_last]
     intro f h
+    -- db ⊆ core gilt immer
     -- das stimmt doch garnicht fü die core chase ?
     --> andere def für models benötigt ?
     sorry
