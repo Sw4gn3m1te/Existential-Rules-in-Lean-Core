@@ -135,25 +135,46 @@ namespace CoreChaseBranch
       | some cb => exact cb
       | none => contradiction
 
+  @[simp, grind]
+  theorem prev_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
+    intro m lt
+    rcases EQ : cb.branch with ⟨l, nh⟩
+    have l_eq : l = cb.branch.infinite_list := by rw [EQ]
+    rw [l_eq] at nh
+    specialize nh n is_some_at ⟨m, lt⟩
+    simp only [← ne_eq]
+    rw [← l_eq] at nh
+    exact nh
+
+
+  @[simp, grind]
+  theorem succ_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
+    intro m gt
+    apply Classical.byContradiction
+    intro contra
+    rcases EQ : cb.branch with ⟨l, nh⟩
+    have l_eq : l = cb.branch.infinite_list := by rw [EQ]
+    rw [← l_eq] at contra is_none_at
+    specialize nh m contra ⟨n, gt⟩
+    contradiction
+
   def last_element_index_rec  (cb : CoreChaseBranch ob kb) (ter' : cb.terminates') (n : Nat) : Nat :=
-    match cb.branch.infinite_list n with
+    match eq : cb.branch.infinite_list n with
       | none => n - 1
       | some cn =>
         have : Classical.choose ter' + 1 - (n + 1) < Classical.choose ter' + 1 - n := by
           apply Nat.sub_succ_lt_self
           let n_max := Classical.choose ter'
           have not_none := Classical.choose_spec ter'
-          have lt : n < n_max := by
+          have lt : n ≤ n_max := by
             apply Classical.byContradiction
             intro contra
-            have eqlt : n = n_max ∨ n > n_max := by exact Nat.eq_or_lt_of_not_lt contra
-            cases eqlt with
-              | inl eq =>
-                rcases not_none with ⟨is_some, is_none⟩
-                sorry
-              | inr lt =>
-                sorry
-          exact Nat.lt_add_right 1 lt
+            have gt : n > n_max := by grind
+            have lt_is_some : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by grind
+            apply lt_is_some (n_max + 1)
+            exact gt
+            exact not_none.right
+          exact Nat.lt_add_one_of_le lt
         last_element_index_rec cb ter' (n+1)
       termination_by Classical.choose ter' + 1 - n
 
@@ -181,27 +202,7 @@ namespace CoreChaseBranch
 
   -/
 
-  @[simp, grind]
-  theorem prev_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
-    intro m lt
-    rcases EQ : cb.branch with ⟨l, nh⟩
-    have l_eq : l = cb.branch.infinite_list := by rw [EQ]
-    rw [l_eq] at nh
-    specialize nh n is_some_at ⟨m, lt⟩
-    simp only [← ne_eq]
-    rw [← l_eq] at nh
-    exact nh
 
-  @[simp, grind]
-  theorem succ_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
-    intro m gt
-    apply Classical.byContradiction
-    intro contra
-    rcases EQ : cb.branch with ⟨l, nh⟩
-    have l_eq : l = cb.branch.infinite_list := by rw [EQ]
-    rw [← l_eq] at contra is_none_at
-    specialize nh m contra ⟨n, gt⟩
-    contradiction
 
 
   @[simp, grind]
@@ -244,39 +245,43 @@ namespace CoreChaseBranch
         simp only [Nat.zero_le, Nat.sub_eq_zero_of_le, Nat.zero_add]
         sorry
 
-  theorem last_element_index_eq_termintes'_index (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) (non_empty : cb.branch.infinite_list 0 ≠ none) : last_element_index cb (by exists n) = n := by
+  @[simp, grind]
+  theorem last_element_index_eq_termintes'_index3 (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : ∀ m, m ≤ n → last_element_index_rec cb (by exists n) m = n := by
+    intro m m_leq
     have ter : cb.terminates := terminatesIfTerminates' cb (Exists.intro n term_at_n)
-    rcases ter with ⟨m, _⟩
+    -- rcases ter with ⟨m, _⟩
     rcases term_at_n with ⟨lhs, rhs⟩
     have ter' : cb.terminates' := Exists.intro n ⟨lhs, rhs⟩
-    unfold last_element_index last_element_index_rec
-    induction n with
+    unfold last_element_index_rec
+    induction d : (n - m) generalizing m with
       | zero =>
+        have eq : m = n := by grind
+        rw [eq]
         split
         next => contradiction
-        next x cn heq =>
-          simp only [Nat.zero_add]
-          apply Classical.byContradiction
-          intro contra
-          have ter'_zero : cb.terminates' := Exists.intro 0 ⟨lhs, rhs⟩
-          unfold last_element_index_rec at contra
-          split at contra
-          next => contradiction
-          next => simp_all only [ne_eq, reduceCtorEq, not_false_eq_true]
-      | succ n ih =>
-        unfold last_element_index_rec
-        simp only [Nat.zero_le, Nat.sub_eq_zero_of_le, Nat.zero_add, Nat.sub_self, Nat.reduceAdd]
-        split
-        next => contradiction
-        next x cn heq =>
-          rw [← last_element_index_rec.eq_def]
-          simp at ih
-          rw? at ih
-          split at ih
-          next => contradiction
+        next =>
+          unfold last_element_index_rec
+          split
+          next => simp
           next x cn heq =>
-            sorry
+            rw [rhs] at heq
+            contradiction
+      | succ n' ih =>
+        specialize ih (m + 1)
+        -- m = - n' -1 + n < n
+        split
+        next => grind
+        next x cn heq =>
+          unfold last_element_index_rec
+          rw [ih]
+          grind
+          grind
 
+
+  theorem last_element_index_eq_termintes'_index (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : last_element_index cb (by exists n) = n := by
+    apply last_element_index_eq_termintes'_index3
+    exact term_at_n
+    exact Nat.zero_le n
 
 
 
@@ -409,7 +414,8 @@ namespace CoreChaseBranch
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.fintie cb.result
   -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
 
-
+  -- (CoreChaseBranch.result cb ter').modelsKb kb muss gezeigt werden !
+  
   -- theorem 7 (7 depends on 16)
   theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb → (CoreChaseBranch.result cb ter').universallyModelsKb kb := by
     unfold FactSet.universallyModelsKb
@@ -532,6 +538,7 @@ theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSe
       have gtm'_hom : gtm'.isHomomorphism cb.result B := by sorry -- gtm' should extend gtm
       exists gtm'
 
+--   theorem t16 (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs (ruleset : RuleSet sig)) (x_some : Option.isSome (cb.branch.infinite_list n)) (y_some : Option.isSome (cb.branch.infinite_list (n+1))) (x_def : x = Option.get (cb.branch.infinite_list n) x_some ) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) : FactSet.homSubset x.fact y.fact := by
 
 
 -- infinte set may not have a core !
