@@ -61,7 +61,9 @@ structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase s
     fs := kb.db.toFactSet
     fs_fin := by exact kb.db.toFactSet.property.left
     core := kb.db.toFactSet -- db is always core
-    is_core := sorry
+    is_core :=
+
+    sorry
     core_sse := sorry
     origin := none,
     fs_contains_origin_result := by simp [Option.is_none_or]
@@ -92,12 +94,12 @@ namespace CoreChaseBranch
   def terminates' (cb : CoreChaseBranch obs kb) : Prop :=
     ∃ n, terminates_at_step cb n
 
-  @[simp, grind]
+  @[grind]
   theorem terminatesIfTerminates' (cb : CoreChaseBranch obs kb) : cb.terminates' → cb.terminates := by
     rintro ⟨n, a, b⟩
     exists (n + 1)
 
-  @[simp, grind]
+  @[grind]
   theorem terminates'IfTerminatesAndNonEmpty (cb : CoreChaseBranch obs kb) (non_empty : ∃ m, cb.branch.infinite_list m ≠ none) : cb.terminates → cb.terminates' := by
     rintro ⟨n, a⟩
     rcases non_empty with ⟨m, c⟩
@@ -135,7 +137,7 @@ namespace CoreChaseBranch
       | some cb => exact cb
       | none => contradiction
 
-  @[simp, grind]
+  @[grind]
   theorem prev_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
     intro m lt
     rcases EQ : cb.branch with ⟨l, nh⟩
@@ -146,11 +148,11 @@ namespace CoreChaseBranch
     rw [← l_eq] at nh
     exact nh
 
-  --@[simp, grind]
+  @[grind]
   theorem prev_eq_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
     grind
 
-  @[simp, grind]
+  @[grind]
   theorem succ_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
     intro m gt
     apply Classical.byContradiction
@@ -161,8 +163,8 @@ namespace CoreChaseBranch
     specialize nh m contra ⟨n, gt⟩
     contradiction
 
-  --@[simp, grind]
-    theorem succ_eq_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m ≥ n → cb.branch.infinite_list m = none := by
+  @[grind]
+  theorem succ_eq_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m ≥ n → cb.branch.infinite_list m = none := by
     grind
 
   def last_element_index_rec  (cb : CoreChaseBranch ob kb) (ter' : cb.terminates') (n : Nat) : Nat :=
@@ -187,7 +189,7 @@ namespace CoreChaseBranch
 
   def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
 
-  @[simp, grind]
+  @[grind]
   theorem last_element_index_eq_termintes'_index_leq (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : ∀ m, m ≤ n → last_element_index_rec cb (by exists n) m = n := by
     intro m m_leq
     have ter : cb.terminates := terminatesIfTerminates' cb (Exists.intro n term_at_n)
@@ -218,18 +220,18 @@ namespace CoreChaseBranch
           grind
           grind
 
-  @[simp, grind]
+  @[grind]
   theorem last_element_index_eq_termintes'_index (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : last_element_index cb (by exists n) = n := by
     apply last_element_index_eq_termintes'_index_leq
     exact term_at_n
     exact Nat.zero_le n
 
-  @[simp, grind]
+  @[grind]
   theorem terminates'_at_last_index_ter' (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : cb.terminates_at_step (last_element_index cb ter') := by
     rcases ter' with ⟨n, is_some, is_none⟩
     grind
 
-  @[simp, grind]
+  @[grind]
   theorem last_index_is_some (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : cb.branch.infinite_list (cb.last_element_index ter') ≠ none := by
     rcases ter' with ⟨n, term_at_n⟩
     have := last_element_index_eq_termintes'_index cb n term_at_n
@@ -243,7 +245,7 @@ namespace CoreChaseBranch
     (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb ter')) (by
       exact last_index_is_some cb ter')).core
 
-  @[simp, grind]
+  @[grind]
   theorem terminating_eq_index (cb : CoreChaseBranch obs kb) (m n : Nat) : ((cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none) ∧ (cb.branch.infinite_list m) ≠ none ∧ (cb.branch.infinite_list (m+1) = none)) → m = n := by
     rintro ⟨h1, h2, h3, h4⟩
     apply Classical.byContradiction
@@ -282,7 +284,7 @@ namespace CoreChaseBranch
         apply succ_is_none_if_is_none cb (m + 1) h4 (m + k + 1) (by grind)
 
   -- uses sorry, but there is none ?
-  @[simp, grind]
+  @[grind]
   theorem terminating_has_last_index_core (cb : CoreChaseBranch obs kb) : cb.terminates ↔ ∃ n, (cb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> cb.branch.infinite_list m = none := by
   unfold CoreChaseBranch.terminates
   constructor
@@ -296,7 +298,7 @@ namespace CoreChaseBranch
       | some _ =>
         exists n
         rw [eq]
-        simp
+        simp only [ne_eq, reduceCtorEq, not_false_eq_true, gt_iff_lt, true_and]
         intro m n_lt_m
         have : n+1 ≤ m := by apply Nat.succ_le_of_lt; exact n_lt_m
         rw [Nat.le_iff_lt_or_eq] at this
@@ -315,16 +317,16 @@ namespace CoreChaseBranch
     rcases h with ⟨n, _, h⟩
     exists n+1
     apply h
-    simp
+    simp only [gt_iff_lt, Nat.lt_add_one]
 
-  @[simp, grind]
+  @[grind]
   theorem exLastNodeOfTerminatingCoreChaseBranch (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ cn, cn = cb.last_node ter' := by
     exists cb.last_node ter'
 
-  @[simp, grind]
+  @[grind]
   theorem exResultOfTerminatingCoreChaseBranch (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ fs, fs = cb.result ter' := by
     exists cb.result ter'
-  @[simp, grind]
+  @[grind]
   theorem coreChaseResultIsCore (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').isWeakCore := by
     unfold CoreChaseBranch.result
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
@@ -369,7 +371,11 @@ namespace CoreChaseBranch
 
   -- wie will man das zeigen ?
   --> gibt es keinen core zu infinite sets oder kann es sein, dass es keinen gibt ?
+
+
+
   theorem eachCoreIsFinite (wc : FactSet sig) (is_core : wc.isWeakCore) : Set.finite wc := by
+    unfold Set.finite
     sorry
 
   theorem result_finite_if_cb_terminates (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
@@ -381,6 +387,51 @@ namespace CoreChaseBranch
 
 
 end CoreChaseBranch
+
+
+def Function.isInjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (f x = f y → x = y)
+
+def Function.isInjective' (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (x ≠ y → f x ≠ f y)
+
+-- Mathlib.Tactic.Contrapose
+theorem Function.isInjectiveIffisInjective' (f : α → β) (A : Set α) (B : Set β) : Function.isInjective f A B ↔ Function.isInjective' f A B := by
+  unfold isInjective isInjective'
+  constructor
+  intro h x y ⟨x_in_A, y_in_A⟩ neq
+  specialize h x y ⟨x_in_A, y_in_A⟩
+  grind
+  intro h x y ⟨x_in_A, y_in_A⟩ feq
+  specialize h x y ⟨x_in_A, y_in_A⟩
+  grind
+
+def Function.isSurjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ y, ∃ x, (y ∈ B ∧ x ∈ A) → (f x = y)
+
+def Function.isBijective (f : α → β) (A : Set α) (B : Set β) : Prop := Function.isInjective f A B ∧ Function.isSurjective f A B
+
+def Set.finite' (S : Set α) : Prop := ∃ (n : Nat) (h : α → Nat), h.isBijective S (fun e => (e ≤ n))
+
+def Set.fin_size (S : Set α) (fin : S.finite') : Nat := by sorry -- n + 1 from S.finite'
+
+theorem Set.singleton_is_finite' (a : α) (S : Set α) (S_def : S = Set.singleton a) : S.finite' := by
+  unfold Set.finite'
+  exists 0, fun e => 0
+  constructor
+  intro x y ⟨x_in, y_in⟩ f_eq
+  grind
+  intro n
+  exists a
+  rintro ⟨h1, h2⟩
+  simp
+  simp at h1
+  rw [h1]
+
+theorem Set.finite'_union_is_finite' (A B : Set α) (a_fin : A.finite') (b_fin : B.finite') : (A ∪ B).finite' := by
+  rcases a_fin with ⟨n1, f1, inj1, surj1⟩
+  rcases b_fin with ⟨n2, f2, inj2, surj2⟩
+  unfold union finite'
+  exists (n1 + n2), sorry
+  sorry
+
 
 
 ------
@@ -436,8 +487,37 @@ theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSe
   -- A_0 → A_1 → A_2 → ...
   theorem t16_1 (rules : Set (Rule sig)) (cb : ChaseBranch obs kb) : true := sorry
 
+  theorem t16 (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs kb.rules)
+    (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
+    (x_def : x = Option.get (cb.branch.infinite_list n) x_some) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) :
+      ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fact y.fact := by
+        exists id
+        constructor
+        intro gt
+        split
+        next => trivial
+        next => trivial
+        intro e e_in
+        have this1 : x.fact.val ⊆ y.fact.val := by
+          have := ChaseBranch.stepIsSubsetOfAllFollowing cb n x (by grind) 1
+          unfold Option.is_none_or at this
+          split at this
+          next => grind
+          next => grind
+        have this2 : e ∈ x.fact.val := by
+          rcases e_in with ⟨f, lhs, rhs⟩
+          have this3 : GroundTermMapping.applyFact id f = e → f = e := by
+            unfold GroundTermMapping.applyFact
+            simp only [List.map_id_fun, id_eq, imp_self]
+          grind
+        specialize this1 e this2
+        exact this1
 
-  theorem t16 (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs (rules : RuleSet sig)) (x_def : x = cb.branch.infinite_list n) (y_def : y = cb.branch.infinite_list (n+1)) : x.fact.homSubset y.fact := by
+  theorem t16_core (cb : CoreChaseBranch obs kb) (n : Nat) (x y : CoreChaseNode obs kb.rules)
+    (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
+    (x_def : x = Option.get (cb.branch.infinite_list n) x_some) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) :
+      ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.core := by
+        sorry
 
 
   theorem t16_2 (A_n : PossiblyInfiniteList (FactSet sig)) (A B : FactSet sig) (rules : RuleSet sig) :
@@ -548,28 +628,6 @@ namespace Graph
 end Graph
 
 -- (rules : Set (TGD sig)) wie ?
-
-def Function.isInjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (f x = f y → x = y)
-
-def Function.isInjective' (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (x ≠ y → f x ≠ f y)
-
--- Mathlib.Tactic.Contrapose
-theorem Function.isInjectiveIffisInjective' (f : α → β) (A : Set α) (B : Set β) : Function.isInjective f A B ↔ Function.isInjective' f A B := by
-  unfold isInjective isInjective'
-  constructor
-  intro h x y ⟨x_in_A, y_in_A⟩ neq
-  specialize h x y ⟨x_in_A, y_in_A⟩
-  grind
-  intro h x y ⟨x_in_A, y_in_A⟩ feq
-  specialize h x y ⟨x_in_A, y_in_A⟩
-  grind
-
-
-def Function.isSurjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ y, ∃ x, y ∈ B ∧ x ∈ A → (f x = y)
-
--- instanzieren der Membership class
-
-def Function.bijective (f : α → β) (A : Set α) (B : Set β) : Prop := Function.isInjective f A B ∧ Function.isSurjective f A B
 
 -- def 9 from appendix (weakly acyclic)
 structure DependencyGraph (rules : RuleSet sig) extends Graph (RuleSet sig) where
