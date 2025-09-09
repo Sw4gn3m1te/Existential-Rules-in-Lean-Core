@@ -16,6 +16,7 @@ namespace Set
 
   def singleton (a : α) : Set α := fun x => x = a
 
+  @[simp, grind]
   theorem eq_empty_of_subset_empty {α : Type u} {X : Set α} : X ⊆ ∅ → X = ∅ := by
     intro subset
     apply Classical.byContradiction
@@ -29,11 +30,13 @@ namespace Set
     specialize subset e e_in_X
     contradiction
 
+  @[grind]
   theorem empty_subset_of_each (X : Set α) : ∅ ⊆ X := by
     unfold Set.subset
     intro e e_in_empty
     contradiction
 
+  @[grind]
   theorem subset_sym_eq (X Y : Set α) : X ⊆ Y ∧ Y ⊆ X ↔ X = Y := by
     constructor
     intro ⟨x_sub_y, y_sub_x⟩
@@ -44,6 +47,7 @@ namespace Set
     simp only [and_self]
     apply Set.subset_refl
 
+  @[simp, grind]
   theorem mem_singleton_iff_eq (e : α) : f ∈ (Set.singleton e) ↔ e = f := by
     unfold Set.singleton
     constructor
@@ -54,6 +58,8 @@ namespace Set
     intro h
     exact id (Eq.symm h)
 
+
+  @[grind]
   theorem singleton_subset_iff_mem (X : Set α) (e : α) : e ∈ X ↔ Set.singleton e ⊆ X := by
     constructor
     intro e_in_x f f_in
@@ -65,19 +71,23 @@ namespace Set
     intro sub
     exact sub e rfl
 
+  @[simp, grind]
   theorem subset_trans_mem (X : Set α) : e ∈ X ∧ X ⊆ Y → e ∈ Y := by
     intro a
     obtain ⟨left, right⟩ := a
     apply right
     simp_all only
 
+
+  @[grind]
   theorem union_iff (X Y : Set α) (e : α) : e ∈ (X ∪ Y) ↔ e ∈ X ∨ e ∈ Y := by
     exact Eq.to_iff rfl
 
 
--- mathlib yoinks
-theorem Eq.subset {α} {s t : Set α} : s = t → s ⊆ t :=
-  fun h₁ _ h₂ => by rw [← h₁]; exact h₂
+  -- mathlib yoinks
+  @[grind]
+  theorem eq_subset {α} {s t : Set α} : s = t → s ⊆ t :=
+    fun h₁ _ h₂ => by rw [← h₁]; exact h₂
 
 end Set
 
@@ -885,37 +895,14 @@ def isWeakCore (fs : FactSet sig) : Prop :=
 def isStrongCore (fs : FactSet sig) : Prop :=
   ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injective_for_domain_set fs.terms ∧ h.surjective_for_domain_and_image_set fs.terms fs.terms
 
-/-- We say that a fact set $C$ is a homomorphic subset of another fact set $F$ if $C$ is a subset of $F$ and there is a homomorphism from $F$ to $C$. -/
-@[expose]
-def homSubset (c fs : FactSet sig) : Prop := c ⊆ fs ∧ (∃ (h : GroundTermMapping sig), h.isHomomorphism fs c)
-
-/-- For a homomorphism on a finite fact set, injectivity implies surjectivity. -/
-@[grind ->]
-theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) :
-    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms ->
-    h.surjective_for_domain_and_image_set fs.terms fs.terms := by
-  rcases finite with ⟨l, finite⟩
-  intro h isHom inj
-
-  let terms_list := (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
-  have nodup_terms_list : terms_list.Nodup := by apply List.nodup_eraseDupsKeepRight
-  have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ fs.terms := by
-    simp only [terms_list]
-    intro e
-    rw [List.mem_eraseDupsKeepRight]
-    unfold FactSet.terms
-    simp only [List.mem_flatten, List.mem_map]
-    constructor
-    . intro h
-      rcases h with ⟨ts, h, ts_mem⟩
-      rcases h with ⟨f, f_mem, eq⟩
-      exists f
-      rw [eq]
-      rw [← finite.right f]
-      constructor <;> assumption
-    . intro h
-      rcases h with ⟨f, f_mem, e_mem⟩
-      exists f.terms
+    let terms_list := (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
+    have nodup_terms_list : terms_list.Nodup := by apply List.nodup_eraseDupsKeepRight
+    have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ fs.terms := by
+      simp only [terms_list]
+      intro e
+      rw [List.mem_eraseDupsKeepRight]
+      unfold FactSet.terms
+      simp only [List.mem_flatten, List.mem_map]
       constructor
       . exists f; rw [finite.right f]; constructor; exact f_mem; rfl
       . exact e_mem
@@ -1238,23 +1225,135 @@ theorem strong_core_of_model_is_model
         . unfold GroundSubstitution.apply_function_free_atom
           unfold TermMapping.apply_generalized_atom
           rw [List.mem_map]
-          exists VarOrConst.var v
-      )]
-    . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
-      . intro f f_mem
-        unfold GroundSubstitution.apply_function_free_conj at f_mem
-        unfold TermMapping.apply_generalized_atom_list at f_mem
-        rw [List.mem_toSet, List.mem_map] at f_mem
-        rcases f_mem with ⟨a, a_mem, f_eq⟩
-        rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_fs_sc_hom.left] at f_eq
-        rw [← f_eq]
-        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-        apply sub_mapping
-        unfold GroundSubstitution.apply_function_free_conj
-        unfold TermMapping.apply_generalized_atom_list
-        rw [List.mem_toSet, List.mem_map]
-        exists a
-      . exact h_fs_sc_hom.right
+          exists arg
+
+  theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
+      (fs : FactSet sig)
+      (sc : FactSet sig) (sub_sc : sc.homSubset fs) (sc_strong : sc.isStrongCore)
+      (wc : FactSet sig) (sub_wc : wc.homSubset fs) (wc_weak : wc.isWeakCore) :
+      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
+
+    rcases sub_sc with ⟨sub_sc, h_fs_sc, h_fs_sc_hom⟩
+    rcases sub_wc with ⟨sub_wc, h_fs_wc, h_fs_wc_hom⟩
+
+    have h_sc_wc_hom : h_fs_wc.isHomomorphism sc wc := by
+      constructor
+      . exact h_fs_wc_hom.left
+      . apply Set.subset_trans (b := h_fs_wc.applyFactSet fs)
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
+          exact sub_sc
+        . exact h_fs_wc_hom.right
+
+    have h_wc_sc_hom : h_fs_sc.isHomomorphism wc sc := by
+      constructor
+      . exact h_fs_sc_hom.left
+      . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
+          exact sub_wc
+        . exact h_fs_sc_hom.right
+
+    exact every_weakCore_isomorphic_to_strongCore_of_hom_both_ways sc sc_strong wc wc_weak h_fs_wc h_fs_sc h_sc_wc_hom h_wc_sc_hom
+
+  theorem every_universal_weakCore_isomorphic_to_universal_strongCore
+      {kb : KnowledgeBase sig}
+      (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
+      (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
+      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
+
+    rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
+    rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
+
+    exact every_weakCore_isomorphic_to_strongCore_of_hom_both_ways sc sc_strong wc wc_weak h_sc_wc h_wc_sc h_sc_wc_hom h_wc_sc_hom
+
+  theorem strong_core_of_model_is_model
+      {kb : KnowledgeBase sig}
+      (fs : FactSet sig) (fs_model : fs.modelsKb kb)
+      (sc : FactSet sig) (sc_sub : sc.homSubset fs) (sc_strong : sc.isStrongCore) :
+      sc.modelsKb kb := by
+
+    rcases sc_sub with ⟨sc_sub, h_fs_sc, h_fs_sc_hom⟩
+
+    have h_fs_sc_endo_sc : h_fs_sc.isHomomorphism sc sc := by
+      constructor
+      . exact h_fs_sc_hom.left
+      . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
+          exact sc_sub
+        . exact h_fs_sc_hom.right
+
+    specialize sc_strong h_fs_sc h_fs_sc_endo_sc
+
+    -- TODO: extract this into a general result; check which properties we really need and want here
+    have ex_inv : ∃ (inv : GroundTermMapping sig), (∀ t, t ∈ sc.terms -> (h_fs_sc (inv t)) = t) ∧ inv.isHomomorphism sc sc := by
+      let inv : GroundTermMapping sig := fun t =>
+        have dev := Classical.propDecidable (t ∈ sc.terms)
+        if t_mem : t ∈ sc.terms
+        then
+          Classical.choose (sc_strong.right.right t t_mem)
+        else
+          t
+
+      have inv_id : (∀ t, t ∈ sc.terms -> (h_fs_sc (inv t)) = t) := by
+        intro t t_mem
+        unfold inv
+        simp only [t_mem, ↓reduceDIte]
+        have spec := Classical.choose_spec (sc_strong.right.right t t_mem)
+        exact spec.right
+      exists inv
+
+      constructor
+      . exact inv_id
+      . constructor
+        . intro t
+          cases eq : t with
+          | func _ _ => simp [GroundTerm.func]
+          | const c =>
+            simp only [GroundTerm.const]
+            unfold inv
+            cases Classical.em (GroundTerm.const c ∈ sc.terms) with
+            | inr n_mem => unfold GroundTerm.const at n_mem; simp [n_mem]
+            | inl mem =>
+              unfold GroundTerm.const at mem
+              simp [mem]
+              have spec := Classical.choose_spec (sc_strong.right.right (GroundTerm.const c) mem)
+              apply sc_strong.right.left
+              . exact spec.left
+              . exact mem
+              . rw [spec.right]
+                have := h_fs_sc_hom.left (GroundTerm.const c)
+                simp only [GroundTerm.const] at this
+                rw [this]
+                simp [GroundTerm.const]
+        . intro f f_mem
+          rcases f_mem with ⟨f', f'_mem, f_eq⟩
+          have strong := sc_strong.left
+          unfold GroundTermMapping.strong at strong
+          apply Classical.byContradiction
+          intro contra
+          apply strong f
+          . intro t t_mem
+            rw [f_eq] at t_mem
+            unfold TermMapping.apply_generalized_atom at t_mem
+            rw [List.mem_map] at t_mem
+            rcases t_mem with ⟨t', t'_mem, t_eq⟩
+            have t'_mem : t' ∈ sc.terms := by exists f'
+            have spec := Classical.choose_spec (sc_strong.right.right t' t'_mem)
+            rw [← t_eq]
+            unfold inv
+            simp [t'_mem]
+            exact spec.left
+          . exact contra
+          . rw [f_eq]
+            unfold GroundTermMapping.applyFact
+            rw [← TermMapping.apply_generalized_atom_compose']
+            have : TermMapping.apply_generalized_atom (h_fs_sc ∘ inv) f' = f' := by
+              apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+              intro t t_mem
+              rw [Function.comp_apply, inv_id]
+              exists f'
+            rw [this]
+            exact f'_mem
+    rcases ex_inv with ⟨inv, inv_id, inv_hom⟩
 
 /-- Building on top of the previous theorem, a strong core of a universal model is not only a model but also universal. -/
 theorem strong_core_of_universal_model_is_universal_model
@@ -1422,7 +1521,7 @@ theorem strong_core_of_universal_model_is_universal_model
         rw [← this]
         exact gtm_af
         exists gtm
-        exact ⟨gtm_c, Set.Eq.subset this⟩
+        exact ⟨gtm_c, Set.eq_subset this⟩
 
       cases Decidable.em (l ⊆ l.map gtm.applyFact) with
       | inl l_sub_mapped =>
@@ -1526,7 +1625,7 @@ theorem strong_core_of_universal_model_is_universal_model
       intro h
       rcases h with ⟨sub, subset, neq, subset', gtm_ls, gtm_ls_c, gtm_ls_af⟩
       unfold isWeakCore
-      simp only [Classical.not_forall, not_imp, not_and]
+      simp only [Classical.not_forall, not_and]
       exists gtm_ls
       have gtm_ls_ll_hom : gtm_ls.isHomomorphism l.toSet l.toSet := by
         constructor
@@ -1551,7 +1650,7 @@ theorem strong_core_of_universal_model_is_universal_model
         exact subset'
         exact neq
       unfold Function.injective_for_domain_set
-      simp only [Classical.not_forall, not_imp, exists_and_left]
+      simp only [Classical.not_forall]
       -- f(B) ⊆ A ⊂ B
       sorry
       intro n_wc
@@ -1562,7 +1661,7 @@ theorem strong_core_of_universal_model_is_universal_model
         have : isWeakCore l.toSet := by exact empty_set_is_weak_core l.toSet contra
         contradiction
       unfold isWeakCore at n_wc
-      simp only [Classical.not_forall, not_imp, not_and] at n_wc
+      simp only [Classical.not_forall, not_and] at n_wc
       have : ∃ e, e ∈ l.toSet := by exact Set.not_empty_contains_element l.toSet l_nempty
       rcases this with ⟨e, e_in_l⟩
       sorry
