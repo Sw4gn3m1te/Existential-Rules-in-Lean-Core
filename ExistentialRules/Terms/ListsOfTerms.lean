@@ -147,4 +147,3 @@ public theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : 
           . have ts_mem : ts ∈ all_lists_of_length (all_terms_limited_by_depth constants funcs depth.succ) t_func.arity := by grind
             exists ⟨ts, ts_mem⟩
             simp
-
