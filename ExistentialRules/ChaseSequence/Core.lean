@@ -7,9 +7,12 @@ import ExistentialRules.Triggers.Basic
 import ExistentialRules.AtomsAndFacts.Basic
 import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 
+--import ExistentialRules.BasicTypes.Sets.Set
+--import ExistentialRules.BasicTypes.Sets.Finite
+--import ExistentialRules.BasicTypes.Functions.Function
 
 
-import Aesop
+-- import Aesop
 --import Mathlib.Combinatorics.Graph.Basic
 
 
@@ -20,6 +23,7 @@ ToDos für Lukas:
 -/
 
 -- set_option pp.proofs true
+-- set_option diagnostics true
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
@@ -54,17 +58,26 @@ def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSe
 def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
 
-
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
   database_first : branch.infinite_list 0 = some {
     fs := kb.db.toFactSet
     fs_fin := by exact kb.db.toFactSet.property.left
-    core := kb.db.toFactSet -- db is always core
-    is_core :=
+    core := kb.db.toFactSet
+    is_core := by
+      intro gtm gtm_hom
+      constructor
+      intro f gt not_in contra
+      apply not_in
+      sorry
+      sorry
 
-    sorry
-    core_sse := sorry
+    core_sse := by
+      constructor
+      exact fun _ a => a
+      exists id
+      apply FactSet.id_is_hom
+
     origin := none,
     fs_contains_origin_result := by simp [Option.is_none_or]
   }
@@ -76,13 +89,19 @@ structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase s
   fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fs))
     ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fs))
 
+@[grind]
+theorem Option.isSomeIffNeqNone (o : Option α) : o.isSome ↔ o ≠ none := by
+  constructor
+  grind
+  intro h
+  unfold Option.isSome
+  split
+  next => grind
+  next => grind
 
 namespace CoreChaseBranch
 
   variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
-
-    -- option.get
-
 
   -- this should be stronger than cb.finite
   def finite' (cb : CoreChaseBranch obs kb) : Prop :=
@@ -372,66 +391,13 @@ namespace CoreChaseBranch
   -- wie will man das zeigen ?
   --> gibt es keinen core zu infinite sets oder kann es sein, dass es keinen gibt ?
 
-
-
-  theorem eachCoreIsFinite (wc : FactSet sig) (is_core : wc.isWeakCore) : Set.finite wc := by
-    unfold Set.finite
-    sorry
-
   theorem result_finite_if_cb_terminates (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
     rcases ter' with ⟨n, is_none⟩
     rcases this with ⟨cn, last_node⟩
-    refine eachCoreIsFinite (cb.result (Exists.intro n is_none)) ?_
-    exact coreChaseResultIsCore cb (Exists.intro n is_none)
-
+    sorry
 
 end CoreChaseBranch
-
-
-def Function.isInjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (f x = f y → x = y)
-
-def Function.isInjective' (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (x ≠ y → f x ≠ f y)
-
--- Mathlib.Tactic.Contrapose
-theorem Function.isInjectiveIffisInjective' (f : α → β) (A : Set α) (B : Set β) : Function.isInjective f A B ↔ Function.isInjective' f A B := by
-  unfold isInjective isInjective'
-  constructor
-  intro h x y ⟨x_in_A, y_in_A⟩ neq
-  specialize h x y ⟨x_in_A, y_in_A⟩
-  grind
-  intro h x y ⟨x_in_A, y_in_A⟩ feq
-  specialize h x y ⟨x_in_A, y_in_A⟩
-  grind
-
-def Function.isSurjective (f : α → β) (A : Set α) (B : Set β) : Prop := ∀ y, ∃ x, (y ∈ B ∧ x ∈ A) → (f x = y)
-
-def Function.isBijective (f : α → β) (A : Set α) (B : Set β) : Prop := Function.isInjective f A B ∧ Function.isSurjective f A B
-
-def Set.finite' (S : Set α) : Prop := ∃ (n : Nat) (h : α → Nat), h.isBijective S (fun e => (e ≤ n))
-
-def Set.fin_size (S : Set α) (fin : S.finite') : Nat := by sorry -- n + 1 from S.finite'
-
-theorem Set.singleton_is_finite' (a : α) (S : Set α) (S_def : S = Set.singleton a) : S.finite' := by
-  unfold Set.finite'
-  exists 0, fun e => 0
-  constructor
-  intro x y ⟨x_in, y_in⟩ f_eq
-  grind
-  intro n
-  exists a
-  rintro ⟨h1, h2⟩
-  simp
-  simp at h1
-  rw [h1]
-
-theorem Set.finite'_union_is_finite' (A B : Set α) (a_fin : A.finite') (b_fin : B.finite') : (A ∪ B).finite' := by
-  rcases a_fin with ⟨n1, f1, inj1, surj1⟩
-  rcases b_fin with ⟨n2, f2, inj2, surj2⟩
-  unfold union finite'
-  exists (n1 + n2), sorry
-  sorry
-
 
 
 ------
@@ -487,7 +453,11 @@ theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSe
   -- A_0 → A_1 → A_2 → ...
   theorem t16_1 (rules : Set (Rule sig)) (cb : ChaseBranch obs kb) : true := sorry
 
-  theorem t16 (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs kb.rules)
+
+namespace ChaseBranch
+
+  -- t16
+  theorem exHomSuccIfSuccIsSome (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs kb.rules)
     (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
     (x_def : x = Option.get (cb.branch.infinite_list n) x_some) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) :
       ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fact y.fact := by
@@ -512,6 +482,51 @@ theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSe
           grind
         specialize this1 e this2
         exact this1
+
+  theorem exHomAllPrevIfIsSome (cb : ChaseBranch obs kb) (m n : Nat) (lt : m < n) (cn : ChaseNode obs kb.rules) (cn_some : (cb.branch.infinite_list n).isSome) (cn_def : cn = Option.get (cb.branch.infinite_list n) cn_some) :
+    ∃ (h : GroundTermMapping sig), h.isHomomorphism (Option.get (cb.branch.infinite_list m) (by
+      have : (cb.branch.infinite_list n).isSome → ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
+        intro h2 m2 lt
+        rcases EQ : cb.branch with ⟨l, nh⟩
+        have l_eq : l = cb.branch.infinite_list := by rw [EQ]
+        rw [l_eq] at nh
+        rw [Option.isSomeIffNeqNone] at h2
+        specialize nh n h2 ⟨m2, lt⟩
+        simp only [← ne_eq]
+        rw [← l_eq] at nh
+        exact nh
+      rw [Option.isSomeIffNeqNone]
+      specialize this cn_some m lt
+      exact this
+        )).fact cn.fact := by
+          induction d : (n - m) generalizing m with
+            | zero => grind
+            | succ n' ih =>
+              have prec_some : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by grind
+              have prec_some' := prec_some
+              have lt2 : m + 1 < n := by sorry
+              specialize ih (m + 1) lt2 (by grind)
+              specialize prec_some m lt
+              specialize prec_some' (m + 1) lt2
+              let x := (cb.branch.infinite_list m).get (by grind)
+              let y := (cb.branch.infinite_list (m + 1)).get (by grind)
+              have : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fact y.fact := by
+                apply exHomSuccIfSuccIsSome cb m x y
+                  (by rw [← Option.isSomeIffNeqNone] at prec_some; exact prec_some)
+                  (by rw [← Option.isSomeIffNeqNone] at prec_some'; exact prec_some')
+                  (by rfl) (by rfl)
+              rcases ih with ⟨gtm, gtm_hom⟩
+              rcases this with ⟨gtm', gtm'_hom⟩
+              exists gtm ∘ gtm'
+              apply GroundTermMapping.isHomomorphism_compose gtm' gtm x.fact y.fact cn.fact
+              exact gtm'_hom
+              exact gtm_hom
+
+  theorem exHomResultIfIsSome (cb : ChaseBranch obs kb) (cn cn_res : ChaseNode obs kb.rules) (cn_res_def : cn_res.fact = cb.result) : ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.fact cn_res.fact := by
+    sorry
+
+
+end ChaseBranch
 
   theorem t16_core (cb : CoreChaseBranch obs kb) (n : Nat) (x y : CoreChaseNode obs kb.rules)
     (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
