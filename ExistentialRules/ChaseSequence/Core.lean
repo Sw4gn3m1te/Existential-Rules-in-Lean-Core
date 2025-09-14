@@ -12,7 +12,7 @@ import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 --import ExistentialRules.BasicTypes.Functions.Function
 
 
--- import Aesop
+import Aesop
 --import Mathlib.Combinatorics.Graph.Basic
 
 
@@ -27,6 +27,68 @@ ToDos für Lukas:
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+
+
+/-------------------------
+---
+· "We extend the definition of chase sequence to core chase sequence in the obvious way" :)
+· Core Chase sequences are determinted up to isomorphism (there is no non-deterministic picking of rules)
+· The result of the Core Chase is unique up to isomorphism
+---
+
+
+Proof sketch Thm. 7
+(Σ: Set of TGDs/EGDs) (I: Instance)
+
+1)                                                  2)
+There exists a (finite ?) universal model for Σ,I ↔ The Core Chase on Σ,I terminates (and yields such a model)
+
+1) → 2):
+Let U be a (finite?) universal Model for Σ,I
+
+! Assume, ad absudum, there does not exist a finite Core Chase Sequence on Σ, I !
+
+(contra) Thus there is a infinite Core Chase Sequence A = A_1, A_2, A_3, ...
+
+Let A_ω = ⋃_i A_i
+(union of all node.fs i assume ? So normal Chase ?)
+This set is well-defined because ∀ i, A_i ⊆ A_{i+1} (this is not true for the Core Chase ? What is A refering too ?)
+
+a) By assumption U is a universal model and thus a model for Σ,I we know that
+  A_ω → U,
+  (reason ?)
+
+b) We know (why ?) that A_ω ⊧ Σ and because U is universal we know that
+  U → A_ω
+
+  -- assumen wir hier nicht, dass A_ω das result der Core Chase ist und es einen isom. zw. A_ω und U gibt ?
+
+From b) and U being finite we know that
+  U → A_n for some bounding (n : Nat)
+
+and by t16 A_n → U ??
+
+Thus core(U) ≅ core(A_n) thus U,A_n ⊧ Σ, which is a contradiction ?
+
+
+
+2) → 1):
+
+Assume the Core Chase termiantes
+
+Let A = A_1, A_2, A_3, ... , A_n be a Core Chase sequence on Σ,I
+
+Lemma: ∀ i j, (i < j) → ∃ (h : A_i → A_j)
+
+  (We call an instance or set of instances T universal for K if T → K)
+
+Thus the Core Chase preserves universality at each step
+
+If the Core Chase terminates there is some (n : Nat), s.t. Result = A_n
+
+
+
+-------------------------/
 
 def ChaseNode.isWeakCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
   Prop := FactSet.isWeakCore node.fact.val
@@ -46,6 +108,11 @@ structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) 
   fs_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fact)
 
 
+def CoreChaseNode.origin_result {obs : ObsoletenessCondition sig} (node : CoreChaseNode obs rules) (isSome : node.origin.isSome) : List (Fact sig) :=
+  let origin := node.origin.get isSome
+  origin.fst.val.mapped_head[origin.snd.val]
+
+
 -- checkt ob wenn man einen trigger (trg) auf einer menge (before) anwendet, die menge (after) rauskommt
 def RTrigger.isStep (trg : Trigger (obs : LaxObsoletenessCondition sig)) (before after : FactSet sig) : Prop :=
   ∃ fact, fact ∈ before → after = before ∪ (trg.mapped_head).flatten.toSet
@@ -58,26 +125,35 @@ def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSe
 def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
 
+
+theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) :kb.db.toFactSet.val.isWeakCore := by
+  let db := kb.db
+  let fs := db.val
+  intro gtm gtm_hom
+  constructor
+  intro f gt h contra
+  unfold GroundTermMapping.applyFact at contra
+  rw [Set.singleton_subset_iff_mem] at contra
+  specialize contra f
+  have : ¬ f ∈ kb.db.toFactSet.val → ¬ f ∈ Set.singleton { predicate := f.predicate, terms := List.map gtm f.terms, arity_ok := by grind} := fun a a => h (contra a)
+  specialize this h
+  simp at this
+  sorry
+  intro a a' h1 h2 gtm_eq
+  sorry
+
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
   database_first : branch.infinite_list 0 = some {
     fs := kb.db.toFactSet
     fs_fin := by exact kb.db.toFactSet.property.left
     core := kb.db.toFactSet
-    is_core := by
-      intro gtm gtm_hom
-      constructor
-      intro f gt not_in contra
-      apply not_in
-      sorry
-      sorry
-
+    is_core := by exact eachKbDbIsWeakCore kb
     core_sse := by
       constructor
       exact fun _ a => a
       exists id
       apply FactSet.id_is_hom
-
     origin := none,
     fs_contains_origin_result := by simp [Option.is_none_or]
   }
@@ -172,6 +248,10 @@ namespace CoreChaseBranch
     grind
 
   @[grind]
+  theorem prev_is_some_if_is_some' (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : (cb.branch.infinite_list n).isSome) : ∀ m, m < n → (cb.branch.infinite_list m).isSome := by
+    grind
+
+  @[grind]
   theorem succ_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
     intro m gt
     apply Classical.byContradiction
@@ -185,6 +265,14 @@ namespace CoreChaseBranch
   @[grind]
   theorem succ_eq_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m ≥ n → cb.branch.infinite_list m = none := by
     grind
+
+  def prev_node (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) : CoreChaseNode obs kb.rules :=
+    (cb.branch.infinite_list i).get (by grind)
+
+  @[grind]
+  theorem prev_node_eq (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
+      cb.branch.infinite_list i = some (cb.prev_node i isSome) := by
+    simp [prev_node]
 
   def last_element_index_rec  (cb : CoreChaseBranch ob kb) (ter' : cb.terminates') (n : Nat) : Nat :=
     match eq : cb.branch.infinite_list n with
@@ -355,6 +443,28 @@ namespace CoreChaseBranch
     rcases cn with ⟨_,_,_,is_core,_,_,_⟩
     exact is_core
 
+  @[grind]
+  theorem origin_isSome (cb : CoreChaseBranch obs kb) (i : Nat) {node : CoreChaseNode obs kb.rules}
+      (is_some : (cb.branch.infinite_list (i + 1)).isSome) : node.origin.isSome := by sorry
+
+
+  theorem CoreChasePrevSubset (cb : CoreChaseBranch obs kb) (n : Nat) (is_some : (cb.branch.infinite_list (n+1)).isSome) :
+   ((cb.branch.infinite_list n).get (by grind)).fs ⊆ ((cb.branch.infinite_list (n + 1)).get (by grind)).fs := by
+    sorry
+
+  theorem origin_trg_result_yields_next_node_fact_core (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
+    node.origin.isSome := by sorry
+
+
+  theorem stepIsSubsetOfAllFollowingCore (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+      ∀ j, (cb.branch.infinite_list (i + j)).is_none_or (fun node2 => node.fs ⊆ node2.fs) := by
+    intro j
+    induction j with
+    | zero => rw [Nat.add_zero, eq]; simp only [Option.is_none_or]; apply Set.subset_refl
+    | succ j ih =>
+      sorry
+
+  -- if A{i+1}.fs \neq none \to A_i.fs \subset A{i+1}.fs
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.fintie cb.result
   -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
 
@@ -400,48 +510,7 @@ namespace CoreChaseBranch
 end CoreChaseBranch
 
 
-------
-
--- define some syntactic suggar
-/-
-infixr:65 " ⊧ " => FactSet.modelsKb
-infixr:65 " ⊧ " => FactSet.modelsDb
-infixr:65 " ⊧ " => FactSet.modelsRule
-infixr:65 " ⊧ " => FactSet.modelsRules
-infixr:65 " ⊧ᵤ" => FactSet.universallyModelsKb
--/
-
-def FactSet.modelsFact (fs : FactSet sig) (fact : Fact sig) : Prop := sorry
-
--- define CoreChaseBranch as extention from ChaseBranch
--- Idee, ChaseBranch mit assertion, dass jede Node muss Core sein
-
-
-  -- problem: die nodes sind nur nach der core calc cores
-  -- => wir können einfach sagen, dass es für jede node einen core gibt
-  -- wie match ich das, ich will for alle elemente wo isSome true ist also das element nicht 'none' ist die node ein core ist
-  -- => braucht ggf: define Membership for PossiblyInfiniteList
-  -- nutze bereits gezeigtes resultat hier
-
-namespace PossiblyInfiniteList
-
-  -- class Membership (α : outParam (Type u)) (γ : Type v)
-
-
-  -- save nicht right
-  def toSet (l : PossiblyInfiniteList α) : Option α → Prop := fun x => x.is_some_and (fun f => f ∈ l)
-
-end PossiblyInfiniteList
-
--- {{a,b},{a,c},{d}} -> {a,b,c,d}
-def setFlatten (S : Set (Set α)) : Set α := sorry
-
--- same as original (kann man das iwi erben i.e. den beweis nicht nochmal komplett genauso hinschreiben ?)
-
-
-
-
-theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSet sig) (finite : cb.terminates) : (CoreChaseBranch.result cb finite).universallyModelsKb kb := by sorry
+theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSet sig) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').universallyModelsKb kb := by sorry
 
   -- core chase preserves universality at every step -> if it terminates then there is a universal model which is the result of the core chase
   theorem coreChaseUniversalForEachStep (cb : ChaseBranch obs kb) : ∀ node, node ∈ cb.branch → ChaseNode.isUniversal node := sorry
@@ -450,13 +519,9 @@ theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSe
   -- theorem 16, part 1 to 5
   -- (rules : Set (TGD sig)) wie ?
 
-  -- A_0 → A_1 → A_2 → ...
-  theorem t16_1 (rules : Set (Rule sig)) (cb : ChaseBranch obs kb) : true := sorry
-
-
 namespace ChaseBranch
 
-  -- t16
+  -- t16 (A_0 → A_1 → A_2 → ...)
   theorem exHomSuccIfSuccIsSome (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs kb.rules)
     (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
     (x_def : x = Option.get (cb.branch.infinite_list n) x_some) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) :
@@ -522,8 +587,12 @@ namespace ChaseBranch
               exact gtm'_hom
               exact gtm_hom
 
+
+  -- even true ?
   theorem exHomResultIfIsSome (cb : ChaseBranch obs kb) (cn cn_res : ChaseNode obs kb.rules) (cn_res_def : cn_res.fact = cb.result) : ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.fact cn_res.fact := by
     sorry
+
+
 
 
 end ChaseBranch
@@ -532,6 +601,10 @@ end ChaseBranch
     (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
     (x_def : x = Option.get (cb.branch.infinite_list n) x_some) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) :
       ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.core := by
+        have x_core := x.is_core
+        have y_core := y.is_core
+        unfold FactSet.isWeakCore at x_core y_core
+
         sorry
 
 
