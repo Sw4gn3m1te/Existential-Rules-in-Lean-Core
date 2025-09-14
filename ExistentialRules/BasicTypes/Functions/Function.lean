@@ -8,7 +8,7 @@ namespace Function
   def isInjective' (f : α → β) (A : Set α) : Prop := ∀ x y, x ∈ A ∧ y ∈ A → (x ≠ y → f x ≠ f y)
 
   -- Mathlib.Tactic.Contrapose
-  theorem isInjectiveIffisInjective' (f : α → β) (A : Set α) (B : Set β) : Function.isInjective f A ↔ Function.isInjective' f A := by
+  theorem isInjectiveIffisInjective' (f : α → β) (A : Set α) : Function.isInjective f A ↔ Function.isInjective' f A := by
     unfold isInjective isInjective'
     constructor
     intro h x y ⟨x_in_A, y_in_A⟩ neq
