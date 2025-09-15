@@ -132,14 +132,24 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) :kb.db.toFactSet.val.isWeakC
   intro gtm gtm_hom
   constructor
   intro f gt h contra
-  unfold GroundTermMapping.applyFact at contra
-  rw [Set.singleton_subset_iff_mem] at contra
-  specialize contra f
-  have : ¬ f ∈ kb.db.toFactSet.val → ¬ f ∈ Set.singleton { predicate := f.predicate, terms := List.map gtm f.terms, arity_ok := by grind} := fun a a => h (contra a)
-  specialize this h
-  simp at this
-  sorry
-  intro a a' h1 h2 gtm_eq
+  have eq : gtm.applyFact f = f := by
+    unfold GroundTermMapping.applyFact
+    rw [Fact.mk.injEq]
+    constructor
+    rfl
+    apply List.map_id_of_id_on_all_mem
+    intro e e_in
+    unfold GroundTermMapping.isHomomorphism at gtm_hom
+    specialize gt e e_in
+    rcases gt with ⟨f2, f2_mem, e_mem⟩
+    have db_funfree := kb.db.toFactSet.property.right
+    specialize db_funfree f2 f2_mem e e_mem
+    rcases db_funfree with ⟨c, c_eq⟩
+    rw [c_eq]
+    apply gtm_hom.left (.const c)
+  rw [eq] at contra
+  contradiction
+  unfold Function.injective_for_domain_set
   sorry
 
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
@@ -547,7 +557,7 @@ namespace ChaseBranch
           grind
         specialize this1 e this2
         exact this1
-
+  -- n := m+n then induction is without diff
   theorem exHomAllPrevIfIsSome (cb : ChaseBranch obs kb) (m n : Nat) (lt : m < n) (cn : ChaseNode obs kb.rules) (cn_some : (cb.branch.infinite_list n).isSome) (cn_def : cn = Option.get (cb.branch.infinite_list n) cn_some) :
     ∃ (h : GroundTermMapping sig), h.isHomomorphism (Option.get (cb.branch.infinite_list m) (by
       have : (cb.branch.infinite_list n).isSome → ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
