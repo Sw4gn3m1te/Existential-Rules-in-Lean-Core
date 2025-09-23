@@ -105,7 +105,7 @@ structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) 
   is_core : core.isWeakCore
   core_sse : FactSet.homSubset core fact
   origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
-  fs_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fact)
+  fs_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fs)
 
 
 def CoreChaseNode.origin_result {obs : ObsoletenessCondition sig} (node : CoreChaseNode obs rules) (isSome : node.origin.isSome) : List (Fact sig) :=
@@ -119,14 +119,26 @@ def RTrigger.isStep (trg : Trigger (obs : LaxObsoletenessCondition sig)) (before
 
 
 def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
-  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.core ∧ ∃ (c :FactSet sig) (i : _),
+  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.core ∧ ∃ (c : FactSet sig) (i : _),
     after.is_none_or (fun a => a.fs = before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet ∧ a.core = c ∧ a.origin = some ⟨trg, i⟩)
 
 def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
 
+theorem exFactIfExTerm (kb : KnowledgeBase sig) (t : GroundTerm sig) : t ∈ kb.db.toFactSet.val.terms → ∃ f, f ∈ kb.db.toFactSet.val := by
+  rintro ⟨f, f_in_fs, f_in_ter⟩
+  exists f
 
-theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) :kb.db.toFactSet.val.isWeakCore := by
+theorem id_is_injective (A : Set α) : Function.injective_for_domain_set id A := by
+  intro a b a_in b_in eq
+  simp at eq
+  exact eq
+
+theorem id_is_surjective (A : Set α) : Function.surjective_for_domain_and_image_set id A A := by
+  intro a a_in
+  exists a
+
+theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeakCore := by
   let db := kb.db
   let fs := db.val
   intro gtm gtm_hom
@@ -149,8 +161,13 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) :kb.db.toFactSet.val.isWeakC
     apply gtm_hom.left (.const c)
   rw [eq] at contra
   contradiction
-  unfold Function.injective_for_domain_set
-  sorry
+  -- id is injective
+  intro a b a_in b_in eq
+  have : ∃ f, f ∈ kb.db.toFactSet.val := exFactIfExTerm kb a a_in
+  have gtm_eq_id : gtm = id := by sorry
+  rw [gtm_eq_id] at eq
+  simp only [id_eq] at eq
+  exact eq
 
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
@@ -184,6 +201,18 @@ theorem Option.isSomeIffNeqNone (o : Option α) : o.isSome ↔ o ≠ none := by
   split
   next => grind
   next => grind
+
+@[simp, grind]
+def Option.castToMemIfNotNone (o : Option α) (not_none : o ≠ none) : α :=
+    match o with
+      | some o => o
+      | none => by contradiction
+
+@[simp, grind]
+def Option.castToMemIfIsSome (o : Option α) (is_some : o.isSome) : α :=
+  match o with
+    | some o => o
+    | none => by contradiction
 
 namespace CoreChaseBranch
 
@@ -236,11 +265,6 @@ namespace CoreChaseBranch
         constructor
         exact case
         grind
-
-  def castCbOptionNotNoneToCb (ocb : Option (CoreChaseNode obs rules)) (not_none : ocb ≠ none) : CoreChaseNode obs rules := by
-    match ocb with
-      | some cb => exact cb
-      | none => contradiction
 
   @[grind]
   theorem prev_is_some_if_is_some (cb : CoreChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
@@ -356,10 +380,10 @@ namespace CoreChaseBranch
     exact term_at_n.left
 
   def last_node (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : CoreChaseNode obs kb.rules :=
-    (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb ter')) (by exact last_index_is_some cb ter'))
+    (Option.castToMemIfNotNone (cb.branch.infinite_list (last_element_index cb ter')) (by exact last_index_is_some cb ter'))
 
   def result (cb : CoreChaseBranch ob kb) (ter' : cb.terminates') : FactSet sig :=
-    (castCbOptionNotNoneToCb (cb.branch.infinite_list (last_element_index cb ter')) (by
+    (Option.castToMemIfNotNone (cb.branch.infinite_list (last_element_index cb ter')) (by
       exact last_index_is_some cb ter')).core
 
   @[grind]
@@ -400,7 +424,6 @@ namespace CoreChaseBranch
         rw [← Nat.add_assoc]
         apply succ_is_none_if_is_none cb (m + 1) h4 (m + k + 1) (by grind)
 
-  -- uses sorry, but there is none ?
   @[grind]
   theorem terminating_has_last_index_core (cb : CoreChaseBranch obs kb) : cb.terminates ↔ ∃ n, (cb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> cb.branch.infinite_list m = none := by
   unfold CoreChaseBranch.terminates
@@ -454,25 +477,111 @@ namespace CoreChaseBranch
     exact is_core
 
   @[grind]
-  theorem origin_isSome (cb : CoreChaseBranch obs kb) (i : Nat) {node : CoreChaseNode obs kb.rules}
-      (is_some : (cb.branch.infinite_list (i + 1)).isSome) : node.origin.isSome := by sorry
+  theorem origin_isSome (cb : CoreChaseBranch obs kb) (i : Nat) {node : CoreChaseNode obs kb.rules} (eq : cb.branch.infinite_list (i + 1) = some node) : node.origin.isSome := by
+    have trg_ex := cb.triggers_exist i
+    rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
+    cases trg_ex with
+    | inl trg_ex =>
+      unfold exists_trigger_opt_fs at trg_ex
+      rcases trg_ex with ⟨trg, _, core_fs, disj, trg_eq⟩
+      simp only [eq] at trg_eq
+      rcases trg_eq with ⟨fs_eq, core_eq, origin_eq⟩
+      exact Option.isSome_of_mem origin_eq
+    | inr trg_nex =>
+      unfold not_exists_trigger_opt_fs at trg_nex
+      simp only [eq] at trg_nex
+      rcases trg_nex with ⟨fs_eq, core_eq, origin_eq⟩
 
+  /-
+    node1 (n) ----> node2 (n + 1)
+    ~.core      ⊆   ~.fs
+    because ex trigger from n1 to n2 thus n2.fs = n1.core + trig.result thus n1.core ⊆ n2.fs
+  -/
 
-  theorem CoreChasePrevSubset (cb : CoreChaseBranch obs kb) (n : Nat) (is_some : (cb.branch.infinite_list (n+1)).isSome) :
-   ((cb.branch.infinite_list n).get (by grind)).fs ⊆ ((cb.branch.infinite_list (n + 1)).get (by grind)).fs := by
-    sorry
+  @[grind]
+  theorem prevCoreSubsetOfFactset (cb : CoreChaseBranch obs kb) (n : Nat) (y : CoreChaseNode obs kb.rules) (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
+    x.core ⊆ y.fs := by
+      have trg_ex := cb.triggers_exist n
+      rw [prev_node_eq _ _ (Option.isSome_of_mem y_eq), Option.is_none_or] at trg_ex
+      cases trg_ex with
+        | inl trg_ex =>
+          rcases trg_ex with ⟨trg, _, core_fs, disj, trg_eq⟩
+          simp_all only
+          rcases trg_eq with ⟨lhs, rhs⟩
+          intro f f_in
+          rw [lhs]
+          unfold prev_node
+          have eq : ((cb.branch.infinite_list n).get (Option.isSome_of_mem x_eq)) = x := by exact Option.get_of_eq_some (Option.isSome_of_mem x_eq) x_eq
+          simp only [eq]
+          grind
+        | inr trg_nex =>
+          unfold not_exists_trigger_opt_fs_core at trg_nex
+          simp only [not_exists] at trg_nex
+          rcases trg_nex with ⟨h1, h2⟩
+          rw [h2] at y_eq
+          contradiction
 
+  -- wrong location
+  theorem applyFactSetIdEq (f g : Fact sig) : GroundTermMapping.applyFact id f = g → f = g := by
+    intro h
+    unfold GroundTermMapping.applyFact at h
+    simp only [List.map_id_fun, id_eq] at h
+    rw [Fact.mk.injEq]
+    exact ⟨congrArg Fact.predicate h, congrArg Fact.terms h⟩
+
+  @[grind]
+  theorem exHomSubToSet (A B : FactSet sig) (sub : A ⊆ B) : ∃ (h : GroundTermMapping sig), h.isHomomorphism A B := by
+    exists id
+    constructor
+    intro gt
+    simp only [id_eq]
+    split
+    next => trivial
+    next => trivial
+    intro f f_in
+    specialize sub f
+    apply sub
+    rcases f_in with ⟨g, g_in_a, g_in_ida⟩
+    have eq := applyFactSetIdEq g f g_in_ida
+    rw [← eq]
+    exact g_in_a
+
+  @[grind]
+  theorem exHomFsCore (cb : CoreChaseBranch obs kb) (n : Nat) (x : CoreChaseNode obs kb.rules) (x_eq : cb.branch.infinite_list n = some x) :
+    ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fs x.core := by
+      exact x.core_sse.right
+
+  @[grind]
+  theorem exHomPrevCoreToFactSet (cb : CoreChaseBranch obs kb) (n : Nat) (x y : CoreChaseNode obs kb.rules)
+    (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.fs := by
+      have trg_ex := cb.triggers_exist n
+      have sub : _ := prevCoreSubsetOfFactset cb n y x_eq y_eq
+      have := exHomSubToSet x.core y.fs sub
+      exact this
+
+  @[grind]
   theorem origin_trg_result_yields_next_node_fact_core (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
-    node.origin.isSome := by sorry
+      node.fs = (cb.prev_node i (by simp [eq])).core ∪ (node.origin_result (cb.origin_isSome i eq)).toSet := by
+    have trg_ex := cb.triggers_exist i
+    rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
+    cases trg_ex with
+    | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq; simp at eq
+    | inl trg_nex =>
+      unfold exists_trigger_opt_fs at trg_nex
+      rcases trg_nex with ⟨trg, trg_active, core_fs, disj, trg_eq⟩
+      simp only [eq] at trg_eq
+      rcases trg_eq with ⟨fs_eq, core_eq, origin_eq⟩
+      have : trg.val.mapped_head[↑disj].toSet = (node.origin_result (origin_isSome cb i eq)).toSet := by
+        unfold CoreChaseNode.origin_result
+        simp only [Fin.getElem_fin]
+        have eq' : (node.origin.get (origin_isSome cb i eq)) = ⟨trg, disj⟩ := by
+          exact Option.get_of_eq_some (origin_isSome cb i eq) origin_eq
+        simp only [eq']
+        have eq'' : (node.origin.get (origin_isSome cb i eq)).snd.val = disj.val := by rw [eq']
+        simp only [eq'']
+      rw [← this]
+      exact fs_eq
 
-
-  theorem stepIsSubsetOfAllFollowingCore (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
-      ∀ j, (cb.branch.infinite_list (i + j)).is_none_or (fun node2 => node.fs ⊆ node2.fs) := by
-    intro j
-    induction j with
-    | zero => rw [Nat.add_zero, eq]; simp only [Option.is_none_or]; apply Set.subset_refl
-    | succ j ih =>
-      sorry
 
   -- if A{i+1}.fs \neq none \to A_i.fs \subset A{i+1}.fs
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.fintie cb.result
@@ -517,6 +626,155 @@ namespace CoreChaseBranch
     rcases this with ⟨cn, last_node⟩
     sorry
 
+  /-
+    (x)              (y)
+    A_1  --- →  ---  A_2
+     |                |
+     fs           →   fs
+     ↓         ↗      ↓
+   id (⊆)  (h)     id (⊆)
+     ↓   ↗           ↓
+   core → (h ∘ id) → core
+
+  -/
+
+
+  @[grind]
+  theorem exHomCoreSuccCoreIfSuccIsSome (cb : CoreChaseBranch obs kb) (n : Nat) (x y : CoreChaseNode obs kb.rules)
+    (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
+      ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.core := by
+      have y_core := y.core_sse
+      rcases y_core with ⟨sub, ⟨gtm_yfs_ycore, gtm_yfs_ycore_hom⟩⟩
+      have : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.fs := exHomPrevCoreToFactSet cb n x y x_eq y_eq
+      rcases this with ⟨gtm_xcore_yfs, gtm_xcore_yfs_hom⟩
+      exists (gtm_yfs_ycore ∘ gtm_xcore_yfs)
+      exact GroundTermMapping.isHomomorphism_compose gtm_xcore_yfs gtm_yfs_ycore x.core y.fs y.core gtm_xcore_yfs_hom gtm_yfs_ycore_hom
+
+  @[grind]
+  theorem exHomFsSuccFsIfSuccIsSome (cb : CoreChaseBranch obs kb) (n : Nat) (x y : CoreChaseNode obs kb.rules)
+    (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
+      ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fs y.fs := by
+        have x_core := x.core_sse
+        have : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.fs := exHomPrevCoreToFactSet cb n x y x_eq y_eq
+        rcases this with ⟨gtm_xcore_yfs, gtm_xcore_yfs_hom⟩
+        rcases x_core with ⟨sub, gtm_xfs_xcore, gtm_xfs_xcore_hom⟩
+        exists (gtm_xcore_yfs ∘ gtm_xfs_xcore)
+        exact GroundTermMapping.isHomomorphism_compose gtm_xfs_xcore gtm_xcore_yfs x.fs x.core y.fs gtm_xfs_xcore_hom gtm_xcore_yfs_hom
+
+  -- t16 (A_0 → A_1 → A_2 → ...)
+  @[grind]
+  theorem exHomCoreAllFollowingCore (cb : CoreChaseBranch obs kb) (n : Nat) (x : CoreChaseNode obs kb.rules) (x_eq : cb.branch.infinite_list n = some x) :
+        ∀ m, (cb.branch.infinite_list (n + m)).is_none_or (fun y => ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.core) := by
+      intro m
+      induction m with
+      | zero =>
+        simp only [Nat.add_zero, Option.is_none_or]
+        split
+        next => trivial
+        next a b y heq => apply exHomSubToSet x.core y.core (by grind)
+      | succ m ih =>
+        rw [Option.is_none_or_iff]
+        intro y y_eq
+        let prev_node := (cb.prev_node (n + m) (by rw [Nat.add_assoc]; simp [y_eq]))
+        simp only [Option.is_none_or] at ih
+        split at ih
+        next => apply exHomSubToSet x.core y.core (by grind)
+        next a b z heq =>
+          have : ∃ (h : GroundTermMapping sig), h.isHomomorphism z.core y.core := exHomCoreSuccCoreIfSuccIsSome cb (n + m) z y heq y_eq
+          rcases ih with ⟨gtm_x_z, gtm_x_z_hom⟩
+          rcases this with ⟨gtm_z_y, gtm_z_y_hom⟩
+          exists (gtm_z_y ∘ gtm_x_z)
+          exact GroundTermMapping.isHomomorphism_compose gtm_x_z gtm_z_y x.core z.core y.core gtm_x_z_hom gtm_z_y_hom
+
+  @[grind]
+  theorem exHomFsAllFollowingFs (cb : CoreChaseBranch obs kb) (n : Nat) (x : CoreChaseNode obs kb.rules) (x_eq : cb.branch.infinite_list n = some x) :
+        ∀ m, (cb.branch.infinite_list (n + m)).is_none_or (fun y => ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fs y.fs) := by
+      intro m
+      induction m with
+      | zero =>
+        simp only [Nat.add_zero, Option.is_none_or]
+        split
+        next => trivial
+        next a b y heq => apply exHomSubToSet x.fs y.fs (by grind)
+      | succ m ih =>
+        rw [Option.is_none_or_iff]
+        intro y y_eq
+        let prev_node := (cb.prev_node (n + m) (by rw [Nat.add_assoc]; simp [y_eq]))
+        simp only [Option.is_none_or] at ih
+        split at ih
+        next => apply exHomSubToSet x.fs y.fs (by grind)
+        next a b z heq =>
+          have : ∃ (h : GroundTermMapping sig), h.isHomomorphism z.fs y.fs := exHomFsSuccFsIfSuccIsSome cb (n + m) z y heq y_eq
+          rcases ih with ⟨gtm_x_z, gtm_x_z_hom⟩
+          rcases this with ⟨gtm_z_y, gtm_z_y_hom⟩
+          exists (gtm_z_y ∘ gtm_x_z)
+          exact GroundTermMapping.isHomomorphism_compose gtm_x_z gtm_z_y x.fs z.fs y.fs gtm_x_z_hom gtm_z_y_hom
+
+  @[grind]
+  theorem exHomResultIfIsSome (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (m : Nat) (cn cn_res : CoreChaseNode obs kb.rules)
+    (cn_eq : cb.branch.infinite_list m = some cn) (cn_res_eq : cn_res.core = cb.result ter') :
+    ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.fs cn_res.core := by
+      unfold result at cn_res_eq
+      rcases ter' with ⟨n, term_at_n⟩
+      have ter'_eq : cb.last_element_index (Exists.intro n term_at_n : ∃ n, cb.terminates_at_step n) = n := last_element_index_eq_termintes'_index cb n term_at_n
+      simp only [ter'_eq] at cn_res_eq
+      simp_all only [Option.castToMemIfNotNone, ne_eq]
+      split at cn_res_eq
+      next a b c d e f =>
+        rw [← cn_res_eq]
+        by_cases case : m < n
+        have := exHomCoreAllFollowingCore cb m cn cn_eq
+        specialize this (n - m)
+        have eq : m + (n - m) = n := by grind
+        rw [eq, e] at this
+        rcases this with ⟨gtm_cn_core_cn_res_core, gtm_cn_core_cn_res_core_hom⟩
+        rcases cn.core_sse.right with ⟨gtm_cn_fs_cn_core, gtm_cn_fs_cn_core_hom⟩
+        rw [← cn_res_eq] at gtm_cn_core_cn_res_core_hom
+        exists (gtm_cn_core_cn_res_core ∘ gtm_cn_fs_cn_core)
+        exact GroundTermMapping.isHomomorphism_compose gtm_cn_fs_cn_core gtm_cn_core_cn_res_core cn.fs cn.core cn_res.core gtm_cn_fs_cn_core_hom gtm_cn_core_cn_res_core_hom
+        have case : m = n ∨ m > n:= Nat.eq_or_lt_of_not_lt case
+        cases case with
+          | inl eq =>
+            grind
+          | inr gt =>
+            have contra := CoreChaseBranch.last_element_index_eq_termintes'_index_leq cb n term_at_n m
+            -- contradiction
+            sorry
+      next => contradiction
+
+  theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by sorry
+
+
+  theorem cbResultModelsKb (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
+    constructor
+    intro f f_in
+    unfold result
+    simp only [Option.castToMemIfNotNone, ne_eq]
+    split
+    next a b c d e g =>
+      have := cbDbSubsetResult cb ter'
+      specialize this f f_in
+      unfold result at this
+      simp only [Option.castToMemIfNotNone, ne_eq] at this
+      split at this
+      next => simp_all only [ne_eq, Option.some.injEq, not_false_eq_true, heq_eq_eq]
+      next => simp_all only [ne_eq, reduceCtorEq]
+    next => contradiction
+    intro r r_in gs sub
+    apply Classical.byContradiction
+    intro subs_not_obsolete
+    let trg : Trigger obs := ⟨r, gs⟩
+    have trg_loaded : trg.loaded (cb.result ter') := by apply sub
+    have trg_not_obsolete : ¬ obs.cond trg (cb.result ter') := by
+      intro contra
+      have obs_impl_sat := obs.cond_implies_trg_is_satisfied contra
+      apply subs_not_obsolete
+      rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
+      exists i
+      exists s'
+    sorry
+
+
 end CoreChaseBranch
 
 
@@ -528,94 +786,6 @@ theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSe
 
   -- theorem 16, part 1 to 5
   -- (rules : Set (TGD sig)) wie ?
-
-namespace ChaseBranch
-
-  -- t16 (A_0 → A_1 → A_2 → ...)
-  theorem exHomSuccIfSuccIsSome (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs kb.rules)
-    (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
-    (x_def : x = Option.get (cb.branch.infinite_list n) x_some) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) :
-      ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fact y.fact := by
-        exists id
-        constructor
-        intro gt
-        split
-        next => trivial
-        next => trivial
-        intro e e_in
-        have this1 : x.fact.val ⊆ y.fact.val := by
-          have := ChaseBranch.stepIsSubsetOfAllFollowing cb n x (by grind) 1
-          unfold Option.is_none_or at this
-          split at this
-          next => grind
-          next => grind
-        have this2 : e ∈ x.fact.val := by
-          rcases e_in with ⟨f, lhs, rhs⟩
-          have this3 : GroundTermMapping.applyFact id f = e → f = e := by
-            unfold GroundTermMapping.applyFact
-            simp only [List.map_id_fun, id_eq, imp_self]
-          grind
-        specialize this1 e this2
-        exact this1
-  -- n := m+n then induction is without diff
-  theorem exHomAllPrevIfIsSome (cb : ChaseBranch obs kb) (m n : Nat) (lt : m < n) (cn : ChaseNode obs kb.rules) (cn_some : (cb.branch.infinite_list n).isSome) (cn_def : cn = Option.get (cb.branch.infinite_list n) cn_some) :
-    ∃ (h : GroundTermMapping sig), h.isHomomorphism (Option.get (cb.branch.infinite_list m) (by
-      have : (cb.branch.infinite_list n).isSome → ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
-        intro h2 m2 lt
-        rcases EQ : cb.branch with ⟨l, nh⟩
-        have l_eq : l = cb.branch.infinite_list := by rw [EQ]
-        rw [l_eq] at nh
-        rw [Option.isSomeIffNeqNone] at h2
-        specialize nh n h2 ⟨m2, lt⟩
-        simp only [← ne_eq]
-        rw [← l_eq] at nh
-        exact nh
-      rw [Option.isSomeIffNeqNone]
-      specialize this cn_some m lt
-      exact this
-        )).fact cn.fact := by
-          induction d : (n - m) generalizing m with
-            | zero => grind
-            | succ n' ih =>
-              have prec_some : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by grind
-              have prec_some' := prec_some
-              have lt2 : m + 1 < n := by sorry
-              specialize ih (m + 1) lt2 (by grind)
-              specialize prec_some m lt
-              specialize prec_some' (m + 1) lt2
-              let x := (cb.branch.infinite_list m).get (by grind)
-              let y := (cb.branch.infinite_list (m + 1)).get (by grind)
-              have : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fact y.fact := by
-                apply exHomSuccIfSuccIsSome cb m x y
-                  (by rw [← Option.isSomeIffNeqNone] at prec_some; exact prec_some)
-                  (by rw [← Option.isSomeIffNeqNone] at prec_some'; exact prec_some')
-                  (by rfl) (by rfl)
-              rcases ih with ⟨gtm, gtm_hom⟩
-              rcases this with ⟨gtm', gtm'_hom⟩
-              exists gtm ∘ gtm'
-              apply GroundTermMapping.isHomomorphism_compose gtm' gtm x.fact y.fact cn.fact
-              exact gtm'_hom
-              exact gtm_hom
-
-
-  -- even true ?
-  theorem exHomResultIfIsSome (cb : ChaseBranch obs kb) (cn cn_res : ChaseNode obs kb.rules) (cn_res_def : cn_res.fact = cb.result) : ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.fact cn_res.fact := by
-    sorry
-
-
-
-
-end ChaseBranch
-
-  theorem t16_core (cb : CoreChaseBranch obs kb) (n : Nat) (x y : CoreChaseNode obs kb.rules)
-    (x_some : (cb.branch.infinite_list n).isSome) (y_some : (cb.branch.infinite_list (n+1)).isSome)
-    (x_def : x = Option.get (cb.branch.infinite_list n) x_some) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) :
-      ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.core := by
-        have x_core := x.is_core
-        have y_core := y.is_core
-        unfold FactSet.isWeakCore at x_core y_core
-
-        sorry
 
 
   theorem t16_2 (A_n : PossiblyInfiniteList (FactSet sig)) (A B : FactSet sig) (rules : RuleSet sig) :
