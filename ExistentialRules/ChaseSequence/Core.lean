@@ -303,6 +303,9 @@ namespace CoreChaseBranch
   def prev_node (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) : CoreChaseNode obs kb.rules :=
     (cb.branch.infinite_list i).get (by grind)
 
+  def connected (cb : CoreChaseBranch obs kb) (n m : Nat) (gt : n ≥ m) (isSome : (cb.branch.infinite_list n).isSome) : Prop :=
+    ((cb.branch.infinite_list (n-1)).get (by grind) = (cb.branch.infinite_list m).get (by grind)) ∨ cb.connected (n-1) m (by grind)
+
   @[grind]
   theorem prev_node_eq (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
       cb.branch.infinite_list i = some (cb.prev_node i isSome) := by
@@ -329,6 +332,10 @@ namespace CoreChaseBranch
       termination_by Classical.choose ter' + 1 - n
 
   def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
+
+  def connected2 (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (isSome : (cb.branch.infinite_list (cb.last_element_index ter')).isSome) : Prop :=
+    ∀ n, n ≤ (cb.last_element_index ter') → exists_trigger_opt_fs_core obs kb.rules (cb.branch.infinite_list) after
+
 
   @[grind]
   theorem last_element_index_eq_termintes'_index_leq (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : ∀ m, m ≤ n → last_element_index_rec cb (by exists n) m = n := by
@@ -738,11 +745,56 @@ namespace CoreChaseBranch
             grind
           | inr gt =>
             have contra := CoreChaseBranch.last_element_index_eq_termintes'_index_leq cb n term_at_n m
+            unfold CoreChaseBranch.last_element_index at ter'_eq
             -- contradiction
             sorry
       next => contradiction
 
-  theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by sorry
+  @[grind]
+  theorem allElemDbMappedId (cb : CoreChaseBranch obs kb) (init : CoreChaseNode obs kb.rules) (init_eq : cb.branch.infinite_list 0 = some init) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism init.fs fs2) :
+    ∀ f, f ∈ init.fs → gtm.applyFact f = f := by
+      intro f f_in
+      unfold GroundTermMapping.applyFact
+      rw [Fact.mk.injEq]
+      constructor
+      rfl
+      apply List.map_id_of_id_on_all_mem
+      intro gt gt_in
+      unfold GroundTermMapping.isHomomorphism at gtm_hom
+      have db_funfree := kb.db.toFactSet.property.right
+      rw [cb.database_first] at init_eq
+      simp only [Option.some.injEq] at init_eq
+      rw [← init_eq] at f_in
+      specialize db_funfree f f_in gt gt_in
+      rcases db_funfree with ⟨c, c_eq⟩
+      rw [c_eq]
+      apply gtm_hom.left (.const c)
+
+  theorem exTrigUntilResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') :
+
+
+  theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
+    let init_node := (cb.branch.infinite_list 0).get (by grind)
+    have ex_gtm := exHomResultIfIsSome cb ter' 0 init_node (cb.last_node ter') (by grind) rfl
+    rcases ex_gtm with ⟨gtm, gtm_hom⟩
+    let := cb.database_first
+    have eq : init_node.fs = kb.db.toFactSet.val := by sorry -- by database_first
+    rw [← eq]
+    -- only consts are mapped
+    intro f f_in
+    have eq2 := allElemDbMappedId cb init_node (by grind) gtm gtm_hom f f_in
+    unfold result
+    simp only [Option.castToMemIfNotNone, ne_eq]
+    split
+    next a b c d e g =>
+      have trg_ex := origin_trg_result_yields_next_node_fact_core cb 0 init_node
+
+
+
+
+    sorry
+
+
 
 
   theorem cbResultModelsKb (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
