@@ -304,7 +304,17 @@ namespace CoreChaseBranch
     (cb.branch.infinite_list i).get (by grind)
 
   def connected (cb : CoreChaseBranch obs kb) (n m : Nat) (gt : n ≥ m) (isSome : (cb.branch.infinite_list n).isSome) : Prop :=
-    ((cb.branch.infinite_list (n-1)).get (by grind) = (cb.branch.infinite_list m).get (by grind)) ∨ cb.connected (n-1) m (by grind)
+    ((cb.branch.infinite_list (n-1)).get (by grind) = (cb.branch.infinite_list m).get (by grind)) ∨ cb.connected (n-1) m (by
+      have eqgt : m = n ∨ m < n := Nat.eq_or_lt_of_le gt
+      rcases eqgt with eq | gt
+      apply Classical.byContradiction
+      intro contra
+      simp only [ge_iff_le, Nat.not_le] at contra
+      rw [eq] at contra
+      have : n > 0 := Nat.zero_lt_of_lt contra
+      sorry
+      grind
+    ) (by grind)
 
   @[grind]
   theorem prev_node_eq (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
@@ -334,7 +344,7 @@ namespace CoreChaseBranch
   def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
 
   def connected2 (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (isSome : (cb.branch.infinite_list (cb.last_element_index ter')).isSome) : Prop :=
-    ∀ n, n ≤ (cb.last_element_index ter') → exists_trigger_opt_fs_core obs kb.rules (cb.branch.infinite_list) after
+    ∀ n, n ≤ (cb.last_element_index ter') → exists_trigger_opt_fs_core obs kb.rules ((cb.branch.infinite_list n).get sorry)
 
 
   @[grind]
@@ -473,6 +483,7 @@ namespace CoreChaseBranch
   @[grind]
   theorem exResultOfTerminatingCoreChaseBranch (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ fs, fs = cb.result ter' := by
     exists cb.result ter'
+
   @[grind]
   theorem coreChaseResultIsCore (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').isWeakCore := by
     unfold CoreChaseBranch.result
@@ -627,10 +638,79 @@ namespace CoreChaseBranch
   -- wie will man das zeigen ?
   --> gibt es keinen core zu infinite sets oder kann es sein, dass es keinen gibt ?
 
+  @[grind]
+  theorem db_finite (cb : CoreChaseBranch obs kb) (isSome : (cb.branch.infinite_list 0).isSome = true) : Set.finite ((cb.branch.infinite_list 0).get isSome).core := by
+    have := cb.database_first
+    simp_all only [Option.get_some]
+    grind
+
+  @[grind]
+  theorem origin_result_finite {obs : ObsoletenessCondition sig} (node : CoreChaseNode obs rules) (isSome : node.origin.isSome) : Set.finite (node.origin_result isSome).toSet := by
+    unfold Set.finite
+    exists node.origin_result isSome
+    constructor
+    unfold CoreChaseNode.origin_result
+    simp only
+    sorry
+    intro f
+    exact List.mem_iff_toSet_mem (node.origin_result isSome) f
+
+
+  theorem all_fs_finite (cb : CoreChaseBranch obs kb) (n : Nat) (node : CoreChaseNode obs kb.rules) (eq: cb.branch.infinite_list n = some node) : Set.finite (node.fs) := by
+    induction n with
+      | zero =>
+        have := cb.database_first
+        grind
+      | succ n ih =>
+        have origin_yield := origin_trg_result_yields_next_node_fact_core cb n node eq
+        have trg_ex := cb.triggers_exist n
+        have := prev_is_some_if_is_some cb (n+1) (by grind) n (Nat.lt_add_one n)
+        -- specialize ih (by grind) -- does "some node" referr to the same node ? i.e. must the branch have the same node at n and n+1 ?
+        sorry
+
+  theorem all_core_finite (cb : CoreChaseBranch obs kb) (n : Nat) (node : CoreChaseNode obs kb.rules) (eq: cb.branch.infinite_list n = some node) : Set.finite (node.core) := by sorry
+
+  theorem result_finite_if_cb_terminates2 (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
+    have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
+    rcases this with ⟨cn, cn_eq⟩
+    rcases ter' with ⟨n, term_at_n⟩
+    have := all_core_finite cb n cn sorry
+    unfold result
+    simp only [Option.castToMemIfNotNone, ne_eq]
+    split
+    next a b c d e f => exact all_core_finite cb (cb.last_element_index (Exists.intro n term_at_n)) c e
+    next => contradiction
+
+
+  -- set_option pp.proofs true in
   theorem result_finite_if_cb_terminates (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
-    rcases ter' with ⟨n, is_none⟩
-    rcases this with ⟨cn, last_node⟩
+    rcases this with ⟨cn, cn_eq⟩
+    unfold last_node at cn_eq
+    simp only [Option.castToMemIfNotNone, ne_eq] at cn_eq
+    have := last_index_is_some cb ter'
+    rcases ter' with ⟨n, term_at_n⟩
+    have ter'_eq : cb.last_element_index (Exists.intro n term_at_n : ∃ n, cb.terminates_at_step n) = n := last_element_index_eq_termintes'_index cb n term_at_n
+    induction n with
+      | zero =>
+        unfold result
+        have := cb.database_first
+        simp only [Option.castToMemIfNotNone, ne_eq]
+        split
+        next a b c d e f =>
+          simp_all only [ne_eq, reduceCtorEq, not_false_eq_true, Option.some.injEq, heq_eq_eq]
+          grind
+        next => contradiction
+      | succ n ih =>
+        unfold result
+        simp only [Option.castToMemIfNotNone, ne_eq]
+        split
+        next a b c d e f =>
+          have prev_fin : Set.finite ((cb.branch.infinite_list n).get (by grind)).core := by sorry
+          have origin_fin := origin_result_finite ((cb.branch.infinite_list n).get (by grind)) sorry
+          simp_all
+          specialize ih term_at_n
+        sorry
     sorry
 
   /-
@@ -770,7 +850,7 @@ namespace CoreChaseBranch
       rw [c_eq]
       apply gtm_hom.left (.const c)
 
-  theorem exTrigUntilResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') :
+  theorem exTrigUntilResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : false := sorry
 
 
   theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
