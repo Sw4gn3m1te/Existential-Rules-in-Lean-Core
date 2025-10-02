@@ -13,6 +13,7 @@ import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 
 
 import Aesop
+import Canonical
 --import Mathlib.Combinatorics.Graph.Basic
 
 
@@ -91,10 +92,10 @@ If the Core Chase terminates there is some (n : Nat), s.t. Result = A_n
 -------------------------/
 
 def ChaseNode.isWeakCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
-  Prop := FactSet.isWeakCore node.fact.val
+  Prop := FactSet.isWeakCore node.facts.val
 
 def ChaseNode.isStrongCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
- Prop := FactSet.isStrongCore node.fact.val
+ Prop := FactSet.isStrongCore node.facts.val
 
 def getCore (fs : FactSet sig) (fs_fin : fs.finite) : {wc : FactSet sig // wc.isWeakCore ∧ wc.homSubset fs} := by sorry
 
@@ -103,7 +104,7 @@ structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) 
   fs_fin : fs.finite
   core : FactSet sig
   is_core : core.isWeakCore
-  core_sse : FactSet.homSubset core fact
+  core_sse : core.homSubset fs
   origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
   fs_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fs)
 
@@ -218,8 +219,7 @@ namespace CoreChaseBranch
 
   variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-  -- this should be stronger than cb.finite
-  def finite' (cb : CoreChaseBranch obs kb) : Prop :=
+  def terminates (cb : CoreChaseBranch obs kb) : Prop :=
     ∃ n, (cb.branch.infinite_list n = none)
 
   def terminates_at_step (cb : CoreChaseBranch obs kb) (n : Nat) : Prop :=
