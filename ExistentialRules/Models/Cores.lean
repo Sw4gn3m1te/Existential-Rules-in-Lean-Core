@@ -72,7 +72,7 @@ namespace List
 
   theorem empty_eq_empty_set : @List.toSet α [] = ∅ := by
     rfl
-
+  /-
   theorem empty_eq_empty_set' : @List.toSet' α [] = ∅ := by
     unfold List.toSet'
     funext a
@@ -83,6 +83,8 @@ namespace List
     contradiction
     intro contra
     contradiction
+  -/
+
 
   theorem non_empty_has_length_gt_zero (l : List α) : l.length > 0 ↔ l ≠ [] := by
     constructor
@@ -130,7 +132,7 @@ namespace List
         simp only [List.mem_cons]
         constructor
         intro e_in_l
-        change e ∈ fun e => e = hd ∨ e ∈ tl.toSet
+        refine (Set.union_iff (fun e => e = hd) tl.toSet e).mpr ?_
         rcases e_in_l with e_hd | e_tl
         left
         exact e_hd
@@ -138,20 +140,16 @@ namespace List
         rw [← ih]
         exact e_tl
         intro e_tls
-        change e ∈ fun e => e = hd ∨ e ∈ tl.toSet at e_tls
-        rcases e_tls with e_hd | e_tl
-        left
-        exact e_hd
-        right
-        rw [ih]
-        exact e_tl
+        exact (or_congr_right (id (Iff.symm ih))).mp e_tls
 
   theorem toSet_iff_toSet' (l : List α) : l.toSet = l.toSet' := by
     cases l with
       | nil =>
         funext a
         apply propext
-        rw [List.empty_eq_empty_set', List.empty_eq_empty_set]
+        sorry
+        --rw [List.empty_eq_empty_set', List.empty_eq_empty_set]
+        --rfl
       | cons hd tl =>
         funext a
         apply propext
@@ -169,12 +167,7 @@ namespace List
         intro h
         unfold List.toSet
         change a ∈ (hd :: tl).toSet
-        change a ∈ fun e => e = hd ∨ a ∈ tl.toSet
-        rcases h with a_hs | ⟨a_tl, h⟩
-        left
-        rfl
-        right
-        exact (mem_iff_toSet_mem tl a).mp h
+        exact (mem_iff_toSet_mem (hd :: tl) a).mp h
 
   theorem subset_mono [DecidableEq α] (l tl : List α) (hd : α) (subset : (hd :: tl) ⊆ l) : tl ⊆ l := by
     induction (hd :: tl) with
@@ -200,7 +193,6 @@ namespace List
           rw [mem_iff_toSet_mem]
           have subset' : (hd::tl).toSet ⊆ l.toSet := by
             exact subset_if_sublist l (hd :: tl) subset
-          unfold Set.subset at subset'
           specialize subset' hd
           apply subset'
           unfold List.toSet
@@ -272,7 +264,6 @@ namespace List
     intro contra
     simp only [ne_eq, Classical.not_not] at contra
     rw [List.mem_iff_toSet_mem] at e_in_l
-    unfold Set.element at e_in_l
     rw [contra] at e_in_l
     contradiction
 
@@ -282,7 +273,7 @@ namespace List
     funext e'
     apply propext
     specialize e e'
-    repeat rw [List.mem_iff_toSet_mem, Set.element] at e
+    repeat rw [List.mem_iff_toSet_mem] at e
     exact e
     intro h e
     repeat rw [List.mem_iff_toSet_mem]
@@ -1315,7 +1306,6 @@ theorem strong_core_of_universal_model_is_universal_model
     contradiction
 
   theorem apply_fact_set_to_empty_is_empty (gtm : GroundTermMapping sig) (fs : FactSet sig) (fs_emtpy : fs = ∅) : gtm.applyFactSet fs ⊆ fs := by
-    rw [Set.subset]
     rw [fs_emtpy]
     intro f fu
     have c : f ∈ gtm.applyFactSet ∅ → false := by
@@ -1328,7 +1318,8 @@ theorem strong_core_of_universal_model_is_universal_model
     unfold homSubset
     intro fs_empty
     rw [fs_empty]
-    simp [Set.subset]
+    constructor
+    exact fun e a => a
     exists (fun x => x)
     constructor
     unfold GroundTermMapping.isIdOnConstants
@@ -1362,8 +1353,6 @@ theorem strong_core_of_universal_model_is_universal_model
       exact f2_in_fs
 
   theorem Set.subset_mono' [DecidableEq α] (l tl : List α) (hd : α) (subset : (hd :: tl).toSet ⊆ l.toSet) : tl.toSet ⊆ l.toSet := by
-    unfold Set.subset at subset
-    unfold Set.subset
     intro  e
     specialize subset e
     intro h
@@ -1383,9 +1372,7 @@ theorem strong_core_of_universal_model_is_universal_model
   theorem apply_fact_set_monotone (f : GroundTermMapping sig) (A B : FactSet sig) (subset : A ⊆ B):
     f.applyFactSet B ⊆ A → f.applyFactSet B ⊆ B := by
       intro h
-      unfold Set.subset
       intro e e_in_af_B
-      unfold Set.subset at subset h
       specialize h e e_in_af_B
       specialize subset e h
       exact subset
@@ -1608,12 +1595,9 @@ theorem strong_core_of_universal_model_is_universal_model
               intro e
               apply propext
               have := @List.mem_toSet _ sub' e
-              unfold Set.element at this
-              rw [this]
               have := @List.mem_toSet _ sub e
-              unfold Set.element at this
-              rw [this]
-              apply List.mem_eraseDupsKeepRight
+              --apply List.mem_eraseDupsKeepRight
+              sorry
             specialize ih sub.length  -- m < n
             by_cases n_zero : (n = 0)
             . exists ∅

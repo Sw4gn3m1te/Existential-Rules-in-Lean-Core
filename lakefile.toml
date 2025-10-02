@@ -20,3 +20,8 @@ name = "aesop"
 git = "https://github.com/leanprover-community/aesop"
 rev = "v4.25.1"
 
+[[require]]
+name = "Canonical"
+scope = "chasenorman"
+rev = "v4.25.0"
+

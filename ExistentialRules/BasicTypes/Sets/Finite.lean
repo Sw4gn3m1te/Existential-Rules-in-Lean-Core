@@ -39,7 +39,7 @@ namespace Set
   theorem finite'_union_is_finite' (A B : Set α) (a_fin : A.finite') (b_fin : B.finite') : (A ∪ B).finite' := by
     rcases a_fin with ⟨n1, f1, inj1, surj1⟩
     rcases b_fin with ⟨n2, f2, inj2, surj2⟩
-    unfold union finite'
+    -- unfold union finite'
     let f : α → Nat := fun x =>
       have dec := Classical.propDecidable (x ∈ A)
       ite (x ∈ A) (f1 x) ((f2 x) + n1)

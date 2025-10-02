@@ -10,7 +10,7 @@ namespace Set
   def neg_element (e : α) (X : Set α) : Prop := ¬ X e
   infixr:75 " ∉ " => neg_element
 
-  def diff (S1 S2 : Set α) : Set α := fun x => x ∈ S1 ∧ ¬ x ∉ S2
+  def diff (S1 S2 : Set α) : Set α := fun x => x ∈ S1 ∧ ¬ x ∈ S2
 
 
   @[simp, grind]
@@ -23,13 +23,10 @@ namespace Set
       apply Set.not_empty_contains_element
       exact contra
     rcases ex_elem with ⟨e, e_in_X⟩
-    rw [Set.subset] at subset
-    specialize subset e e_in_X
-    contradiction
+    exact subset e e_in_X
 
   @[grind]
   theorem empty_subset_of_each (X : Set α) : ∅ ⊆ X := by
-    unfold Set.subset
     intro e e_in_empty
     contradiction
 
