@@ -72,19 +72,11 @@ namespace List
 
   theorem empty_eq_empty_set : @List.toSet α [] = ∅ := by
     rfl
-  /-
-  theorem empty_eq_empty_set' : @List.toSet' α [] = ∅ := by
+
+  theorem empty_eq_empty_set' : @List.toSet' α [] = fun _ => False := by
     unfold List.toSet'
     funext a
     simp only [List.not_mem_nil]
-    apply propext
-    constructor
-    intro contra
-    contradiction
-    intro contra
-    contradiction
-  -/
-
 
   theorem non_empty_has_length_gt_zero (l : List α) : l.length > 0 ↔ l ≠ [] := by
     constructor
@@ -147,9 +139,8 @@ namespace List
       | nil =>
         funext a
         apply propext
-        sorry
-        --rw [List.empty_eq_empty_set', List.empty_eq_empty_set]
-        --rfl
+        rw [List.empty_eq_empty_set', List.empty_eq_empty_set]
+        rfl
       | cons hd tl =>
         funext a
         apply propext
@@ -1594,10 +1585,12 @@ theorem strong_core_of_universal_model_is_universal_model
               apply funext
               intro e
               apply propext
+              change e ∈ sub.toSet ↔ e ∈ sub'.toSet
               have := @List.mem_toSet _ sub' e
+              rw [this]
               have := @List.mem_toSet _ sub e
-              --apply List.mem_eraseDupsKeepRight
-              sorry
+              rw [this]
+              apply List.mem_eraseDupsKeepRight
             specialize ih sub.length  -- m < n
             by_cases n_zero : (n = 0)
             . exists ∅
