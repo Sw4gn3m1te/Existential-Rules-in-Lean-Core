@@ -680,11 +680,22 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem unionOfFinteIsFinte (A B : Set α) : A.finite ∧ B.finite ↔ (A ∪ B).finite := by
+    constructor
+    intro ⟨⟨al, al_nodup, al_eq⟩, ⟨bl, bl_nodup, bl_eq⟩⟩
+    have dec := Classical.propDecidable
+    exists (al ++ bl).eraseDupsKeepRight
+    constructor
+    exact List.nodup_eraseDupsKeepRight (al ++ bl)
+    intro e
+    rw [List.mem_eraseDupsKeepRight]
+    grind
+    intro ⟨abl, abl_nodup, abl_eq⟩
+    -- mit AOC die union in A und B aufteilen ?
     sorry
 
   theorem cbNextFsEq (cb : CoreChaseBranch obs kb) (n : Nat) (a b : CoreChaseNode obs kb.rules) (eq_a : cb.branch.infinite_list n = some a) (eq_b : cb.branch.infinite_list (n + 1) = some b) :
     b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by
-      sorry
+      grind
 
   @[grind]
   theorem next_step_finite_if_finite (cb : CoreChaseBranch obs kb) (n : Nat) (a b : CoreChaseNode obs kb.rules) (eq_a : cb.branch.infinite_list n = some a) (eq_b : cb.branch.infinite_list (n + 1) = some b) (a_fin : a.core.finite) :
