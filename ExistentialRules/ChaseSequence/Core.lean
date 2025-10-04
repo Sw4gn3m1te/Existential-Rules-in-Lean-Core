@@ -165,9 +165,21 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
   -- id is injective
   intro a b a_in b_in eq
   have : ∃ f, f ∈ kb.db.toFactSet.val := exFactIfExTerm kb a a_in
-  have gtm_eq_id : gtm = id := by sorry
+  have gtm_eq_id : gtm = id := by
+    rw [@funext_iff]
+    intro gt
+    rcases this with ⟨f, f_in⟩
+    have db_funfree := kb.db.toFactSet.property.right
+    specialize db_funfree f f_in gt (by sorry)
+    rcases db_funfree with ⟨c, c_eq⟩
+    rcases f_in with ⟨ff, ff_in, ff_eq⟩
+    unfold FunctionFreeFact.toFact at ff_eq
+    rw [Fact.mk.injEq] at ff_eq
+    rcases ff_eq with ⟨ff_pred_eq, ff_map_eq⟩
+    rcases gtm_hom with ⟨gtm_c, gtm_sub⟩
+    rw [c_eq]
+    apply gtm_c (.const c)
   rw [gtm_eq_id] at eq
-  simp only [id_eq] at eq
   exact eq
 
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
@@ -299,6 +311,12 @@ namespace CoreChaseBranch
   @[grind]
   theorem succ_eq_is_none_if_is_none (cb : CoreChaseBranch obs kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m ≥ n → cb.branch.infinite_list m = none := by
     grind
+
+  @[grind]
+  theorem all_succ_of_last_index_none (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : ∀ m, m > n → cb.branch.infinite_list m = none := by
+    intro m gt
+    rcases term_at_n with ⟨is_some, is_none⟩
+    exact succ_eq_is_none_if_is_none cb (n + 1) is_none m gt
 
   def prev_node (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) : CoreChaseNode obs kb.rules :=
     (cb.branch.infinite_list i).get (by grind)
@@ -578,7 +596,7 @@ namespace CoreChaseBranch
       exact this
 
   @[grind]
-  theorem origin_trg_result_yields_next_node_fact_core (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
+  theorem origin_trg_result_yields_next_node_fs (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
       node.fs = (cb.prev_node i (by simp [eq])).core ∪ (node.origin_result (cb.origin_isSome i eq)).toSet := by
     have trg_ex := cb.triggers_exist i
     rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
@@ -646,43 +664,73 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem origin_result_finite {obs : ObsoletenessCondition sig} (node : CoreChaseNode obs rules) (isSome : node.origin.isSome) : Set.finite (node.origin_result isSome).toSet := by
-    unfold Set.finite
-    exists node.origin_result isSome
+    rw [List.toSet_iff_toSet']
+    unfold List.toSet' Set.finite
+    exists (node.origin_result isSome).eraseDupsKeepRight
     constructor
-    unfold CoreChaseNode.origin_result
-    simp only
-    sorry
+    exact List.nodup_eraseDupsKeepRight (node.origin_result isSome)
     intro f
-    exact List.mem_iff_toSet_mem (node.origin_result isSome) f
+    change f ∈ (node.origin_result isSome).eraseDupsKeepRight ↔ f ∈ node.origin_result isSome
+    exact List.mem_eraseDupsKeepRight (node.origin_result isSome) f
 
+  @[grind]
+  theorem core_finite_if_fs_finite (node : CoreChaseNode obs rules) (fs_fin : node.fs.finite) : node.core.finite := by
+    rcases node.core_sse with ⟨sub, ⟨gtm, gtm_hom⟩⟩
+    exact Set.finite_of_subset_finite fs_fin sub
 
-  theorem all_fs_finite (cb : CoreChaseBranch obs kb) (n : Nat) (node : CoreChaseNode obs kb.rules) (eq: cb.branch.infinite_list n = some node) : Set.finite (node.fs) := by
-    induction n with
+  @[grind]
+  theorem unionOfFinteIsFinte (A B : Set α) : A.finite ∧ B.finite ↔ (A ∪ B).finite := by
+    sorry
+
+  theorem cbNextFsEq (cb : CoreChaseBranch obs kb) (n : Nat) (a b : CoreChaseNode obs kb.rules) (eq_a : cb.branch.infinite_list n = some a) (eq_b : cb.branch.infinite_list (n + 1) = some b) :
+    b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by
+      sorry
+
+  @[grind]
+  theorem next_step_finite_if_finite (cb : CoreChaseBranch obs kb) (n : Nat) (a b : CoreChaseNode obs kb.rules) (eq_a : cb.branch.infinite_list n = some a) (eq_b : cb.branch.infinite_list (n + 1) = some b) (a_fin : a.core.finite) :
+    b.core.finite := by
+      rcases a_fin with ⟨al, al_nodup, al_eq⟩
+      have b_fs_eq := cbNextFsEq cb n a b eq_a eq_b
+      apply core_finite_if_fs_finite
+      rw [b_fs_eq, ← unionOfFinteIsFinte]
+      constructor
+      exact origin_result_finite b (origin_isSome cb n eq_b)
+      exact Set.finite_of_list_with_same_elements al al_eq
+
+  @[grind]
+  theorem all_fs_finite (cb : CoreChaseBranch obs kb) (n : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list n = some node) : Set.finite (node.fs) := by
+    induction n generalizing node with
       | zero =>
         have := cb.database_first
         grind
       | succ n ih =>
-        have origin_yield := origin_trg_result_yields_next_node_fact_core cb n node eq
-        have trg_ex := cb.triggers_exist n
-        have := prev_is_some_if_is_some cb (n+1) (by grind) n (Nat.lt_add_one n)
-        -- specialize ih (by grind) -- does "some node" referr to the same node ? i.e. must the branch have the same node at n and n+1 ?
-        sorry
+        specialize ih (prev_node cb n (Option.isSome_of_mem eq)) (prev_node_eq cb n (Option.isSome_of_mem eq))
+        have origin_yield := origin_trg_result_yields_next_node_fs cb n node eq
+        rw [origin_yield, List.toSet_iff_toSet', ← unionOfFinteIsFinte]
+        constructor
+        grind
+        have := origin_result_finite node (origin_isSome cb n eq)
+        rw [List.toSet_iff_toSet'] at this
+        exact this
 
-  theorem all_core_finite (cb : CoreChaseBranch obs kb) (n : Nat) (node : CoreChaseNode obs kb.rules) (eq: cb.branch.infinite_list n = some node) : Set.finite (node.core) := by sorry
+  @[grind]
+  theorem all_core_finite (node : CoreChaseNode obs kb.rules) : Set.finite (node.core) := by
+    apply core_finite_if_fs_finite
+    exact node.fs_fin
 
+  -- this one or the one below this is superfluous
   theorem result_finite_if_cb_terminates2 (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
     rcases this with ⟨cn, cn_eq⟩
     rcases ter' with ⟨n, term_at_n⟩
-    have := all_core_finite cb n cn sorry
+    have := all_core_finite cn
     unfold result
     simp only [Option.castToMemIfNotNone, ne_eq]
     split
-    next a b c d e f => exact all_core_finite cb (cb.last_element_index (Exists.intro n term_at_n)) c e
+    next a b c d e f => exact all_core_finite c
     next => contradiction
 
-
-  -- set_option pp.proofs true in
+  @[grind]
   theorem result_finite_if_cb_terminates (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
     rcases this with ⟨cn, cn_eq⟩
@@ -705,13 +753,8 @@ namespace CoreChaseBranch
         unfold result
         simp only [Option.castToMemIfNotNone, ne_eq]
         split
-        next a b c d e f =>
-          have prev_fin : Set.finite ((cb.branch.infinite_list n).get (by grind)).core := by sorry
-          have origin_fin := origin_result_finite ((cb.branch.infinite_list n).get (by grind)) sorry
-          simp_all
-          specialize ih term_at_n
-        sorry
-    sorry
+        next => grind
+        next => contradiction
 
   /-
     (x)              (y)
@@ -826,8 +869,9 @@ namespace CoreChaseBranch
           | inr gt =>
             have contra := CoreChaseBranch.last_element_index_eq_termintes'_index_leq cb n term_at_n m
             unfold CoreChaseBranch.last_element_index at ter'_eq
-            -- contradiction
-            sorry
+            have := all_succ_of_last_index_none cb n term_at_n m gt
+            rw [cn_eq] at this
+            contradiction
       next => contradiction
 
   @[grind]
@@ -853,12 +897,15 @@ namespace CoreChaseBranch
   theorem exTrigUntilResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : false := sorry
 
 
+  -- stimmt das so überhaupt ? Der hom könnte es ja umbenennen wodurch es kein subset mehr ist
   theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
     let init_node := (cb.branch.infinite_list 0).get (by grind)
+    let last_node := cb.last_node ter'
+    have last_eq : last_node.core = cb.result ter' := by rfl
     have ex_gtm := exHomResultIfIsSome cb ter' 0 init_node (cb.last_node ter') (by grind) rfl
     rcases ex_gtm with ⟨gtm, gtm_hom⟩
     let := cb.database_first
-    have eq : init_node.fs = kb.db.toFactSet.val := by sorry -- by database_first
+    have eq : init_node.fs = kb.db.toFactSet.val := by simp_all only [Option.get_some, init_node]
     rw [← eq]
     -- only consts are mapped
     intro f f_in
@@ -866,15 +913,11 @@ namespace CoreChaseBranch
     unfold result
     simp only [Option.castToMemIfNotNone, ne_eq]
     split
-    next a b c d e g =>
-      have trg_ex := origin_trg_result_yields_next_node_fact_core cb 0 init_node
-
-
-
-
-    sorry
-
-
+    next
+    next opt not_none_opt cn_res not_none_cn_res cn_res_eq heq =>
+      have trg_ex := origin_trg_result_yields_next_node_fs cb 0 init_node
+      sorry
+    next => contradiction
 
 
   theorem cbResultModelsKb (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
