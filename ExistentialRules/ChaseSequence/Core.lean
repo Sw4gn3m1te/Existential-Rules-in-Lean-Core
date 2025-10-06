@@ -321,19 +321,6 @@ namespace CoreChaseBranch
   def prev_node (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) : CoreChaseNode obs kb.rules :=
     (cb.branch.infinite_list i).get (by grind)
 
-  def connected (cb : CoreChaseBranch obs kb) (n m : Nat) (gt : n ≥ m) (isSome : (cb.branch.infinite_list n).isSome) : Prop :=
-    ((cb.branch.infinite_list (n-1)).get (by grind) = (cb.branch.infinite_list m).get (by grind)) ∨ cb.connected (n-1) m (by
-      have eqgt : m = n ∨ m < n := Nat.eq_or_lt_of_le gt
-      rcases eqgt with eq | gt
-      apply Classical.byContradiction
-      intro contra
-      simp only [ge_iff_le, Nat.not_le] at contra
-      rw [eq] at contra
-      have : n > 0 := Nat.zero_lt_of_lt contra
-      sorry
-      grind
-    ) (by grind)
-
   @[grind]
   theorem prev_node_eq (cb : CoreChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
       cb.branch.infinite_list i = some (cb.prev_node i isSome) := by
@@ -360,6 +347,19 @@ namespace CoreChaseBranch
       termination_by Classical.choose ter' + 1 - n
 
   def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
+
+  def connected (cb : CoreChaseBranch obs kb) (n m : Nat) (gt : n ≥ m) (isSome : (cb.branch.infinite_list n).isSome) : Prop :=
+    ((cb.branch.infinite_list (n-1)).get (by grind) = (cb.branch.infinite_list m).get (by grind)) ∨ cb.connected (n-1) m (by
+      have eqgt : m = n ∨ m < n := Nat.eq_or_lt_of_le gt
+      rcases eqgt with eq | gt
+      apply Classical.byContradiction
+      intro contra
+      simp only [ge_iff_le, Nat.not_le] at contra
+      rw [eq] at contra
+      have : n > 0 := Nat.zero_lt_of_lt contra
+      sorry
+      grind
+    ) (by grind)
 
   def connected2 (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (isSome : (cb.branch.infinite_list (cb.last_element_index ter')).isSome) : Prop :=
     ∀ n, n ≤ (cb.last_element_index ter') → exists_trigger_opt_fs_core obs kb.rules ((cb.branch.infinite_list n).get sorry)
@@ -679,7 +679,11 @@ namespace CoreChaseBranch
     exact Set.finite_of_subset_finite fs_fin sub
 
   @[grind]
-  theorem unionOfFinteIsFinte (A B : Set α) : A.finite ∧ B.finite ↔ (A ∪ B).finite := by
+  theorem subsetOfFiniteIsFinite [DecidableEq α] (A B : Set α) (b_fin : B.finite) (sub : A ⊆ B) : A.finite := by
+    exact Set.finite_of_subset_finite b_fin sub
+
+  @[grind]
+  theorem unionOfFinteIsFinte [DecidableEq α] (A B : Set α) : A.finite ∧ B.finite ↔ (A ∪ B).finite := by
     constructor
     intro ⟨⟨al, al_nodup, al_eq⟩, ⟨bl, bl_nodup, bl_eq⟩⟩
     have dec := Classical.propDecidable
@@ -689,9 +693,13 @@ namespace CoreChaseBranch
     intro e
     rw [List.mem_eraseDupsKeepRight]
     grind
-    intro ⟨abl, abl_nodup, abl_eq⟩
-    -- mit AOC die union in A und B aufteilen ?
-    sorry
+    have a_sub : A ⊆ (A ∪ B) := by exact Set.subset_union_of_subset_left fun e a => a
+    have b_sub : B ⊆ (A ∪ B) := by exact Set.subset_union_of_subset_right B A B fun e a => a
+    intro ab_fin
+    constructor
+    exact subsetOfFiniteIsFinite A (A ∪ B) ab_fin a_sub
+    exact subsetOfFiniteIsFinite B (A ∪ B) ab_fin b_sub
+
 
   theorem cbNextFsEq (cb : CoreChaseBranch obs kb) (n : Nat) (a b : CoreChaseNode obs kb.rules) (eq_a : cb.branch.infinite_list n = some a) (eq_b : cb.branch.infinite_list (n + 1) = some b) :
     b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by
