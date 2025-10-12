@@ -139,6 +139,42 @@ theorem id_is_surjective (A : Set α) : Function.surjective_for_domain_and_image
   intro a a_in
   exists a
 
+  @[grind]
+  theorem gtm_hom_on_db_id (f : Fact sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (f_in_db : f ∈ kb.db.toFactSet.val) :
+    gtm.applyFact f = f := by
+      unfold GroundTermMapping.applyFact
+      rw [Fact.mk.injEq]
+      constructor
+      rfl
+      apply List.map_id_of_id_on_all_mem
+      intro gt gt_in
+      unfold GroundTermMapping.isHomomorphism at gtm_hom
+      have db_funfree := kb.db.toFactSet.property.right
+      unfold FactSet.isFunctionFree at db_funfree
+      specialize db_funfree f f_in_db
+      unfold Fact.isFunctionFree at db_funfree
+      specialize db_funfree gt gt_in
+      rcases db_funfree with ⟨c, c_eq⟩
+      rcases f_in_db with ⟨ff, ff_in, ff_eq⟩
+      unfold FunctionFreeFact.toFact at ff_eq
+      rw [Fact.mk.injEq] at ff_eq
+      rcases ff_eq with ⟨ff_pred_eq, ff_map_eq⟩
+      rcases gtm_hom with ⟨gtm_c, gtm_sub⟩
+      rw [c_eq]
+      apply gtm_c (.const c)
+
+  @[grind]
+  theorem gtm_hom_on_db_term_id (t : GroundTerm sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (t_in_db_terms : t ∈ kb.db.toFactSet.val.terms) :
+    gtm t = t := by
+      have db_funfree := kb.db.toFactSet.property.right
+      have ex_fact : ∃ f, f ∈ kb.db.toFactSet.val ∧ t ∈ f.terms := t_in_db_terms
+      rcases ex_fact with ⟨f, f_in, f_in_ter⟩
+      unfold FactSet.isFunctionFree at db_funfree
+      specialize db_funfree f f_in t f_in_ter
+      rcases db_funfree with ⟨c, c_eq⟩
+      rw [c_eq]
+      apply gtm_hom.left (.const c)
+
 theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeakCore := by
   let db := kb.db
   let fs := db.val
@@ -164,23 +200,15 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
   contradiction
   -- id is injective
   intro a b a_in b_in eq
-  have : ∃ f, f ∈ kb.db.toFactSet.val := exFactIfExTerm kb a a_in
-  have gtm_eq_id : gtm = id := by
-    rw [@funext_iff]
-    intro gt
-    rcases this with ⟨f, f_in⟩
-    have db_funfree := kb.db.toFactSet.property.right
-    specialize db_funfree f f_in gt (by sorry)
-    rcases db_funfree with ⟨c, c_eq⟩
-    rcases f_in with ⟨ff, ff_in, ff_eq⟩
-    unfold FunctionFreeFact.toFact at ff_eq
-    rw [Fact.mk.injEq] at ff_eq
-    rcases ff_eq with ⟨ff_pred_eq, ff_map_eq⟩
-    rcases gtm_hom with ⟨gtm_c, gtm_sub⟩
-    rw [c_eq]
-    apply gtm_c (.const c)
-  rw [gtm_eq_id] at eq
+  have a_mem : ∃ fa, fa ∈ kb.db.toFactSet.val := exFactIfExTerm kb a a_in
+  rcases a_mem with ⟨fa, fa_in⟩
+  have gtm_eq : ∀ f, f ∈ kb.db.toFactSet.val → gtm.applyFact f = f := by exact fun f a => gtm_hom_on_db_id f gtm gtm_hom a
+  specialize gtm_eq fa fa_in
+  have gt_eq : ∀ t, t ∈ kb.db.toFactSet.val.terms → gtm t = t := by exact fun t a => gtm_hom_on_db_term_id t gtm gtm_hom a
+  rw [gt_eq, gt_eq] at eq
   exact eq
+  exact b_in
+  exact a_in
 
 structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
@@ -348,6 +376,7 @@ namespace CoreChaseBranch
 
   def last_element_index (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : Nat := last_element_index_rec cb ter' 0
 
+  /-
   def connected (cb : CoreChaseBranch obs kb) (n m : Nat) (gt : n ≥ m) (isSome : (cb.branch.infinite_list n).isSome) : Prop :=
     ((cb.branch.infinite_list (n-1)).get (by grind) = (cb.branch.infinite_list m).get (by grind)) ∨ cb.connected (n-1) m (by
       have eqgt : m = n ∨ m < n := Nat.eq_or_lt_of_le gt
@@ -363,7 +392,7 @@ namespace CoreChaseBranch
 
   def connected2 (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (isSome : (cb.branch.infinite_list (cb.last_element_index ter')).isSome) : Prop :=
     ∀ n, n ≤ (cb.last_element_index ter') → exists_trigger_opt_fs_core obs kb.rules ((cb.branch.infinite_list n).get sorry)
-
+  -/
 
   @[grind]
   theorem last_element_index_eq_termintes'_index_leq (cb : CoreChaseBranch obs kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : ∀ m, m ≤ n → last_element_index_rec cb (by exists n) m = n := by
@@ -620,13 +649,14 @@ namespace CoreChaseBranch
 
 
   -- if A{i+1}.fs \neq none \to A_i.fs \subset A{i+1}.fs
-  -- if cb.terminates → cb.result.universalmodels kb ∧ Set.fintie cb.result
+  -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
   -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
+
 
   -- (CoreChaseBranch.result cb ter').modelsKb kb muss gezeigt werden !
 
   -- theorem 7 (7 depends on 16)
-  theorem ExUniversalModelIffCoreChaseHasModel (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb → (CoreChaseBranch.result cb ter').universallyModelsKb kb := by
+  theorem ExUniversalModelIfCoreChaseHasModel (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb → (CoreChaseBranch.result cb ter').universallyModelsKb kb := by
     unfold FactSet.universallyModelsKb
     intro left
     have right : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
@@ -637,15 +667,14 @@ namespace CoreChaseBranch
       sorry
     exact ⟨left, right⟩
 
-
   theorem result_models_kb_core (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb := by
     constructor
     unfold FactSet.modelsDb
     unfold CoreChaseBranch.result
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
-    rcases this with ⟨cn, cn_last⟩
-    unfold CoreChaseBranch.last_node at cn_last
-    rw [← cn_last]
+    rcases this with ⟨cn_last, cn_last_eq⟩
+    unfold CoreChaseBranch.last_node at cn_last_eq
+    rw [← cn_last_eq]
     intro f h
     -- db ⊆ core gilt immer
     -- das stimmt doch garnicht fü die core chase ?
@@ -967,6 +996,25 @@ namespace CoreChaseBranch
       exists i
       exists s'
     sorry
+
+  -- main theorem
+  -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
+  -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
+
+  theorem main_lhs (cb : CoreChaseBranch obs kb ) : (∃ (fs : FactSet sig), fs.finite ∧ fs.universallyModelsKb kb) → cb.terminates' := by
+    rintro ⟨fs, fs_fin, fs_umod⟩
+    sorry
+
+  theorem main_rhs (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').universallyModelsKb kb := by
+    constructor
+    exact result_models_kb_core cb ter'
+    unfold FactSet.modelsDb
+    unfold CoreChaseBranch.result
+    have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
+    rcases this with ⟨cn_last, cn_last_eq⟩
+    unfold CoreChaseBranch.last_node at cn_last_eq
+    rw [← cn_last_eq]
+    intro f h
 
 
 end CoreChaseBranch
