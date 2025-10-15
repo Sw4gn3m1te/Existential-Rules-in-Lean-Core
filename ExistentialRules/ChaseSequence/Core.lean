@@ -99,6 +99,9 @@ def ChaseNode.isStrongCore {obs : ObsoletenessCondition sig} (node : ChaseNode o
 
 def getCore (fs : FactSet sig) (fs_fin : fs.finite) : {wc : FactSet sig // wc.isWeakCore ∧ wc.homSubset fs} := by sorry
 
+def GroundTermMapping.isIsomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
+    h.isHomomorphism A B ∧ h.isHomomorphism B A
+
 structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   fs : FactSet sig
   fs_fin : fs.finite
@@ -139,42 +142,43 @@ theorem id_is_surjective (A : Set α) : Function.surjective_for_domain_and_image
   intro a a_in
   exists a
 
-  @[grind]
-  theorem gtm_hom_on_db_id (f : Fact sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (f_in_db : f ∈ kb.db.toFactSet.val) :
-    gtm.applyFact f = f := by
-      unfold GroundTermMapping.applyFact
-      rw [Fact.mk.injEq]
-      constructor
-      rfl
-      apply List.map_id_of_id_on_all_mem
-      intro gt gt_in
-      unfold GroundTermMapping.isHomomorphism at gtm_hom
-      have db_funfree := kb.db.toFactSet.property.right
-      unfold FactSet.isFunctionFree at db_funfree
-      specialize db_funfree f f_in_db
-      unfold Fact.isFunctionFree at db_funfree
-      specialize db_funfree gt gt_in
-      rcases db_funfree with ⟨c, c_eq⟩
-      rcases f_in_db with ⟨ff, ff_in, ff_eq⟩
-      unfold FunctionFreeFact.toFact at ff_eq
-      rw [Fact.mk.injEq] at ff_eq
-      rcases ff_eq with ⟨ff_pred_eq, ff_map_eq⟩
-      rcases gtm_hom with ⟨gtm_c, gtm_sub⟩
-      rw [c_eq]
-      apply gtm_c (.const c)
+@[grind]
+theorem gtm_hom_on_db_id (f : Fact sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (f_in_db : f ∈ kb.db.toFactSet.val) :
+  gtm.applyFact f = f := by
+    unfold GroundTermMapping.applyFact
+    rw [Fact.mk.injEq]
+    constructor
+    rfl
+    apply List.map_id_of_id_on_all_mem
+    intro gt gt_in
+    unfold GroundTermMapping.isHomomorphism at gtm_hom
+    have db_funfree := kb.db.toFactSet.property.right
+    unfold FactSet.isFunctionFree at db_funfree
+    specialize db_funfree f f_in_db
+    unfold Fact.isFunctionFree at db_funfree
+    specialize db_funfree gt gt_in
+    rcases db_funfree with ⟨c, c_eq⟩
+    rcases f_in_db with ⟨ff, ff_in, ff_eq⟩
+    unfold FunctionFreeFact.toFact at ff_eq
+    rw [Fact.mk.injEq] at ff_eq
+    rcases ff_eq with ⟨ff_pred_eq, ff_map_eq⟩
+    rcases gtm_hom with ⟨gtm_c, gtm_sub⟩
+    rw [c_eq]
+    apply gtm_c (.const c)
 
-  @[grind]
-  theorem gtm_hom_on_db_term_id (t : GroundTerm sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (t_in_db_terms : t ∈ kb.db.toFactSet.val.terms) :
-    gtm t = t := by
-      have db_funfree := kb.db.toFactSet.property.right
-      have ex_fact : ∃ f, f ∈ kb.db.toFactSet.val ∧ t ∈ f.terms := t_in_db_terms
-      rcases ex_fact with ⟨f, f_in, f_in_ter⟩
-      unfold FactSet.isFunctionFree at db_funfree
-      specialize db_funfree f f_in t f_in_ter
-      rcases db_funfree with ⟨c, c_eq⟩
-      rw [c_eq]
-      apply gtm_hom.left (.const c)
+@[grind]
+theorem gtm_hom_on_db_term_id (t : GroundTerm sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (t_in_db_terms : t ∈ kb.db.toFactSet.val.terms) :
+  gtm t = t := by
+    have db_funfree := kb.db.toFactSet.property.right
+    have ex_fact : ∃ f, f ∈ kb.db.toFactSet.val ∧ t ∈ f.terms := t_in_db_terms
+    rcases ex_fact with ⟨f, f_in, f_in_ter⟩
+    unfold FactSet.isFunctionFree at db_funfree
+    specialize db_funfree f f_in t f_in_ter
+    rcases db_funfree with ⟨c, c_eq⟩
+    rw [c_eq]
+    apply gtm_hom.left (.const c)
 
+@[grind]
 theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeakCore := by
   let db := kb.db
   let fs := db.val
@@ -564,7 +568,7 @@ namespace CoreChaseBranch
   -/
 
   @[grind]
-  theorem prevCoreSubsetOfFactset (cb : CoreChaseBranch obs kb) (n : Nat) (y : CoreChaseNode obs kb.rules) (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
+  theorem prevCoreSubsetOfFactset {x} (cb : CoreChaseBranch obs kb) (n : Nat) (y : CoreChaseNode obs kb.rules) (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
     x.core ⊆ y.fs := by
       have trg_ex := cb.triggers_exist n
       rw [prev_node_eq _ _ (Option.isSome_of_mem y_eq), Option.is_none_or] at trg_ex
@@ -667,6 +671,7 @@ namespace CoreChaseBranch
       sorry
     exact ⟨left, right⟩
 
+  -- duplicate with cbResultModelsKb
   theorem result_models_kb_core (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb := by
     constructor
     unfold FactSet.modelsDb
@@ -944,6 +949,21 @@ namespace CoreChaseBranch
 
   theorem exTrigUntilResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : false := sorry
 
+  theorem test (cb : CoreChaseBranch obs kb) (n : Nat) (x_eq : cb.branch.infinite_list n = some x) :
+    ∀ (f : Fact sig), (f ∈ x.fs ∧ f.isFunctionFree) → f ∈ x.core := by
+      intro f ⟨f_in, f_is_ff⟩
+      have ex_gtm := exHomFsCore cb n x x_eq
+      rcases ex_gtm with ⟨gtm, gtm_hom⟩
+      have := x.fs_contains_origin_result
+      simp at this
+      cases ex_org : x.origin.isSome
+      simp_all only [Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
+      rw? at this
+      have ex_fact : ∃ f, f ∈ kb.db.toFactSet.val ∧ t ∈ f.terms := t_in_db_terms
+      specialize f_is_ff
+
+
+
 
   -- stimmt das so überhaupt ? Der hom könnte es ja umbenennen wodurch es kein subset mehr ist
   theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
@@ -997,6 +1017,22 @@ namespace CoreChaseBranch
       exists s'
     sorry
 
+  /-
+
+  If I is an instance and Σ is a set of tgds and egds,
+  then there
+
+  exists a universal model iff the core chase terminates and yields such a model.
+
+  -/
+
+  --@[grind]
+  theorem all_results_isomorphic (cb1 cb2 : CoreChaseBranch obs kb) (ter1' : cb1.terminates') (ter2' : cb2.terminates') : ∃ (gtm : GroundTermMapping sig), gtm.isIsomorphism (cb1.result ter1') (cb2.result ter2') := by sorry
+
+  theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
+    intro m m_is_model
+    sorry
+
   -- main theorem
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
   -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
@@ -1005,16 +1041,10 @@ namespace CoreChaseBranch
     rintro ⟨fs, fs_fin, fs_umod⟩
     sorry
 
-  theorem main_rhs (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').universallyModelsKb kb := by
+  theorem main_rhs (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : (cb.result ter').universallyModelsKb kb := by
     constructor
     exact result_models_kb_core cb ter'
-    unfold FactSet.modelsDb
-    unfold CoreChaseBranch.result
-    have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
-    rcases this with ⟨cn_last, cn_last_eq⟩
-    unfold CoreChaseBranch.last_node at cn_last_eq
-    rw [← cn_last_eq]
-    intro f h
+    apply coreChaseResultIsUniversal cb ter'
 
 
 end CoreChaseBranch
