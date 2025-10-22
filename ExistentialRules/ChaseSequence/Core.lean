@@ -237,6 +237,21 @@ structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase s
   fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fs))
     ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fs))
 
+    /-
+  theorem ff_in_fs_iff_ff_in_core (cb : CoreChaseBranch obs kb) (n : Nat) (x_eq : cb.branch.infinite_list n = some x) :
+    ∀ (f : Fact sig), (f ∈ x.fs ∧ f.isFunctionFree) → f ∈ x.core := by
+      intro f ⟨f_in, f_is_ff⟩
+      have ex_gtm := exHomFsCore cb n x x_eq
+      rcases ex_gtm with ⟨gtm, gtm_hom⟩
+      have := x.fs_contains_origin_result
+      simp at this
+      cases ex_org : x.origin.isSome
+      have trg_ex := cb.triggers_exist n
+      simp [Option.is_none_or_iff] at this trg_ex
+      sorry
+      sorry
+  -/
+
 @[grind]
 theorem Option.isSomeIffNeqNone (o : Option α) : o.isSome ↔ o ≠ none := by
   constructor
@@ -246,6 +261,10 @@ theorem Option.isSomeIffNeqNone (o : Option α) : o.isSome ↔ o ≠ none := by
   split
   next => grind
   next => grind
+
+theorem Option.NeqNoneIfIsSome (o : Option α) (a : α) : o = some a →  o ≠ none := by
+  intro h
+  exact (isSomeIffNeqNone o).mp (Option.isSome_of_mem h)
 
 @[simp, grind]
 def Option.castToMemIfNotNone (o : Option α) (not_none : o ≠ none) : α :=
@@ -591,7 +610,7 @@ namespace CoreChaseBranch
           contradiction
 
   -- wrong location
-  theorem applyFactSetIdEq (f g : Fact sig) : GroundTermMapping.applyFact id f = g → f = g := by
+  theorem applyFactIdEq (f g : Fact sig) : GroundTermMapping.applyFact id f = g → f = g := by
     intro h
     unfold GroundTermMapping.applyFact at h
     simp only [List.map_id_fun, id_eq] at h
@@ -611,7 +630,7 @@ namespace CoreChaseBranch
     specialize sub f
     apply sub
     rcases f_in with ⟨g, g_in_a, g_in_ida⟩
-    have eq := applyFactSetIdEq g f g_in_ida
+    have eq := applyFactIdEq g f g_in_ida
     rw [← eq]
     exact g_in_a
 
@@ -947,24 +966,6 @@ namespace CoreChaseBranch
       rw [c_eq]
       apply gtm_hom.left (.const c)
 
-  theorem exTrigUntilResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : false := sorry
-
-  theorem test (cb : CoreChaseBranch obs kb) (n : Nat) (x_eq : cb.branch.infinite_list n = some x) :
-    ∀ (f : Fact sig), (f ∈ x.fs ∧ f.isFunctionFree) → f ∈ x.core := by
-      intro f ⟨f_in, f_is_ff⟩
-      have ex_gtm := exHomFsCore cb n x x_eq
-      rcases ex_gtm with ⟨gtm, gtm_hom⟩
-      have := x.fs_contains_origin_result
-      simp at this
-      cases ex_org : x.origin.isSome
-      simp_all only [Option.isSome_eq_false_iff, Option.isNone_iff_eq_none]
-      rw? at this
-      have ex_fact : ∃ f, f ∈ kb.db.toFactSet.val ∧ t ∈ f.terms := t_in_db_terms
-      specialize f_is_ff
-
-
-
-
   -- stimmt das so überhaupt ? Der hom könnte es ja umbenennen wodurch es kein subset mehr ist
   theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
     let init_node := (cb.branch.infinite_list 0).get (by grind)
@@ -986,7 +987,6 @@ namespace CoreChaseBranch
       have trg_ex := origin_trg_result_yields_next_node_fs cb 0 init_node
       sorry
     next => contradiction
-
 
   theorem cbResultModelsKb (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
@@ -1029,8 +1029,75 @@ namespace CoreChaseBranch
   --@[grind]
   theorem all_results_isomorphic (cb1 cb2 : CoreChaseBranch obs kb) (ter1' : cb1.terminates') (ter2' : cb2.terminates') : ∃ (gtm : GroundTermMapping sig), gtm.isIsomorphism (cb1.result ter1') (cb2.result ter2') := by sorry
 
+  abbrev InductiveHomomorphismResultCore (cb : CoreChaseBranch obs kb) (m : FactSet sig) (depth : Nat) := {gtm : GroundTermMapping sig // (cb.branch.infinite_list depth).is_none_or (fun cn => gtm.isHomomorphism cn.fs m)}
+
+  theorem succ_none_if_nex_trig (cb : CoreChaseBranch obs kb) (cn : CoreChaseNode obs kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) : ¬exists_trigger_opt_fs_core obs kb.rules cn cn_succ → cn_succ = none := by
+    sorry
+
+  noncomputable def induction_homomorphism_core (cb : CoreChaseBranch obs kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
+    | .zero => ⟨id, by
+      simp [Option.is_none_or]
+      rw [cb.database_first]
+      simp
+      constructor
+      intro gt
+      split
+      next => trivial
+      next => trivial
+      intro el el_in_set
+      cases el_in_set with | intro f hf =>
+      apply m_mod.left
+      have : f = el := by have hfr := hf.right; simp [GroundTermMapping.applyFact] at hfr; exact hfr
+      rw [this] at hf
+      exact hf.left
+      ⟩
+    | .succ j =>
+      let prev_hom := (induction_homomorphism_core cb m m_mod j).val
+      let prev_cond := (induction_homomorphism_core cb m m_mod j).property
+      let prev_node := cb.branch.infinite_list j
+
+      match prev_node_eq : prev_node with
+        | .none => ⟨prev_hom, by
+          rw [Option.is_none_or_iff] at *
+          intro cn cn_eq
+          specialize prev_cond cn (by
+            have := prev_is_some_if_is_some cb j.succ
+              (Option.NeqNoneIfIsSome (cb.branch.infinite_list j.succ) cn cn_eq) j (Nat.lt_add_one j)
+            contradiction
+          )
+          subst prev_hom
+          exact prev_cond
+          ⟩
+        | .some cn =>
+          -- does a trigger exist for prev_node (cn @ j-th index) ?
+          let trg_ex_dec := Classical.propDecidable (exists_trigger_opt_fs_core obs kb.rules (prev_node.get (Option.isSome_of_mem prev_node_eq)) cn)
+
+          match trg_ex_dec with
+            | .isFalse contra => ⟨prev_hom, by
+              rw [Option.is_none_or_iff] at *
+              intro cn_succ cn_succ_eq
+              simp_all only [Option.some.injEq, forall_eq', prev_node, prev_hom]
+              specialize prev_cond cn prev_node_eq
+              rcases prev_cond with ⟨prev_hom_id_c, prev_hom_sub⟩
+              constructor
+              exact prev_hom_id_c
+              intro f f_in
+              specialize prev_hom_sub f
+              sorry
+              ⟩
+            | .isTrue trg_ex =>
+              let prev_hom_is_hom : prev_hom.isHomomorphism (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs m := by
+                rw [Option.is_none_or_iff] at prev_cond
+                specialize prev_cond cn prev_node_eq
+                subst prev_hom
+                simp_all only [Option.get_some]
+              ⟨sorry, sorry⟩
+
+
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
-    intro m m_is_model
+    intro m m_mod
+    let ind_hom := induction_homomorphism_core cb m m_mod
+    let result := cb.result ter'
     sorry
 
   -- main theorem
@@ -1048,192 +1115,3 @@ namespace CoreChaseBranch
 
 
 end CoreChaseBranch
-
-
-theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (rules : RuleSet sig) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').universallyModelsKb kb := by sorry
-
-  -- core chase preserves universality at every step -> if it terminates then there is a universal model which is the result of the core chase
-  theorem coreChaseUniversalForEachStep (cb : ChaseBranch obs kb) : ∀ node, node ∈ cb.branch → ChaseNode.isUniversal node := sorry
-  -- define recurser maybe ?
-
-  -- theorem 16, part 1 to 5
-  -- (rules : Set (TGD sig)) wie ?
-
-
-  theorem t16_2 (A_n : PossiblyInfiniteList (FactSet sig)) (A B : FactSet sig) (rules : RuleSet sig) :
-    -- definition of membership for PossiblyInfinteList needed
-    (A = setFlatten A_n.toSet ∧ B.modelsRules rules ∧ ∃ (h : GroundTermMapping sig), h.isHomomorphism A B) → ∀ a_i, a_i ∈ A_n → ∃ (h' : GroundTermMapping sig), h'.isHomomorphism a_i B := sorry
-
-  -- t16_3
-  -- core chase result is model
-  -- core chase result is universal model
-  -- use Chasebranch.result_models_kb
-  theorem coreChaseYieldsUniversalModel (cb : CoreChaseBranch obs kb) : cb.result.universallyModelsKb kb := by sorry
-
-  theorem t16_4 (A_n : PossiblyInfiniteList (FactSet sig)) (B : FactSet sig) (rules : RuleSet sig) (h : GroundTermMapping sig) :
-    B.modelsRules rules ∧ ∀ a_i, ∃ (h : GroundTermMapping sig), a_i ∈ A_n ∧  h.isHomomorphism a_i B → ∃ (h' : GroundTermMapping sig), h.isHomomorphism sorry B := sorry
-
-  -- ∃ fs, fs = cb.result ... means the chase result is defined, probably not how we want to express it though
-  theorem t16_5 (A B : FactSet sig) (rules : RuleSet sig) (cb : ChaseBranch obs kb) :
-    (B.modelsRules rules ∧ ∃ fs, fs = cb.result ∧ ∃ (h : GroundTermMapping sig), h.isHomomorphism A B) →  ∃ (h' : GroundTermMapping sig), h'.isHomomorphism cb.result B := by
-      rintro ⟨h1, fs, h2, gtm, h3⟩
-      have gtm' : GroundTermMapping sig := sorry
-      have gtm'_hom : gtm'.isHomomorphism cb.result B := by sorry -- gtm' should extend gtm
-      exists gtm'
-
---   theorem t16 (cb : ChaseBranch obs kb) (n : Nat) (x y : ChaseNode obs (ruleset : RuleSet sig)) (x_some : Option.isSome (cb.branch.infinite_list n)) (y_some : Option.isSome (cb.branch.infinite_list (n+1))) (x_def : x = Option.get (cb.branch.infinite_list n) x_some ) (y_def : y = Option.get (cb.branch.infinite_list (n+1)) y_some) : FactSet.homSubset x.fact y.fact := by
-
-
--- infinte set may not have a core !
--- finite core chase exists iff finite universal model exists
--- two distinct core chase branches have the same result
--- => core chase result does not depend on the order of trigger application
--- (bis auf isomorphie)
-
---=> not chase tree
-
-
--- resulting Factset of applying a set of gtm's to an existing fact set
--- we need this when implementing a core calculation later
-
--- eher Listen nutzen
-def GroundTermMapping.applyMapSetFactSet (hs : Set (GroundTermMapping sig)) (fs : FactSet sig) : FactSet sig := sorry
-  -- {h.applyFactSet fs | h ∈ hs}
-
--- parallel chase steps can be broken down intro a sequence of single-rule chase steps, both yielding the same result
-
-def CoreChaseBranch.parallel_step : true := sorry
-
--- this is parallel_step with a core calc afterwards
-def CoreChaseBranch.core_chase_step : true := sorry
-
-
-theorem ChaseBranch.applyMapSetFactSetEqApplyFactSetSeq (hs : Set (GroundTermMapping sig)) (fs : FactSet sig) : true := sorry
-
-
-  -- für eine nicht spezifische implementierung könnte man einfach nur den type angeben welcher einen core forced
-  def FactSet.getCore (fs : FactSet sig) : FactSet sig := sorry
-
-  -- cores calculation is only neccessary after finitely many steps
-  theorem CoreCalcAfterFiniteEq : true := sorry
-
-  theorem CoreCalcIsIdempotent (fs : FactSet sig) : fs.getCore.getCore = fs.getCore  := sorry
-
-
--- define structure of TGDs here
--- alle Regeln sind bereits TGDs aber mit disjunction
--- regeln sind deterministic wenn der head länge 1 hat
--- Aufbau {{∧} ∨ {∧} ... }
-structure TGD extends Rule sig where
-  -- idee hier ist eine extra liste "existential_binder" zu haben, welche alle existenziell gebundenen vars enthält
-  -- "existential_binder_is_distinct" asserted, dass nur neue vars gebunden werden können
-  -- => Was ist mit P(x,y) → ∃ x, R(x,y)  ,sagen wir einfach, dass man das nicht darf ?
-  existential_binder : List sig.V
-  existential_binder_is_distinct : ∀ v, v ∈ existential_binder → ¬ v ∈  List.map var (List.flatMap terms head)
-
--- define structure of EGDs here
-structure EGD extends Rule sig where
-  p1 : true
-  p2 : true
-
-def Rule.prec (a b : Rule sig) : Prop := sorry
---
-infixr:50 " ≺ " => Rule.prec
-
--- the set of constraints in every cycle of G(Σ) is weakly acyclic (G(Σ)) is the chase graph)
-def RuleSet.isStratified (rs : RuleSet sig) : true := sorry
-
--- for defining weakly acyclic
-structure Position (A : Atom sig) where
-  R : sig.P
-  i : Nat
-  i_in_range : 1 ≤ i ∧ i ≤ sig.arity R
-
--- we should realy consider using Mathlib Graphs / SimpleGraphs
-structure Graph where
-  V : Set α
-  E : Set (α × α)
-
-namespace Graph
-
-  def reachNext (G : Graph) (v1 v2 : α) : Prop := (v1, v2) ∈ G.E
-
-  -- show termination, but what if we have reachability by an infinite path, do we care ?
-  def reachable (G : Graph) (v1 v2 : α) : Prop := ∃ v, (reachNext G v1 v ∧ reachable G v v2)
-
-  def hasLoop (G : Graph) : Prop := ∃ v, v ∈ G.V → (v, v) ∈ G.E
-
-  def hasCycle (G : Graph) : Prop := ∃ vs, vs ⊆ G.V → true
-
-end Graph
-
--- (rules : Set (TGD sig)) wie ?
-
--- def 9 from appendix (weakly acyclic)
-structure DependencyGraph (rules : RuleSet sig) extends Graph (RuleSet sig) where
-  V : {Position.fromAtom A | A ∈ rule ∈ rules}
-  E : sorry
-
--- rs is wa if its dependency graph has no cycles with an existential edge
-
-def DependencyGraph.hasExistentialCycle (G : DependencyGraph rules) : Prop := sorry
-
--- implement check for cycle with existential edge
-
-def RuleSet.isWeaklyAcyclic (rs : RuleSet sig) : Prop := ¬ DependencyGraph.hasExistentialCycle (DependencyGraph rs)
-
--- All weakly-acyclic sets of TGDs and EGDs are stratified
-theorem rsWeaklyAcycIfStratified (rs : RuleSet sig) : rs.isWeaklyAcyclic → rs.isStratified := by sorry
-
--- should we define hom indepndent of GTMs ?
--- like make a more generell definition in the Function namespace
-
-namespace GroundTermMapping
-
-  -- if A ⊧ R(x) ↔ B ⊧ R(h x)
-  def isFull (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
-    h.isHomomorphism A B ∧ ∀ a, A.modelsFact a ↔ B.modelsFact (h.applyFact a)
-
-  -- h is full injective hom.
-  def isEmbedding (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
-    h.isFull A B ∧ Function.injective_for_domain_set h sorry
-
-  -- r : A → B ⊆ A, e is the id on dom(B)
-  def isRetract (h : GroundTermMapping sig) (A B : FactSet sig) : Prop := sorry
-
-  def isProperRetract (h : GroundTermMapping sig) : Prop := sorry
-    -- h.isRetract ∧ ¬ h.surjective
-
-  def isExtension (h : GroundTermMapping sig) (A B C : FactSet sig) : Prop := sorry
-
-end GroundTermMapping
-
-
--- if the body is machted return the head with applied h else do nothing
--- => we maybe should split this into a Rule.apply that always applies and a Rule.isActive
---    which returns a prop whenever the body can be matched
--- => ExistentialRules.ChaseSequence.Universality.lean
--- es gibt bereits GTM.isHomomorphism
-def Rule.apply (r : Rule sig) (h : GroundTermMapping sig) (fs : FactSet sig) : FactSet sig := sorry
-
-
-
-
-def FactSet.isFClosedFor (F : Set (GroundTermMapping sig)) (T : FactSet sig) (K : FactSet sig) : Prop := sorry
-
--- needs refinement
-abbrev ModelSet := Set (FactSet sig)
--- U must be finite, K cannot
-def isUniversalModelSet  (U : Set (FactSet sig)) (K : Set (FactSet sig)) (F : Set (GroundTermMapping sig)) :
-  ∀ M, M ∈ K → ∃ T, T ∈ U → FactSet.isFClosedFor F T M ∧
-  U ⊆ K ∧
-  U.finite ∧
-  ¬ ∃ U', U' ⊂ U → isUniversalModelSet U' U F := by sorry
-
--- chase sequence A_0,A_1... is terminating if A_n ⊧ Σ
-theorem ChaseTermIfExModel (cb : ChaseBranch obs kb) (rules : RuleSet sig) : ∃ e, e ∈ cb.branch →  FactSet.modelsRules e rules := by sorry
--- => Membership on possibly infinite List ?
-
--- All chase results are hom equiv.
-theorem ChaseResultHomEq (ct : ChaseTree obs kb) (cb cb' : ChaseBranch obs kb) (cb_mem : cb ∈ ct.branches) (cb'_mem : cb' ∈ ct.branches):
-  ∃ (h : GroundTermMapping sig), h.applyFactSet cb.result = cb'.result := by sorry
