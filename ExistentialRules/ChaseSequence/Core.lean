@@ -1070,21 +1070,18 @@ namespace CoreChaseBranch
           ⟩
         | .some cn =>
           -- does a trigger exist for prev_node (cn @ j-th index) ?
-          let trg_ex_dec := Classical.propDecidable (exists_trigger_opt_fs_core obs kb.rules (prev_node.get (Option.isSome_of_mem prev_node_eq)) cn)
+          let trg_ex_dec := Classical.propDecidable (exists_trigger_opt_fs_core obs kb.rules (prev_node.get (Option.isSome_of_mem prev_node_eq)) (cb.branch.infinite_list j.succ))
 
           match trg_ex_dec with
             | .isFalse contra => ⟨prev_hom, by
-              rw [Option.is_none_or_iff] at *
-              intro cn_succ cn_succ_eq
-              simp_all only [Option.some.injEq, forall_eq', prev_node, prev_hom]
-              specialize prev_cond cn prev_node_eq
-              rcases prev_cond with ⟨prev_hom_id_c, prev_hom_sub⟩
-              constructor
-              exact prev_hom_id_c
-              intro f f_in
-              specialize prev_hom_sub f
-              sorry
-              ⟩
+                have trg_ex := cb.triggers_exist j
+                rw [Option.is_none_or_iff] at trg_ex
+                specialize trg_ex cn prev_node_eq
+                cases trg_ex with
+                | inl trg_ex => simp only [prev_node_eq] at contra; contradiction
+                | inr trg_ex => rw [trg_ex.right]; simp [Option.is_none_or]
+                ⟩
+
             | .isTrue trg_ex =>
               let prev_hom_is_hom : prev_hom.isHomomorphism (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs m := by
                 rw [Option.is_none_or_iff] at prev_cond
