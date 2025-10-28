@@ -142,6 +142,34 @@ theorem id_is_surjective (A : Set α) : Function.surjective_for_domain_and_image
   intro a a_in
   exists a
 
+@[simp, grind]
+theorem gtmHomApplyFactFunctionFreeId (fs1 fs2 : FactSet sig) (f : Fact sig) (f_is_ff : f.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFact f = f := by
+    rw [Fact.mk.injEq]
+    constructor
+    rfl
+    apply List.map_id_of_id_on_all_mem
+    intro gt gt_in
+    specialize f_is_ff gt gt_in
+    rcases f_is_ff with ⟨c, c_eq⟩
+    rw [c_eq]
+    apply gtm_hom.left (.const c)
+
+@[simp, grind]
+theorem gtmHomApplyFactSetFunctionFreeId (fs1 fs2 : FactSet sig) (fs1_is_ff : fs1.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFactSet fs1 = fs1 := by
+  unfold GroundTermMapping.applyFactSet
+  apply Set.ext
+  intro f
+  constructor
+  intro ⟨ff, ff_in, ff_eq⟩
+  have := gtmHomApplyFactFunctionFreeId fs1 fs2 ff (fs1_is_ff ff ff_in) gtm gtm_hom
+  grind
+  intro h
+  exists f
+  constructor
+  exact h
+  exact gtmHomApplyFactFunctionFreeId fs1 fs2 f (fs1_is_ff f h) gtm gtm_hom
+
+
 @[grind]
 theorem gtm_hom_on_db_id (f : Fact sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (f_in_db : f ∈ kb.db.toFactSet.val) :
   gtm.applyFact f = f := by
@@ -237,20 +265,6 @@ structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase s
   fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fs))
     ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fs))
 
-    /-
-  theorem ff_in_fs_iff_ff_in_core (cb : CoreChaseBranch obs kb) (n : Nat) (x_eq : cb.branch.infinite_list n = some x) :
-    ∀ (f : Fact sig), (f ∈ x.fs ∧ f.isFunctionFree) → f ∈ x.core := by
-      intro f ⟨f_in, f_is_ff⟩
-      have ex_gtm := exHomFsCore cb n x x_eq
-      rcases ex_gtm with ⟨gtm, gtm_hom⟩
-      have := x.fs_contains_origin_result
-      simp at this
-      cases ex_org : x.origin.isSome
-      have trg_ex := cb.triggers_exist n
-      simp [Option.is_none_or_iff] at this trg_ex
-      sorry
-      sorry
-  -/
 
 @[grind]
 theorem Option.isSomeIffNeqNone (o : Option α) : o.isSome ↔ o ≠ none := by
@@ -670,6 +684,16 @@ namespace CoreChaseBranch
       rw [← this]
       exact fs_eq
 
+  @[grind]
+  theorem ff_in_core_if_ff_in_fs (cb : CoreChaseBranch obs kb) (n : Nat) (x_eq : cb.branch.infinite_list n = some x) (f : Fact sig) (f_in : f ∈ x.fs) (f_is_ff : f.isFunctionFree) : f ∈ x.core := by
+      have ex_gtm := exHomFsCore cb n x x_eq
+      rcases ex_gtm with ⟨gtm, gtm_hom⟩
+      have eq : gtm.applyFact f = f := gtmHomApplyFactFunctionFreeId x.fs x.core f f_is_ff gtm gtm_hom
+      have x_core := x.is_core
+      rcases gtm_hom with ⟨gtm_c, gtm_st⟩
+      specialize gtm_st f
+      apply gtm_st
+      exists f
 
   -- if A{i+1}.fs \neq none \to A_i.fs \subset A{i+1}.fs
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
@@ -966,27 +990,74 @@ namespace CoreChaseBranch
       rw [c_eq]
       apply gtm_hom.left (.const c)
 
-  -- stimmt das so überhaupt ? Der hom könnte es ja umbenennen wodurch es kein subset mehr ist
-  theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
-    let init_node := (cb.branch.infinite_list 0).get (by grind)
-    let last_node := cb.last_node ter'
-    have last_eq : last_node.core = cb.result ter' := by rfl
-    have ex_gtm := exHomResultIfIsSome cb ter' 0 init_node (cb.last_node ter') (by grind) rfl
-    rcases ex_gtm with ⟨gtm, gtm_hom⟩
-    let := cb.database_first
-    have eq : init_node.fs = kb.db.toFactSet.val := by simp_all only [Option.get_some, init_node]
-    rw [← eq]
-    -- only consts are mapped
-    intro f f_in
-    have eq2 := allElemDbMappedId cb init_node (by grind) gtm gtm_hom f f_in
-    unfold result
+  @[grind]
+  theorem allFfInNextFsIfSome (cb : CoreChaseBranch obs kb) (n : Nat) (x : CoreChaseNode obs kb.rules) (x_eq : cb.branch.infinite_list n = some x) :
+    (cb.branch.infinite_list (n+1)).is_none_or (fun cn => ∀ f, f ∈ x.fs ∧ f.isFunctionFree → f ∈ cn.fs) := by
+      rw [Option.is_none_or_iff]
+      intro cn_succ cn_succ_eq f ⟨f_in, f_is_ff⟩
+      grind
+
+  @[grind]
+  theorem cbDbInAllSucc (cb : CoreChaseBranch obs kb) (n : Nat) (init cn : CoreChaseNode obs kb.rules) (init_eq : cb.branch.infinite_list 0 = some init) (cn_eq : cb.branch.infinite_list n = some cn) :
+    init.fs ⊆ cn.core := by
+      have db_funfree := kb.db.toFactSet.property.right
+      have init_eq' : init.fs = kb.db.toFactSet.val := by
+        have := cb.database_first
+        grind
+      induction n generalizing cn with
+        | zero =>
+          intro f f_in
+          refine ff_in_core_if_ff_in_fs cb 0 cn_eq f ?_ ?_
+          have eq : cn = init := by grind
+          rw [eq]
+          exact f_in
+          rw [init_eq'] at f_in
+          exact db_funfree f f_in
+        | succ n ih =>
+          have prev_cn_ex : ∃ prev_cn, cb.branch.infinite_list n =  some prev_cn:= by
+            have := prev_is_some_if_is_some cb (n + 1) (Option.NeqNoneIfIsSome (cb.branch.infinite_list (n + 1)) cn cn_eq) n (Nat.lt_add_one n)
+            exact Option.ne_none_iff_exists'.mp this
+          intro f f_in
+          refine ff_in_core_if_ff_in_fs cb (n + 1) cn_eq f ?_ ?_
+          rcases prev_cn_ex with ⟨prev_cn, prev_cn_eq⟩
+          specialize ih prev_cn (by grind) f f_in
+          have := allFfInNextFsIfSome cb n prev_cn prev_cn_eq
+          rw [Option.is_none_or_iff] at this
+          specialize this cn cn_eq f
+          have f_in_prev_fs : f ∈ prev_cn.fs := by
+            have prev_cn_core_sse := prev_cn.core_sse.left f ih
+            exact prev_cn_core_sse
+          apply this
+          constructor
+          exact f_in_prev_fs
+          rw [init_eq'] at f_in
+          exact db_funfree f f_in
+          rw [init_eq'] at f_in
+          exact db_funfree f f_in
+
+  @[grind]
+  theorem exLastNodeWithLastIndexIfTerminates' (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∃ last_cn, cb.branch.infinite_list (cb.last_element_index ter') = some last_cn := by
+    exists cb.last_node ter'
+    unfold last_node
     simp only [Option.castToMemIfNotNone, ne_eq]
     split
-    next
-    next opt not_none_opt cn_res not_none_cn_res cn_res_eq heq =>
-      have trg_ex := origin_trg_result_yields_next_node_fs cb 0 init_node
-      sorry
-    next => contradiction
+    next => trivial
+    next => trivial
+
+  @[grind]
+  theorem cbDbSubsetResult (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
+    let init_node := (cb.branch.infinite_list 0).get (by grind)
+    rcases (exLastNodeWithLastIndexIfTerminates' cb ter') with ⟨last_node, last_node_eq⟩
+    have t := cbDbInAllSucc cb (cb.last_element_index ter') init_node last_node (by grind)
+    intro f f_in
+    let := cb.database_first
+    have eq : init_node.fs = kb.db.toFactSet.val := by simp_all only [Option.get_some, init_node]
+    specialize t last_node_eq f (by grind)
+    rw [result]
+    simp only [Option.castToMemIfNotNone, ne_eq]
+    split
+    next => grind
+    next => grind
 
   theorem cbResultModelsKb (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
