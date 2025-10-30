@@ -130,7 +130,7 @@ def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : Ru
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
 
 theorem exFactIfExTerm (kb : KnowledgeBase sig) (t : GroundTerm sig) : t ∈ kb.db.toFactSet.val.terms → ∃ f, f ∈ kb.db.toFactSet.val := by
-  rintro ⟨f, f_in_fs, f_in_ter⟩
+  intro ⟨f, f_in_fs, f_in_ter⟩
   exists f
 
 theorem id_is_injective (A : Set α) : Function.injective_for_domain_set id A := by
@@ -307,12 +307,12 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem terminatesIfTerminates' (cb : CoreChaseBranch obs kb) : cb.terminates' → cb.terminates := by
-    rintro ⟨n, a, b⟩
+    intro ⟨n, a, b⟩
     exists (n + 1)
 
   @[grind]
   theorem terminates'IfTerminatesAndNonEmpty (cb : CoreChaseBranch obs kb) (non_empty : ∃ m, cb.branch.infinite_list m ≠ none) : cb.terminates → cb.terminates' := by
-    rintro ⟨n, a⟩
+    intro ⟨n, a⟩
     rcases non_empty with ⟨m, c⟩
     -- n yielded from terminates, thus (n ≥ m)
     induction d : (n - m) generalizing n with
@@ -695,43 +695,6 @@ namespace CoreChaseBranch
       apply gtm_st
       exists f
 
-  -- if A{i+1}.fs \neq none \to A_i.fs \subset A{i+1}.fs
-  -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
-  -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
-
-
-  -- (CoreChaseBranch.result cb ter').modelsKb kb muss gezeigt werden !
-
-  -- theorem 7 (7 depends on 16)
-  theorem ExUniversalModelIfCoreChaseHasModel (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb → (CoreChaseBranch.result cb ter').universallyModelsKb kb := by
-    unfold FactSet.universallyModelsKb
-    intro left
-    have right : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
-      intro fs fs_mod
-      let result := cb.result ter'
-      have result_is_core : result.isWeakCore := by apply coreChaseResultIsCore cb
-      specialize result_is_core sorry sorry
-      sorry
-    exact ⟨left, right⟩
-
-  -- duplicate with cbResultModelsKb
-  theorem result_models_kb_core (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (CoreChaseBranch.result cb ter').modelsKb kb := by
-    constructor
-    unfold FactSet.modelsDb
-    unfold CoreChaseBranch.result
-    have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
-    rcases this with ⟨cn_last, cn_last_eq⟩
-    unfold CoreChaseBranch.last_node at cn_last_eq
-    rw [← cn_last_eq]
-    intro f h
-    -- db ⊆ core gilt immer
-    -- das stimmt doch garnicht fü die core chase ?
-    --> andere def für models benötigt ?
-    sorry
-    sorry
-
-  -- wie will man das zeigen ?
-  --> gibt es keinen core zu infinite sets oder kann es sein, dass es keinen gibt ?
 
   @[grind]
   theorem db_finite (cb : CoreChaseBranch obs kb) (isSome : (cb.branch.infinite_list 0).isSome = true) : Set.finite ((cb.branch.infinite_list 0).get isSome).core := by
@@ -1086,9 +1049,16 @@ namespace CoreChaseBranch
       rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
       exists i
       exists s'
+    
     sorry
 
+
   /-
+
+
+  -- if A{i+1}.fs \neq none \to A_i.fs \subset A{i+1}.fs
+  -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
+  -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
 
   If I is an instance and Σ is a set of tgds and egds,
   then there
@@ -1159,7 +1129,38 @@ namespace CoreChaseBranch
                 specialize prev_cond cn prev_node_eq
                 subst prev_hom
                 simp_all only [Option.get_some]
-              ⟨sorry, sorry⟩
+
+              let trg := Classical.choose trg_ex
+              let trg_spec := Classical.choose_spec trg_ex
+              let trg_active_for_current_step := trg_spec.left
+              let trg_result_used_for_next_chase_step := trg_spec.right
+              let trg_variant_for_m : RTrigger obs kb.rules := {
+                val := {
+                  rule := trg.val.rule
+                  subs := fun t => prev_hom (trg.val.subs t)
+                }
+                property := trg.property
+              }
+
+
+              let next_hom : GroundTermMapping sig := fun t =>
+                match t.val with
+                  | FiniteTree.leaf _ => t
+                  | FiniteTree.inner _ _ =>
+                    let t_in_step_j_dec := Classical.propDecidable (∃ f, f ∈ cn.fs ∧ t ∈ f.terms)
+                    match t_in_step_j_dec with
+                    | Decidable.isTrue _ => prev_hom t
+                    | Decidable.isFalse _ =>
+                      let t_in_trg_result_dec := Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[0]'(by sorry)) ∧ t ∈ f.terms)
+                      match t_in_trg_result_dec with
+                      | Decidable.isFalse _ => t
+                      | Decidable.isTrue t_in_trg_result =>
+                        let f := Classical.choose t_in_trg_result
+                        let f_spec := Classical.choose_spec t_in_trg_result
+                        let v_for_t := trg.val.var_or_const_for_result_term 0 f_spec.left f_spec.right
+                        obs_for_m_subs.apply_var_or_const v_for_t
+
+              ⟨next_hom, by sorry⟩
 
 
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
@@ -1172,14 +1173,68 @@ namespace CoreChaseBranch
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
   -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
 
+  theorem neqTerminates'IfCbAllSome (cb : CoreChaseBranch obs kb) : (∀ (n : Nat), (cb.branch.infinite_list n).isSome) → ¬ cb.terminates' := by
+    intro all_some ⟨n, ⟨n_some, n_succ_none⟩⟩
+    specialize all_some (n + 1)
+    rw [Option.isSomeIffNeqNone] at all_some
+    contradiction
+
+  @[grind]
+  theorem neqTerminatesIffCbAllSome (cb : CoreChaseBranch obs kb) : (∀ (n : Nat), (cb.branch.infinite_list n).isSome) ↔ ¬ cb.terminates := by
+    constructor
+    intro all_some ⟨n, n_none⟩
+    specialize all_some n
+    rw [Option.isSomeIffNeqNone] at all_some
+    contradiction
+    unfold terminates
+    intro n_ter
+    simp only [not_exists, ne_eq] at n_ter
+    intro n
+    specialize n_ter n
+    rw [Option.isSomeIffNeqNone]
+    exact n_ter
+
+
   theorem main_lhs (cb : CoreChaseBranch obs kb ) : (∃ (fs : FactSet sig), fs.finite ∧ fs.universallyModelsKb kb) → cb.terminates' := by
-    rintro ⟨fs, fs_fin, fs_umod⟩
+    intro ⟨fs, fs_fin, fs_umod⟩
+    apply terminates'IfTerminatesAndNonEmpty
+    sorry --- non-emptyness
+    apply Classical.byContradiction
+    intro contra
+    unfold terminates at contra
+    simp only [not_exists] at contra
+    have all_some : ∀ (n : Nat), (cb.branch.infinite_list n).isSome := by grind
+    rcases fs_umod with ⟨fs_mod_kb, fs_u⟩
+    specialize fs_u fs fs_mod_kb
+    have : ∃ (m : Nat), ((cb.branch.infinite_list m).get (all_some m)).core.universallyModelsKb kb := by sorry
+
+
+    /-
+
+    0) Assume towards contradiction that the CC does not terminate
+    1) Then there is an infinite sequence A_0, A_1, A_2, ... of core chase nodes
+    1) If the CC does not termiante then the SC does not termiante (?)
+
+    2) Let U be a finite universal model and let R = (⋃_i A_i) (infinite union of all SC nodes)
+    3) R is a model (?)
+    3) U is model thus ∃ h, h : R → U (by 16 ?)
+
+    4) As U is universal there is a hom. h from each other model m to U (coreChaseResultIsUniversal)
+    4) As R is a model (3?) we have ∃ h, h : U → R
+
+    5) U is finite by assumption thus ∃ n, U → A_n (why ? we just stated that U → R exists and R is infinite ?)
+
+    -/
+
+
+
+    have every_trig : ∀ (n : Nat), exists_trigger_opt_fs_core obs kb.rules ((cb.branch.infinite_list n).get sorry) (cb.branch.infinite_list (n+1)) := by sorry
+
     sorry
 
   theorem main_rhs (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : (cb.result ter').universallyModelsKb kb := by
     constructor
     exact result_models_kb_core cb ter'
     apply coreChaseResultIsUniversal cb ter'
-
 
 end CoreChaseBranch
