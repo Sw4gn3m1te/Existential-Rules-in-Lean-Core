@@ -6,6 +6,8 @@ import ExistentialRules.Models.Basic
 import ExistentialRules.Triggers.Basic
 import ExistentialRules.AtomsAndFacts.Basic
 import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
+import ExistentialRules.ChaseSequence.Termination.Basic
+import ExistentialRules.ChaseSequence.Universality
 
 --import ExistentialRules.BasicTypes.Sets.Set
 --import ExistentialRules.BasicTypes.Sets.Finite
@@ -13,7 +15,7 @@ import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 
 
 import Aesop
-import Canonical
+-- import Canonical
 --import Mathlib.Combinatorics.Graph.Basic
 
 
@@ -100,7 +102,7 @@ def ChaseNode.isStrongCore {obs : ObsoletenessCondition sig} (node : ChaseNode o
 def getCore (fs : FactSet sig) (fs_fin : fs.finite) : {wc : FactSet sig // wc.isWeakCore ∧ wc.homSubset fs} := by sorry
 
 def GroundTermMapping.isIsomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
-    h.isHomomorphism A B ∧ h.isHomomorphism B A
+    h.isHomomorphism A B ∧ Function.injective_for_domain_set h A.terms ∧ Function.surjective_for_domain_and_image_set h A.terms B.terms ∧ h.strong A.terms A B
 
 structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   fs : FactSet sig
@@ -1049,7 +1051,6 @@ namespace CoreChaseBranch
       rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
       exists i
       exists s'
-    
     sorry
 
 
@@ -1196,36 +1197,91 @@ namespace CoreChaseBranch
 
 
   theorem main_lhs (cb : CoreChaseBranch obs kb ) : (∃ (fs : FactSet sig), fs.finite ∧ fs.universallyModelsKb kb) → cb.terminates' := by
-    intro ⟨fs, fs_fin, fs_umod⟩
+    intro ⟨U, U_fin, U_umod⟩
     apply terminates'IfTerminatesAndNonEmpty
-    sorry --- non-emptyness
+    have := cb.database_first
+    grind
     apply Classical.byContradiction
     intro contra
     unfold terminates at contra
     simp only [not_exists] at contra
-    have all_some : ∀ (n : Nat), (cb.branch.infinite_list n).isSome := by grind
-    rcases fs_umod with ⟨fs_mod_kb, fs_u⟩
-    specialize fs_u fs fs_mod_kb
-    have : ∃ (m : Nat), ((cb.branch.infinite_list m).get (all_some m)).core.universallyModelsKb kb := by sorry
+    have core_cb_all_some : ∀ (n : Nat), (cb.branch.infinite_list n).isSome := by grind
+    have ex_inf_sc : ∀ (std_cb : ChaseBranch obs kb), ¬ std_cb.terminates := by sorry -- contraposition of ∃ finite SC → ∃ finite CC
+    let std_cb : ChaseBranch obs kb := sorry
+    specialize ex_inf_sc std_cb
+    have std_cb_all_some : ∀ (n : Nat), (std_cb.branch.infinite_list n).isSome := by
+      unfold ChaseBranch.terminates at ex_inf_sc
+      grind
+    let R := std_cb.result
+    have R_umod : R.universallyModelsKb kb := by
+      constructor
+      exact ChaseBranch.result_models_kb std_cb
+      sorry -- deterministicChaseBranchResultUniversallyModelsKb
+
+    have hom_U_R : ∃ (h : GroundTermMapping sig), h.isHomomorphism U R := by sorry -- by universality
+    have hom_R_U : ∃ (h : GroundTermMapping sig), h.isHomomorphism R U := by sorry -- by universality
+
+    have f_first_somewhere : ∀ (f : Fact sig), f ∈ U → ∃ (n : Nat), f ∈ ((std_cb.branch.infinite_list (n + 1)).get (std_cb_all_some (n + 1))).facts.val ∧
+      ¬ f ∈ ((std_cb.branch.infinite_list (n)).get (std_cb_all_some (n))).facts.val := sorry
+
+    have hom_U_some_An : ∃ (n : Nat) (h : GroundTermMapping sig), h.isHomomorphism U ((std_cb.branch.infinite_list n).get (std_cb_all_some n)).facts.val := by sorry
+
+    rcases hom_U_some_An with ⟨n_An, hom_U_An, hom_U_An_hom⟩
+
+    let An := ((std_cb.branch.infinite_list n_An).get (std_cb_all_some n_An)).facts.val
+
+    have hom_An_U : ∃ (h : GroundTermMapping sig), h.isHomomorphism An U := by sorry -- by subset
+
+    have ex_cc_with_an_core : ∃ (cb_with_an_core : CoreChaseBranch obs kb) (m : Nat), ((cb.branch.infinite_list m).get (core_cb_all_some m)).core.homSubset An := by sorry
+
+    rcases ex_cc_with_an_core with ⟨cc_with_an_core, an_core_index, is_an_core⟩
+
+    let An_core := ((cc_with_an_core.branch.infinite_list an_core_index).get (by sorry)).core
+
+    have ex_isom_U_core : ∃ (U_core : FactSet sig) (h : GroundTermMapping sig), h.isIsomorphism (U_core) An_core ∧ U_core.homSubset U := by sorry
+
+    have an_umod : An_core.universallyModelsKb kb := by sorry
+
+    have : ∀ (n : Nat), (((cc_with_an_core.branch.infinite_list n).get (by sorry)).core.universallyModelsKb kb) → cc_with_an_core.terminates_at_step n := by sorry
+
+    specialize this an_core_index an_umod
 
 
-    /-
+    -- contradiction 
 
-    0) Assume towards contradiction that the CC does not terminate
-    1) Then there is an infinite sequence A_0, A_1, A_2, ... of core chase nodes
-    1) If the CC does not termiante then the SC does not termiante (?)
 
-    2) Let U be a finite universal model and let R = (⋃_i A_i) (infinite union of all SC nodes)
-    3) R is a model (?)
-    3) U is model thus ∃ h, h : R → U (by 16 ?)
 
-    4) As U is universal there is a hom. h from each other model m to U (coreChaseResultIsUniversal)
-    4) As R is a model (3?) we have ∃ h, h : U → R
+  /-
+    CC : Core Chase, SC : Standard Chase
 
-    5) U is finite by assumption thus ∃ n, U → A_n (why ? we just stated that U → R exists and R is infinite ?)
+    Proof for "If there exists a finite universal model for I,Σ then there exists a CC sequecne that termiantes on I,Σ"
 
-    -/
+      Let U be an universal finite model for I,Σ
+      Assume towards contradiction that every CC sequence does not terminate
 
+      We know (proof needed) that the existence of a finite SC sequence would imply the existence of a finite CC sequence.
+        -> Idea: Using same triggers in each step if applicable
+      → Thus, every SC sequence is infinite.
+      Since there exists at least one SC sequence (I guess this also needs to be proven as a very general result: Every KB admits a chase sequence.)
+      we have an infinite SC sequence A = A_0, A_1, A_2, ...
+
+      Define the Result of the SC as R = (⋃_i A_i)
+      → We know that R is an universal model for I,Σ (proven result)
+
+      As U and R are both universal models for I,Σ, we get U → R and R → U
+
+      As each fact f in R is derived after some finite step i there is some A_i where f appears first
+      → As U contains only finitely many facts and A_i ⊆ A_{i+1} there is some A_n where U → A_n holds
+
+      → we also have A_n → U since A_n is a subset of R
+      → Goal: find a CC seq which contains core(A_n)
+            Idea: just take SC up to A_n and then compute the core once
+                -> show that an equivalent CC seq exists that computes a core after each step
+          Then we know that the CC seq reaches A_n.
+          Since core(A_n) and core(U) are isomorphic, core(A_n) is a model and therefore the CC seq terminates once it reaches A_n. This contradicts our original assumption.
+
+
+  -/
 
 
     have every_trig : ∀ (n : Nat), exists_trigger_opt_fs_core obs kb.rules ((cb.branch.infinite_list n).get sorry) (cb.branch.infinite_list (n+1)) := by sorry
