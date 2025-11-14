@@ -1024,6 +1024,21 @@ namespace CoreChaseBranch
     next => grind
     next => grind
 
+  @[grind]
+  theorem resultIsSome (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : cb.branch.infinite_list (cb.last_element_index ter') = some (cb.last_node ter') := by
+    unfold last_element_index last_node
+    simp only [Option.castToMemIfNotNone, ne_eq]
+    split
+    next => trivial
+    next => trivial
+
+  --have c : CoreChaseNode obs kb.rules := {fs := sorry, fs_fin:=sorry,core:=sorry,is_core:=sorry,core_sse:=sorry,origin:=sorry,fs_contains_origin_result:=sorry}
+
+  theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch obs kb) (n : Nat) (cn : CoreChaseNode obs kb.rules)
+     (x_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs) (trg_loaded : trg.loaded cn.core) (trg_non_obs : ¬ obs.cond trg cn.core) :
+      ∃ (cn' : CoreChaseNode obs kb.rules), cb.branch.infinite_list (n+1) = some cn' := by
+      sorry
+
   theorem cbResultModelsKb (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
     intro f f_in
@@ -1039,6 +1054,7 @@ namespace CoreChaseBranch
       next => simp_all only [ne_eq, Option.some.injEq, not_false_eq_true, heq_eq_eq]
       next => simp_all only [ne_eq, reduceCtorEq]
     next => contradiction
+
     intro r r_in gs sub
     apply Classical.byContradiction
     intro subs_not_obsolete
@@ -1051,7 +1067,20 @@ namespace CoreChaseBranch
       rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
       exists i
       exists s'
+
+    have ex_next_node := exNextNodeIfExLoadedNonObsoleteTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') trg sub trg_not_obsolete
+    rcases ex_next_node with ⟨next_node, next_node_eq⟩
+    rcases ter' with ⟨n_ter, ⟨n_ter_some, n_ter_succ_none⟩⟩
+    have := cb.triggers_exist n_ter
+    have n_ter_some' : ∃ cm, (cb.branch.infinite_list n_ter) = some cm := Option.ne_none_iff_exists'.mp n_ter_some
+    rcases n_ter_some' with ⟨cm, cm_eq⟩
+    rw [n_ter_succ_none, cm_eq] at this
+    simp at this
+
+
+
     sorry
+
 
 
   /-
@@ -1143,25 +1172,9 @@ namespace CoreChaseBranch
                 property := trg.property
               }
 
+              let next_hom : GroundTermMapping sig := fun t => sorry
 
-              let next_hom : GroundTermMapping sig := fun t =>
-                match t.val with
-                  | FiniteTree.leaf _ => t
-                  | FiniteTree.inner _ _ =>
-                    let t_in_step_j_dec := Classical.propDecidable (∃ f, f ∈ cn.fs ∧ t ∈ f.terms)
-                    match t_in_step_j_dec with
-                    | Decidable.isTrue _ => prev_hom t
-                    | Decidable.isFalse _ =>
-                      let t_in_trg_result_dec := Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[0]'(by sorry)) ∧ t ∈ f.terms)
-                      match t_in_trg_result_dec with
-                      | Decidable.isFalse _ => t
-                      | Decidable.isTrue t_in_trg_result =>
-                        let f := Classical.choose t_in_trg_result
-                        let f_spec := Classical.choose_spec t_in_trg_result
-                        let v_for_t := trg.val.var_or_const_for_result_term 0 f_spec.left f_spec.right
-                        obs_for_m_subs.apply_var_or_const v_for_t
-
-              ⟨next_hom, by sorry⟩
+              ⟨next_hom, sorry⟩
 
 
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
@@ -1247,7 +1260,7 @@ namespace CoreChaseBranch
     specialize this an_core_index an_umod
 
 
-    -- contradiction 
+    -- contradiction
 
 
 
