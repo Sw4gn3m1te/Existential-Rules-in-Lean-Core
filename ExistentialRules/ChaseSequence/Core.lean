@@ -1034,10 +1034,25 @@ namespace CoreChaseBranch
 
   --have c : CoreChaseNode obs kb.rules := {fs := sorry, fs_fin:=sorry,core:=sorry,is_core:=sorry,core_sse:=sorry,origin:=sorry,fs_contains_origin_result:=sorry}
 
+  @[grind]
   theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch obs kb) (n : Nat) (cn : CoreChaseNode obs kb.rules)
      (x_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs) (trg_loaded : trg.loaded cn.core) (trg_non_obs : ¬ obs.cond trg cn.core) :
       ∃ (cn' : CoreChaseNode obs kb.rules), cb.branch.infinite_list (n+1) = some cn' := by
+      unfold PreTrigger.loaded at trg_loaded
+
+      have trg_ex := cb.
       sorry
+
+  @[grind]
+  theorem cbNoneAfterLastIndex (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : cb.branch.infinite_list ((cb.last_element_index ter') + 1) = none := by
+    apply Classical.byContradiction
+    rcases ter' with ⟨n_ter, n_ter_at⟩
+    intro contra
+    induction n_ter with
+      | zero =>
+        grind
+      | succ n_ter ih =>
+        grind
 
   theorem cbResultModelsKb (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
@@ -1069,18 +1084,9 @@ namespace CoreChaseBranch
       exists s'
 
     have ex_next_node := exNextNodeIfExLoadedNonObsoleteTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') trg sub trg_not_obsolete
-    rcases ex_next_node with ⟨next_node, next_node_eq⟩
-    rcases ter' with ⟨n_ter, ⟨n_ter_some, n_ter_succ_none⟩⟩
-    have := cb.triggers_exist n_ter
-    have n_ter_some' : ∃ cm, (cb.branch.infinite_list n_ter) = some cm := Option.ne_none_iff_exists'.mp n_ter_some
-    rcases n_ter_some' with ⟨cm, cm_eq⟩
-    rw [n_ter_succ_none, cm_eq] at this
-    simp at this
-
-
-
-    sorry
-
+    grind
+    -- entweder gibt es active trigger in result, dann muss es aber eine nachfolger node geben → contradiction to termainates at result
+    -- es gibt keine active trigger → models ist trivial erfüllt
 
 
   /-
@@ -1131,13 +1137,9 @@ namespace CoreChaseBranch
         | .none => ⟨prev_hom, by
           rw [Option.is_none_or_iff] at *
           intro cn cn_eq
-          specialize prev_cond cn (by
-            have := prev_is_some_if_is_some cb j.succ
-              (Option.NeqNoneIfIsSome (cb.branch.infinite_list j.succ) cn cn_eq) j (Nat.lt_add_one j)
-            contradiction
-          )
-          subst prev_hom
-          exact prev_cond
+          have := prev_is_some_if_is_some cb j.succ
+            (Option.NeqNoneIfIsSome (cb.branch.infinite_list j.succ) cn cn_eq) j (Nat.lt_add_one j)
+          contradiction
           ⟩
         | .some cn =>
           -- does a trigger exist for prev_node (cn @ j-th index) ?
