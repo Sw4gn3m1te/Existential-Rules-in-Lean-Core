@@ -1036,12 +1036,16 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch obs kb) (n : Nat) (cn : CoreChaseNode obs kb.rules)
-     (x_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs) (trg_loaded : trg.loaded cn.core) (trg_non_obs : ¬ obs.cond trg cn.core) :
+     (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs) (trg_loaded : trg.loaded cn.core) (trg_non_obs : ¬ obs.cond trg cn.core) :
       ∃ (cn' : CoreChaseNode obs kb.rules), cb.branch.infinite_list (n+1) = some cn' := by
       unfold PreTrigger.loaded at trg_loaded
-
-      have trg_ex := cb.
+      apply Classical.byContradiction
+      intro contra
+      apply trg_non_obs
+      apply obs.monotone
+      exact trg_loaded
       sorry
+
 
   @[grind]
   theorem cbNoneAfterLastIndex (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : cb.branch.infinite_list ((cb.last_element_index ter') + 1) = none := by
