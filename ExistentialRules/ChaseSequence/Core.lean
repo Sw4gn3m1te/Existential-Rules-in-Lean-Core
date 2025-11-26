@@ -126,7 +126,7 @@ def RTrigger.isStep (trg : Trigger (obs : LaxObsoletenessCondition sig)) (before
 
 def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
   ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.core ∧ ∃ (c : FactSet sig) (i : _),
-    after.is_none_or (fun a => a.fs = before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet ∧ a.core = c ∧ a.origin = some ⟨trg, i⟩)
+    after.is_some_and (fun a => a.fs = before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet ∧ a.core = c ∧ a.origin = some ⟨trg, i⟩)
 
 def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
@@ -1036,15 +1036,27 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch obs kb) (n : Nat) (cn : CoreChaseNode obs kb.rules)
-     (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs) (trg_loaded : trg.loaded cn.core) (trg_non_obs : ¬ obs.cond trg cn.core) :
+     (cn_eq : cb.branch.infinite_list n = some cn) (trg : RTrigger obs kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
       ∃ (cn' : CoreChaseNode obs kb.rules), cb.branch.infinite_list (n+1) = some cn' := by
-      unfold PreTrigger.loaded at trg_loaded
-      apply Classical.byContradiction
-      intro contra
-      apply trg_non_obs
-      apply obs.monotone
-      exact trg_loaded
-      sorry
+      cases h : cb.branch.infinite_list (n+1) with
+        | none =>
+          have trg_ex := cb.triggers_exist n
+          rw [h, Option.is_none_or_iff] at trg_ex
+          specialize trg_ex cn cn_eq
+          cases trg_ex with
+            | inl ex =>
+              unfold exists_trigger_opt_fs_core at ex
+              rcases ex with ⟨trg', trg'_act_c, ⟨i, c, c_eq⟩⟩
+              contradiction
+            | inr nex =>
+              unfold not_exists_trigger_opt_fs_core at nex
+              unfold Trigger.active at nex
+              simp only [not_exists, not_and, Classical.not_not, and_true] at nex
+              specialize nex trg trg_loaded
+              contradiction
+
+        | some succ_cn =>
+          exists succ_cn
 
 
   @[grind]
@@ -1087,7 +1099,7 @@ namespace CoreChaseBranch
       exists i
       exists s'
 
-    have ex_next_node := exNextNodeIfExLoadedNonObsoleteTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') trg sub trg_not_obsolete
+    have ex_next_node := exNextNodeIfExLoadedNonObsoleteTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') ⟨trg, r_in⟩ sub trg_not_obsolete
     grind
     -- entweder gibt es active trigger in result, dann muss es aber eine nachfolger node geben → contradiction to termainates at result
     -- es gibt keine active trigger → models ist trivial erfüllt
