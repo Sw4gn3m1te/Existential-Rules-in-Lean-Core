@@ -1172,7 +1172,7 @@ namespace CoreChaseBranch
                 ⟩
 
             | .isTrue trg_ex =>
-              let prev_hom_is_hom : prev_hom.isHomomorphism (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs m := by
+              have prev_hom_is_homomorphism : prev_hom.isHomomorphism (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs m := by
                 rw [Option.is_none_or_iff] at prev_cond
                 specialize prev_cond cn prev_node_eq
                 subst prev_hom
@@ -1190,9 +1190,56 @@ namespace CoreChaseBranch
                 property := trg.property
               }
 
-              let next_hom : GroundTermMapping sig := fun t => sorry
+            have trg_variant_loaded_for_m : trg_variant_for_m.val.loaded m := by
+              have : trg_variant_for_m.val.loaded (prev_hom.applyFactSet cn.fs) := by
+                apply PreTrigger.term_mapping_preserves_loadedness
+                . exact prev_hom_is_homomorphism.left
+                · sorry
+              apply Set.subset_trans
+              . exact this
+              · sorry
+            have trg_variant_satisfied_on_m : trg_variant_for_m.val.satisfied m := by
+              have m_models_rule : m.modelsRule trg_variant_for_m.val.rule := by exact m_mod.right trg.val.rule trg.property
+              unfold FactSet.modelsRule at m_models_rule
+              apply m_models_rule
+              apply trg_variant_loaded_for_m
 
-              ⟨next_hom, sorry⟩
+                let head_index_for_m_subs := Classical.choose trg_variant_satisfied_on_m
+                let h_head_index_for_m_subs := Classical.choose_spec trg_variant_satisfied_on_m
+                let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
+                let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
+
+              let next_hom : GroundTermMapping sig := fun t =>
+                match t.val with
+                  | FiniteTree.leaf _ => t
+                  | FiniteTree.inner _ _ =>
+                      let t_in_step_j_dec := Classical.propDecidable (∃ f, f ∈ cn.fs ∧ t ∈ f.terms)
+                      match t_in_step_j_dec with
+                      | Decidable.isTrue _ => prev_hom t
+                      | Decidable.isFalse _ =>
+                        let t_in_trg_result_dec := Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[0]'(by sorry)) ∧ t ∈ f.terms)
+                        match t_in_trg_result_dec with
+                        | Decidable.isFalse _ => t
+                        | Decidable.isTrue t_in_trg_result =>
+                          let f := Classical.choose t_in_trg_result
+                          let f_spec := Classical.choose_spec t_in_trg_result
+                          let v_for_t := trg.val.var_or_const_for_result_term ⟨0, sorry⟩ f_spec.left f_spec.right
+                          obs_for_m_subs.apply_var_or_const v_for_t
+
+                have next_hom_id_const : next_hom.isIdOnConstants := by
+                  intro term
+                  cases eq : term with
+                  | const c => rfl
+                  | func _ _ => trivial
+
+              ⟨next_hom, by
+                unfold GroundTermMapping.isHomomorphism
+                simp [Option.is_none_or_iff]
+                intro cn_succ sn_succ_some
+                constructor
+                exact next_hom_id_const
+                sorry
+              ⟩
 
 
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
