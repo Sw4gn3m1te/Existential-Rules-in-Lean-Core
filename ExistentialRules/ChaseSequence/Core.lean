@@ -25,7 +25,7 @@ ToDos für Lukas:
   - ChaseBranch.fact in ChaseBranch.fs refactorn
 -/
 
--- set_option pp.proofs true
+set_option pp.proofs true
 -- set_option diagnostics true
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
@@ -1275,9 +1275,11 @@ namespace CoreChaseBranch
                   unfold exists_trigger_opt_fs_core at trg_ex
 
                   rcases trg_result_used_for_next_chase_step with ⟨c, i, c_eq⟩
-                  simp at c_eq
-                  simp only [next_node_eq, Option.is_some_and] at c_eq
-                  rcases c_eq with ⟨next_node_fs_eq,_⟩
+
+                  rw [Option.is_some_and_iff] at c_eq
+                  rcases c_eq with ⟨_, aux_eq, next_node_fs_eq,_⟩
+                  rw [next_node_eq, Option.some_inj] at aux_eq; rw [← aux_eq] at next_node_fs_eq
+
                   have i_eq : i.val = 0 := by
                     rw [← Nat.lt_one_iff]
                     have len_eq := kb_det_head_len_eq kb_det trg.val.rule trg.property
@@ -1293,7 +1295,7 @@ namespace CoreChaseBranch
                   simp only [Nat.succ_eq_add_one]
 
                   simp only [i_eq] at next_node_fs_eq
-                  sorry
+                  exact next_node_fs_eq
 
                   --next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose trg_ex).val.mapped_head[0].toSet
                   --next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose ⋯).val.mapped_head[0].toSet
