@@ -1054,7 +1054,6 @@ namespace CoreChaseBranch
               simp only [not_exists, not_and, Classical.not_not, and_true] at nex
               specialize nex trg trg_loaded
               contradiction
-
         | some succ_cn =>
           exists succ_cn
 
@@ -1124,9 +1123,25 @@ namespace CoreChaseBranch
 
   abbrev InductiveHomomorphismResultCore (cb : CoreChaseBranch obs kb) (m : FactSet sig) (depth : Nat) := {gtm : GroundTermMapping sig // (cb.branch.infinite_list depth).is_none_or (fun cn => gtm.isHomomorphism cn.fs m)}
 
-  theorem succ_none_if_nex_trig (cb : CoreChaseBranch obs kb) (cn : CoreChaseNode obs kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) : ¬exists_trigger_opt_fs_core obs kb.rules cn cn_succ → cn_succ = none := by
-    sorry
 
+  @[grind]
+  theorem memApplyFactSetIfMemApplyFactSetSubSet (h : GroundTermMapping sig) (fs1 fs2 : FactSet sig) (f : Fact sig) (f_af_in_f1 : f ∈ h.applyFactSet fs1) (sub : fs1 ⊆ fs2) :  f ∈ h.applyFactSet fs2 := by
+    unfold GroundTermMapping.applyFactSet
+    rcases f_af_in_f1 with ⟨f', f'_in, f'_af_eq⟩
+    exists f'
+    exact ⟨sub f' f'_in, f'_af_eq⟩
+
+  @[grind]
+  theorem homFsToFsAlsoHomCoreToFs (fs : FactSet sig) (cn : CoreChaseNode obs kb.rules) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism cn.fs fs) : h.isHomomorphism cn.core fs := by
+    rcases h_hom with ⟨h_c, h_af⟩
+    constructor
+    exact h_c
+    intro f f_in
+    specialize h_af f
+    apply h_af
+    exact memApplyFactSetIfMemApplyFactSetSubSet h cn.core cn.fs f f_in (cn.core_sse.left)
+
+  set_option maxHeartbeats 500000
   noncomputable def induction_homomorphism_core (cb : CoreChaseBranch obs kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
     | .zero => ⟨id, by
         simp [Option.is_none_or]
@@ -1179,15 +1194,13 @@ namespace CoreChaseBranch
                 simp_all only [Option.get_some]
 
               have prev_hom_is_hom_core : prev_hom.isHomomorphism (prev_node.get (Option.isSome_of_mem prev_node_eq)).core m := by
-                have := exHomFsCore cb j cn prev_node_eq
-                sorry -- sollte ja wegen subset
+                exact homFsToFsAlsoHomCoreToFs m (prev_node.get (Option.isSome_of_mem prev_node_eq)) prev_hom prev_hom_is_hom
 
               let trg := Classical.choose trg_ex
               let trg_spec := Classical.choose_spec trg_ex
               let trg_active_for_current_step := trg_spec.left
               let trg_result_used_for_next_chase_step := trg_spec.right
 
-              -- brauchen wir trg_variants überhaupt ?
               let trg_variant_for_m : RTrigger obs kb.rules := {
                 val := {
                   rule := trg.val.rule
@@ -1249,8 +1262,18 @@ namespace CoreChaseBranch
                 intro next_node next_node_eq
                 constructor
                 exact next_hom_id_const
-
+                -- prev node @ j, next node at j+1
+                -- next_node_eq
                 have next_node_results_from_trg : next_node.fs = (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∪ trg.val.mapped_head[result_index_for_trg.val].toSet := by
+                  unfold exists_trigger_opt_fs_core at trg_ex
+
+                  rcases trg_result_used_for_next_chase_step with ⟨c, i, c_eq⟩
+                  simp at c_eq
+                  simp only [next_node_eq, Option.is_some_and] at c_eq
+                  rcases c_eq with ⟨next_node_fs_eq,_⟩
+
+                  -- next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose ⋯).val.mapped_head[↑i].toSet
+                  -- next_node.fs = (prev_node.get ⋯).core ∪ trg.val.mapped_head[↑result_index_for_trg].toSet
                   sorry
 
                 rw [next_node_results_from_trg]
@@ -1351,6 +1374,12 @@ namespace CoreChaseBranch
                                   intro contra
                                   apply trg_active_for_current_step.right
                                   apply obs.contains_trg_result_implies_cond result_index_for_trg
+                                  have := (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs_contains_origin_result
+                                  have prev_node_origin_some : (prev_node.get (Option.isSome_of_mem prev_node_eq)).origin.isSome := by sorry
+                                  simp only [Option.is_none_or_iff] at this
+                                  specialize this ⟨trg, result_index_for_trg⟩ sorry
+                                  apply Set.subset_trans this
+
                                   sorry
                                 have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
                                 unfold PreTrigger.functional_term_for_var at this
@@ -1385,15 +1414,17 @@ namespace CoreChaseBranch
                 ⟩
 
 
-
-
-
-
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
     intro m m_mod
-    let ind_hom := induction_homomorphism_core cb m m_mod
-    let result := cb.result ter'
-    sorry
+    let ind_hom := induction_homomorphism_core cb m m_mod 0
+    exists ind_hom
+    unfold InductiveHomomorphismResultCore at ind_hom
+    have := ind_hom.property
+    have db_first := cb.database_first
+    simp only [db_first, Option.is_none_or] at this
+
+
+
 
   -- main theorem
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
@@ -1515,7 +1546,7 @@ namespace CoreChaseBranch
 
   theorem main_rhs (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : (cb.result ter').universallyModelsKb kb := by
     constructor
-    exact result_models_kb_core cb ter'
+    exact cbResultModelsKb cb ter'
     apply coreChaseResultIsUniversal cb ter'
 
 end CoreChaseBranch
