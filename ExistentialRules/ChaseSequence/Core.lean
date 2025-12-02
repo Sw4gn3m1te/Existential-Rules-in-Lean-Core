@@ -1141,8 +1141,13 @@ namespace CoreChaseBranch
     apply h_af
     exact memApplyFactSetIfMemApplyFactSetSubSet h cn.core cn.fs f f_in (cn.core_sse.left)
 
-  set_option maxHeartbeats 500000
-  noncomputable def induction_homomorphism_core (cb : CoreChaseBranch obs kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
+  theorem kb_det_head_len_eq (kb_det : kb.isDeterministic): ∀ (r : Rule sig), r ∈ kb.rules.rules → r.head.length = 1 := by
+    unfold KnowledgeBase.isDeterministic RuleSet.isDeterministic Rule.isDeterministic at kb_det
+    intro r r_in
+    specialize kb_det r r_in
+    grind
+
+  noncomputable def induction_homomorphism_core (cb : CoreChaseBranch obs kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
     | .zero => ⟨id, by
         simp [Option.is_none_or]
         rw [cb.database_first]
@@ -1160,8 +1165,8 @@ namespace CoreChaseBranch
         exact hf.left
       ⟩
     | .succ j =>
-      let prev_hom := (induction_homomorphism_core cb m m_mod j).val
-      let prev_cond := (induction_homomorphism_core cb m m_mod j).property
+      let prev_hom := (induction_homomorphism_core cb m m_mod kb_det j).val
+      let prev_cond := (induction_homomorphism_core cb m m_mod kb_det j).property
       let prev_node := cb.branch.infinite_list j
 
       match prev_node_eq : prev_node with
@@ -1229,7 +1234,9 @@ namespace CoreChaseBranch
             let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
             let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
-            let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
+            -- let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
+            let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨0, by unfold PreTrigger.mapped_head; simp; exact Fin.pos head_index_for_m_subs⟩
+
 
             let next_hom : GroundTermMapping sig := fun t =>
               match t.val with
@@ -1271,10 +1278,26 @@ namespace CoreChaseBranch
                   simp at c_eq
                   simp only [next_node_eq, Option.is_some_and] at c_eq
                   rcases c_eq with ⟨next_node_fs_eq,_⟩
+                  have i_eq : i.val = 0 := by
+                    rw [← Nat.lt_one_iff]
+                    have len_eq := kb_det_head_len_eq kb_det trg.val.rule trg.property
+                    have trg_len_eq : trg.val.mapped_head.length = trg.val.rule.head.length := PreTrigger.length_mapped_head trg.val.toPreTrigger
+                    subst trg
+                    rw [← len_eq]
+                    have := i.isLt
+                    exact Nat.lt_of_lt_of_eq this trg_len_eq
+                  subst trg
+                  have next_node_fs_eq' := next_node_fs_eq
 
-                  -- next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose ⋯).val.mapped_head[↑i].toSet
-                  -- next_node.fs = (prev_node.get ⋯).core ∪ trg.val.mapped_head[↑result_index_for_trg].toSet
+                  subst result_index_for_trg
+                  simp only [Nat.succ_eq_add_one]
+
+                  simp only [i_eq] at next_node_fs_eq
                   sorry
+
+                  --next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose trg_ex).val.mapped_head[0].toSet
+                  --next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose ⋯).val.mapped_head[0].toSet
+
 
                 rw [next_node_results_from_trg]
                 intro mapped_fact fact_in_chase
@@ -1282,6 +1305,7 @@ namespace CoreChaseBranch
                 rw [← rw_aux]
 
                 cases fact_in_chase with
+                  /-
                   | inl fact_in_prev_step =>
                       apply prev_cond.right
                       exists fact
@@ -1381,6 +1405,8 @@ namespace CoreChaseBranch
                                   apply Set.subset_trans this
 
                                   sorry
+
+
                                 have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
                                 unfold PreTrigger.functional_term_for_var at this
                                 rw [this]
@@ -1412,6 +1438,8 @@ namespace CoreChaseBranch
                                 simp only [GroundSubstitution.apply_var_or_const]
                                 rfl
                 ⟩
+-/
+  ⟩
 
 
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
