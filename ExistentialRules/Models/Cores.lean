@@ -1,23 +1,7 @@
 import ExistentialRules.Models.Basic
 import ExistentialRules.ChaseSequence.Basic
 
-import ExistentialRules.BasicTypes.Sets.Set
-import ExistentialRules.BasicTypes.Sets.Finite
-import ExistentialRules.BasicTypes.Functions.Function
-
--- import Aesop
-
-/-
-set_option trace.grind.ematch true
-set_option trace.grind.eqc true
-set_option maxHeartbeats 1000000
--- change 73 to cases h2 in \PossiblyInfiniteTrees\PossiblyInfiniteTrees\PossiblyInfiniteTree\FiniteDegreeTree\Basic.lean
--/
-
-
 namespace List
-
-  def toSet' (l : List α) : α → Prop := fun x => x ∈ l
 
   theorem length_le_of_nodup_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : as.length ≤ bs.length := by
     induction as generalizing bs with
@@ -64,36 +48,6 @@ namespace List
           exact neq
 
 
-  theorem eq_empty_if_len_zero (l : List α) : l.length = 0 → l.toSet = ∅ := by
-    simp only [List.length_eq_zero_iff]
-    intro l_empty
-    rw [l_empty]
-    rfl
-
-  theorem empty_eq_empty_set : @List.toSet α [] = ∅ := by
-    rfl
-
-  theorem empty_eq_empty_set' : @List.toSet' α [] = fun _ => False := by
-    unfold List.toSet'
-    funext a
-    simp only [List.not_mem_nil]
-
-  theorem non_empty_has_length_gt_zero (l : List α) : l.length > 0 ↔ l ≠ [] := by
-    constructor
-    intro l_gt_zero l_empty
-    unfold List.length at l_gt_zero
-    cases l with
-      | nil =>
-        contradiction
-      | cons hd tl =>
-        contradiction
-    intro l_empty
-    cases l with
-      | nil =>
-        contradiction
-      | cons hd tl =>
-        simp
-
   theorem len_gt_one_not_empty (l : List α) : l.length ≥ 1 → ¬ l.isEmpty := by
     intro len_geq_1
     unfold List.length at len_geq_1
@@ -113,52 +67,6 @@ namespace List
     change a ∈ sub.toSet ↔ a ∈ l.toSet
     simp only [List.mem_toSet]
     exact ⟨fun h' => subset_l h', contra a⟩
-
-  theorem mem_iff_toSet_mem (l : List α) (e : α) : e ∈ l ↔ e ∈ l.toSet := by
-    induction l with
-      | nil =>
-        simp only [List.not_mem_nil, false_iff]
-        exact id
-      | cons hd tl ih =>
-        unfold List.toSet
-        simp only [List.mem_cons]
-        constructor
-        intro e_in_l
-        refine (Set.union_iff (fun e => e = hd) tl.toSet e).mpr ?_
-        rcases e_in_l with e_hd | e_tl
-        left
-        exact e_hd
-        right
-        rw [← ih]
-        exact e_tl
-        intro e_tls
-        exact (or_congr_right (id (Iff.symm ih))).mp e_tls
-
-  theorem toSet_iff_toSet' (l : List α) : l.toSet = l.toSet' := by
-    cases l with
-      | nil =>
-        funext a
-        apply propext
-        rw [List.empty_eq_empty_set', List.empty_eq_empty_set]
-        rfl
-      | cons hd tl =>
-        funext a
-        apply propext
-        constructor
-        intro h
-        change a ∈ (hd :: tl)
-        simp only [List.mem_cons]
-        cases h with
-          | inl h =>
-            left
-            apply h
-          | inr h =>
-            right
-            exact (mem_iff_toSet_mem tl a).mpr h
-        intro h
-        unfold List.toSet
-        change a ∈ (hd :: tl).toSet
-        exact (mem_iff_toSet_mem (hd :: tl) a).mp h
 
   theorem subset_mono [DecidableEq α] (l tl : List α) (hd : α) (subset : (hd :: tl) ⊆ l) : tl ⊆ l := by
     induction (hd :: tl) with
@@ -181,14 +89,8 @@ namespace List
         exact List.length_lt_of_drop_ne_nil fun a => neq (congrArg List.toSet (id (Eq.symm a)))
       | cons hd tl ih =>
         have hd_in_l : hd ∈ l := by
-          rw [mem_iff_toSet_mem]
-          have subset' : (hd::tl).toSet ⊆ l.toSet := by
-            exact subset_if_sublist l (hd :: tl) subset
-          specialize subset' hd
-          apply subset'
-          unfold List.toSet
+          apply subset
           left
-          rfl
         have subset' : (hd :: tl).toSet ⊆ l.toSet := by
           exact subset_if_sublist l (hd :: tl) subset
         have hd_nin_tl : ¬ hd ∈ tl := by
@@ -206,9 +108,8 @@ namespace List
           exact ne_of_mem_of_not_mem e_in_tl hd_nin_tl
           exact c
           have : e ∈ (hd :: tl) := by exact List.mem_cons_of_mem hd e_in_tl
-          rw [mem_iff_toSet_mem] at this
-          specialize subset' e this
-          exact (mem_iff_toSet_mem l e).mpr subset'
+          apply subset
+          exact this
 
         have lerase_len_lt : (l.erase hd).length = l.length - 1 := by
           exact List.length_erase_of_mem hd_in_l
@@ -250,36 +151,14 @@ namespace List
         rw [lerase_len_lt, tl_len_eq_hdtl_len_lt] at ih
         exact Nat.succ_lt_of_lt_pred ih
 
-  theorem ex_elem_to_set_neq_empty (l : List α) (e : α) (e_in_l : e ∈ l) : l.toSet ≠ ∅ := by
-    apply Classical.byContradiction
-    intro contra
-    simp only [ne_eq, Classical.not_not] at contra
-    rw [List.mem_iff_toSet_mem] at e_in_l
-    rw [contra] at e_in_l
-    contradiction
-
-  theorem eq_mem_iff_eq_to_set (l1 l2 : List α) : (∀ e, e ∈ l1 ↔ e ∈ l2) ↔ l1.toSet = l2.toSet := by
-    constructor
-    intro e
-    funext e'
-    apply propext
-    specialize e e'
-    repeat rw [List.mem_iff_toSet_mem] at e
-    exact e
-    intro h e
-    repeat rw [List.mem_iff_toSet_mem]
-    rw [h]
-
   theorem mem_map_iff_mem_map_eraseDupsKeepRight (l : List α) (h : α → β) (e : β) [DecidableEq α] : e ∈ List.map h l ↔ e ∈ List.map h l.eraseDupsKeepRight := by
     repeat rw [List.mem_map]
     apply exists_congr
     intro f
     rw [List.mem_eraseDupsKeepRight]
 
-
 end List
 
-public section
 
 namespace Function
 
@@ -1284,9 +1163,7 @@ theorem strong_core_of_universal_model_is_universal_model
     specialize h1 h2 h3
     exact ⟨h1.1, h1.2.1⟩
 
-  theorem empty_set_is_weak_core (wc : FactSet sig) : wc = ∅ → wc.isWeakCore := by
-    intro wc_empty
-    rw [wc_empty]
+  theorem empty_set_is_weak_core : (∅ : FactSet sig).isWeakCore := by
     intro gtm ghom
     constructor
     intro _ _ contra _
@@ -1305,52 +1182,20 @@ theorem strong_core_of_universal_model_is_universal_model
     specialize c fu
     contradiction
 
-  theorem hom_subset_of_empty (fs : FactSet sig) : fs = ∅ → homSubset fs fs := by
-    unfold homSubset
-    intro fs_empty
-    rw [fs_empty]
+  theorem id_is_hom {fs : FactSet sig} : GroundTermMapping.isHomomorphism id fs fs := by
     constructor
-    exact fun e a => a
-    exists (fun x => x)
-    constructor
-    unfold GroundTermMapping.isIdOnConstants
-    intro gt
-    cases eq : gt with
-      | func f ts ar =>
-        simp [GroundTerm.func]
-      | const c =>
-        simp [GroundTerm.const]
-    · apply apply_fact_set_to_empty_is_empty
-      rfl
+    . unfold GroundTermMapping.isIdOnConstants; intro t; split <;> simp
+    . rintro _ ⟨e, mem, eq⟩
+      rw [eq]
+      rw [TermMapping.apply_generalized_atom_eq_self_of_id_on_terms]
+      . exact mem
+      . simp
 
-  theorem id_is_hom (fs : FactSet sig) : GroundTermMapping.isHomomorphism id fs fs := by
-    unfold GroundTermMapping.isHomomorphism
+  theorem homSubset_refl (fs : FactSet sig) : fs.homSubset fs := by
     constructor
-    unfold GroundTermMapping.isIdOnConstants
-    intro gt
-    cases eq : gt with
-      | func f ts ar =>
-        simp [GroundTerm.func]
-      | const c =>
-        simp [GroundTerm.const]
-    · unfold GroundTermMapping.applyFactSet
-      intro f1 ⟨f2, f2_in_fs, af⟩
-      rw [GroundTermMapping.applyFact] at af
-      rw [Fact.mk.injEq] at af
-      simp only [List.map_id_fun, id_eq] at af
-      rcases af with ⟨lrs, rhs⟩
-      have f1_eq_f2 : f1 = f2 := by rw [Fact.mk.injEq, lrs, rhs]; constructor <;> rfl
-      rw [f1_eq_f2]
-      exact f2_in_fs
-
-  theorem Set.subset_mono' [DecidableEq α] (l tl : List α) (hd : α) (subset : (hd :: tl).toSet ⊆ l.toSet) : tl.toSet ⊆ l.toSet := by
-    intro  e
-    specialize subset e
-    intro h
-    apply subset
-    change e = hd ∨ e ∈ tl.toSet
-    right
-    exact h
+    . apply Set.subset_refl
+    . exists id
+      exact id_is_hom
 
   theorem every_set_has_subset_weakcore : ∀ (fs : FactSet sig), fs ≠ ∅ → ∃ (wc : FactSet sig), wc ⊆ fs ∧ wc.isWeakCore := by
     intro fs fs_nempty
@@ -1358,7 +1203,7 @@ theorem strong_core_of_universal_model_is_universal_model
     constructor
     intro f f_in_empty
     contradiction
-    apply empty_set_is_weak_core; rfl
+    apply empty_set_is_weak_core
 
   theorem apply_fact_set_monotone (f : GroundTermMapping sig) (A B : FactSet sig) (subset : A ⊆ B):
     f.applyFactSet B ⊆ A → f.applyFactSet B ⊆ B := by
@@ -1387,14 +1232,14 @@ theorem strong_core_of_universal_model_is_universal_model
         rcases gtm_hom with ⟨gtm_c, gtm_af⟩
 
         specialize gtm_af f
-        rw [List.mem_iff_toSet_mem]
+        rw [← List.mem_toSet]
         apply gtm_af
         unfold GroundTermMapping.applyFactSet
         exists f'
         constructor
-        rw [List.mem_toSet]
-        exact f'_in_l
-        exact f'_eq
+        . rw [List.mem_toSet]
+          exact f'_in_l
+        . rw [← f'_eq]
 
       specialize h af_sub_l
 
@@ -1404,25 +1249,31 @@ theorem strong_core_of_universal_model_is_universal_model
         have : gtm.applyFactSet l.toSet = (List.map gtm.applyFact l).toSet := by
           apply Set.ext
           intro e
-          rw [← List.mem_iff_toSet_mem, List.mem_map]
+          rw [List.mem_toSet, List.mem_map]
           unfold GroundTermMapping.applyFactSet
           constructor
-          intro h2
-          rcases h2 with ⟨f, f_in, f_eq⟩
-          exists f
-          rw [List.mem_iff_toSet_mem]
-          exact ⟨f_in, f_eq⟩
-          intro h2
-          rcases h2 with ⟨f, f_in, f_eq⟩
-          exists f
-          rw [← List.mem_iff_toSet_mem]
-          exact ⟨f_in, f_eq⟩
+          . intro h2
+            rcases h2 with ⟨f, f_in, f_eq⟩
+            exists f
+            constructor
+            . rw [← List.mem_toSet]
+              exact f_in
+            . rw [f_eq]
+          . intro h2
+            rcases h2 with ⟨f, f_in, f_eq⟩
+            exists f
+            constructor
+            . rw [List.mem_toSet]
+              exact f_in
+            . rw [← f_eq]
 
         constructor
         rw [← this]
         exact gtm_af
         exists gtm
-        exact ⟨gtm_c, Set.eq_subset this⟩
+        constructor
+        . exact gtm_c
+        . rw [this]; apply Set.subset_refl
 
       cases Decidable.em (l ⊆ l.map gtm.applyFact) with
       | inl l_sub_mapped =>
@@ -1430,7 +1281,7 @@ theorem strong_core_of_universal_model_is_universal_model
           simp_all only [not_true_eq_false, imp_false, Classical.not_not]
 
         rw [propext (and_iff_right_of_imp inj_str)]
-        let terms_list := (l.flatMap Fact.terms).eraseDupsKeepRight
+        let terms_list := (l.flatMap GeneralizedAtom.terms).eraseDupsKeepRight
         have nodup_terms_list : terms_list.Nodup := by
           apply List.nodup_eraseDupsKeepRight
         have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ (terms l.toSet) := by
@@ -1440,16 +1291,12 @@ theorem strong_core_of_universal_model_is_universal_model
           unfold FactSet.terms
           simp only [List.mem_flatMap]
           constructor
-          intro h
-          rcases h with ⟨f, f_in_l, e_in_ft⟩
-          exists f
-          rw [← List.mem_iff_toSet_mem]
-          exact ⟨f_in_l, e_in_ft⟩
-          intro h
-          rcases h with ⟨f, f_in_l, e_in_ft⟩
-          exists f
-          rw [List.mem_iff_toSet_mem]
-          exact ⟨f_in_l, e_in_ft⟩
+          . intro h
+            rcases h with ⟨f, f_in_l, e_in_ft⟩
+            exists f
+          . intro h
+            rcases h with ⟨f, f_in_l, e_in_ft⟩
+            exists f
 
 
         rw [Function.injective_set_list_equiv gtm (terms l.toSet) terms_list mem_terms_list]
@@ -1463,18 +1310,18 @@ theorem strong_core_of_universal_model_is_universal_model
         rw [List.mem_eraseDupsKeepRight] at mem_terms_list
         rw [mem_terms_list, ← eq]
 
-        have eq2 : gt ∈ List.flatMap Fact.terms (List.map gtm.applyFact l) ↔ gt ∈ terms (List.map gtm.applyFact l).toSet := by
+        have eq2 : gt ∈ List.flatMap GeneralizedAtom.terms (List.map gtm.applyFact l) ↔ gt ∈ terms (List.map gtm.applyFact l).toSet := by
           simp only [List.mem_flatMap, List.mem_map]
           constructor
           intro ⟨f, ⟨f', f'_in_l, f'_eq_f⟩, gt_in_f_t⟩
           unfold terms
           exists f
           constructor
-          rw [← List.mem_iff_toSet_mem, List.mem_map]
+          rw [List.mem_toSet, List.mem_map]
           exists f'
           exact gt_in_f_t
           intro ⟨f, f_in_l, gt_in⟩
-          rw [← List.mem_iff_toSet_mem, List.mem_map] at f_in_l
+          rw [List.mem_toSet, List.mem_map] at f_in_l
           rcases f_in_l with ⟨f', f'_in_l, f'_eq⟩
           exists f
           constructor
@@ -1507,72 +1354,13 @@ theorem strong_core_of_universal_model_is_universal_model
           intro f f_in_l
           rw [← Set.ext_iff] at contra
           specialize contra f
-          rw [List.mem_iff_toSet_mem]
+          rw [← List.mem_toSet]
           rw [contra]
-          rw [← List.mem_iff_toSet_mem]
+          rw [List.mem_toSet]
           exact f_in_l
 
         specialize h neq
         contradiction
-
-
-  theorem t1 (gtm : GroundTermMapping sig) (fs sub : FactSet sig) (fs_nempty : fs ≠ ∅) : gtm.applyFactSet fs ⊆ sub ∧ sub ⊆ fs ∧ sub ≠ fs → gtm.applyFactSet fs ≠ fs := by
-    intro ⟨gtm_af_sub, subset, neq⟩
-    sorry
-
-  theorem ex_subset_iff_not_weak_core (l : List (Fact sig)):
-    (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) ↔ ¬ isWeakCore l.toSet := by
-      constructor
-      intro h
-      rcases h with ⟨sub, subset, neq, subset', gtm_ls, gtm_ls_c, gtm_ls_af⟩
-      unfold isWeakCore
-      simp only [Classical.not_forall, not_and]
-      exists gtm_ls
-      have gtm_ls_ll_hom : gtm_ls.isHomomorphism l.toSet l.toSet := by
-        constructor
-        exact gtm_ls_c
-        apply apply_fact_set_monotone
-        apply subset'
-        exact gtm_ls_af
-      exists gtm_ls_ll_hom
-      intro gtm_ll
-      rcases gtm_ls_ll_hom with ⟨gtm_ls_ll_c, gtm_ls_ll_af⟩
-      have gtm_ll_ls_af_neq : gtm_ls.applyFactSet l.toSet ≠ l.toSet := by
-        have ex_out : ∃ e, e ∈ l ∧ ¬ e ∈ sub := by
-          apply List.ex_elem_outside_prop_subset
-          exact subset
-          exact neq
-        rcases ex_out with ⟨e, e_in_l, e_nin_sub⟩
-        apply t1 gtm_ls l.toSet sub.toSet
-        exact List.ex_elem_to_set_neq_empty l e e_in_l
-        constructor
-        exact gtm_ls_af
-        constructor
-        exact subset'
-        exact neq
-      unfold Function.injective_for_domain_set
-      simp only [Classical.not_forall]
-      -- f(B) ⊆ A ⊂ B
-      sorry
-      intro n_wc
-      have l_nempty : l.toSet ≠ ∅ := by
-        apply Classical.byContradiction
-        intro contra
-        simp only [ne_eq, Classical.not_not] at contra
-        have : isWeakCore l.toSet := by exact empty_set_is_weak_core l.toSet contra
-        contradiction
-      unfold isWeakCore at n_wc
-      simp only [Classical.not_forall, not_and] at n_wc
-      have : ∃ e, e ∈ l.toSet := by exact Set.not_empty_contains_element l.toSet l_nempty
-      rcases this with ⟨e, e_in_l⟩
-      sorry
-
-
-  theorem nex_subset_iff_weak_core (l : List (Fact sig)):
-    ¬ (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) ↔ (isWeakCore l.toSet) := by
-      rw [← Classical.not_iff]
-      rw [ex_subset_iff_not_weak_core]
-      simp
 
   theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
     ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
@@ -1595,10 +1383,13 @@ theorem strong_core_of_universal_model_is_universal_model
             by_cases n_zero : (n = 0)
             . exists ∅
               constructor
-              apply empty_set_is_weak_core; rfl
-              rw [n_zero] at length_l
-              rw [List.eq_empty_if_len_zero l length_l]
-              apply hom_subset_of_empty; rfl
+              . apply empty_set_is_weak_core
+              . rw [n_zero] at length_l
+                have : l.toSet = ∅ := by
+                  rw [List.length_eq_zero_iff.mp length_l]
+                  apply Set.ext; intro e; rw [List.mem_toSet, List.mem_nil_iff]; simp [Membership.mem, EmptyCollection.emptyCollection]
+                rw [this]
+                apply homSubset_refl
             . have x : _ := ih (by
                 rw [← length_l]
                 apply List.length_lt_of_proper_subset

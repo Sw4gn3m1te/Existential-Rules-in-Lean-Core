@@ -8,12 +8,12 @@ name = "ExistentialRules"
 [[require]]
 name = "BasicLeanDatastructures"
 git = "https://github.com/monsterkrampe/Basic-Lean-Datastructures.git"
-rev = "f7628a8f7d5498d93c10a2f3b15ec25870ef490f"
+rev = "main"
 
 [[require]]
 name = "PossiblyInfiniteTrees"
 git = "https://github.com/monsterkrampe/Possibly-Infinite-Trees.git"
-rev = "e9ebb3fc16759dff45d93fad87b0b611b357a916"
+rev = "main"
 
 [[require]]
 name = "aesop"
