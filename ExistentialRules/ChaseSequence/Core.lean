@@ -1277,8 +1277,8 @@ namespace CoreChaseBranch
             let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
             let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
-            -- let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
-            let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨0, by unfold PreTrigger.mapped_head; simp; exact Fin.pos head_index_for_m_subs⟩
+            let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
+            /- let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨0, by unfold PreTrigger.mapped_head; simp; exact Fin.pos head_index_for_m_subs⟩ -/
 
 
             let next_hom : GroundTermMapping sig := fun t =>
@@ -1387,10 +1387,10 @@ namespace CoreChaseBranch
                             apply List.getElem_mem
                           . conv => right; rw [← trg.val.apply_on_atom_for_result_fact_is_fact result_index_for_trg fact_in_trg_result]
                             rw [← PreTrigger.apply_subs_for_atom_eq]
-                            rw [← GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ next_hom_id_const]
+                            rw [← GroundTermMapping.applyFact.eq_def]
+                            rw [← GroundSubstitution.apply_function_free_atom_compose _ _ _ (by intro c _; exact next_hom_id_const (.const c))]
                             unfold GroundSubstitution.apply_function_free_atom
-                            simp only [Fact.mk.injEq, true_and]
-                            rw [List.map_inj_left]
+                            apply TermMapping.apply_generalized_atom_congr_left
                             intro voc voc_mem
                             cases voc with
                             | const c => simp [GroundSubstitution.apply_var_or_const]
