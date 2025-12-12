@@ -1278,8 +1278,6 @@ namespace CoreChaseBranch
             let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
             let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
-            /- let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨0, by unfold PreTrigger.mapped_head; simp; exact Fin.pos head_index_for_m_subs⟩ -/
-
 
             let next_hom : GroundTermMapping sig := fun t =>
               match t.val with
@@ -1331,18 +1329,24 @@ namespace CoreChaseBranch
                     rw [← len_eq]
                     have := i.isLt
                     exact Nat.lt_of_lt_of_eq this trg_len_eq
+
+                  have head_i_eq : head_index_for_m_subs.val = 0 := by
+                    rw [← Nat.lt_one_iff]
+                    have len_eq := kb_det_head_len_eq kb_det trg_variant_for_m.val.rule trg.property
+                    have trg_len_eq : trg_variant_for_m.val.mapped_head.length = trg_variant_for_m.val.rule.head.length := PreTrigger.length_mapped_head trg_variant_for_m.val.toPreTrigger
+                    subst trg_variant_for_m
+                    rw [← len_eq]
+                    have := i.isLt
+                    exact head_index_for_m_subs.isLt
+
                   subst trg
                   have next_node_fs_eq' := next_node_fs_eq
 
                   subst result_index_for_trg
                   simp only [Nat.succ_eq_add_one]
 
-                  simp only [i_eq] at next_node_fs_eq
+                  simp only [i_eq, ← head_i_eq] at next_node_fs_eq
                   exact next_node_fs_eq
-
-                  --next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose trg_ex).val.mapped_head[0].toSet
-                  --next_node.fs = (prev_node.get ⋯).core ∪ (Classical.choose ⋯).val.mapped_head[0].toSet
-
 
                 rw [next_node_results_from_trg]
                 intro mapped_fact fact_in_chase
@@ -1396,7 +1400,7 @@ namespace CoreChaseBranch
                             | const c => simp [GroundSubstitution.apply_var_or_const]
                             | var v =>
                               rw [GroundSubstitution.apply_var_or_const_compose_of_isIdOnConstants _ _ next_hom_id_const]
-                              simp only [GroundSubstitution.apply_var_or_const]
+                              simp only [Function.comp_apply, GroundSubstitution.apply_var_or_const]
                               cases Decidable.em (v ∈ trg.val.rule.frontier) with
                               | inl v_front =>
                                 rw [h_obs_at_head_index_for_m_subs.left v v_front]
@@ -1416,7 +1420,25 @@ namespace CoreChaseBranch
                                   unfold next_hom
                                   simp only
                                   have h : ∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms := by
-                                    rcases trg.val.rule.frontier_occurs_in_body v v_front with ⟨body_atom, v_front'⟩
+                                    have frontier_occurs_in_body : ∀ (r : Rule sig) v, v ∈ r.frontier -> ∃ f, f ∈ r.body ∧ (VarOrConst.var v) ∈ f.terms := by
+                                      intro r
+                                      unfold Rule.frontier
+                                      cases r.body with
+                                      | nil => intros; contradiction
+                                      | cons head tail =>
+                                        intro v vInFrontier
+                                        rw [List.mem_filter] at vInFrontier
+                                        have mem_body := vInFrontier.left
+                                        unfold FunctionFreeConjunction.vars at mem_body
+                                        rw [List.mem_flatMap] at mem_body
+                                        rcases mem_body with ⟨a, a_mem, v_mem⟩
+                                        exists a
+                                        constructor
+                                        . exact a_mem
+                                        . unfold FunctionFreeAtom.variables at v_mem
+                                          apply VarOrConst.filterVars_occur_in_original_list
+                                          exact v_mem
+                                    rcases frontier_occurs_in_body trg.val.rule v v_front with ⟨body_atom, v_front'⟩
                                     exists trg.val.subs.apply_function_free_atom body_atom
                                     constructor
                                     . apply trg_active_for_current_step.left
@@ -1424,7 +1446,7 @@ namespace CoreChaseBranch
                                       apply List.mem_map_of_mem
                                       exact v_front'.left
                                     . rw [← eq_v]
-                                      unfold GroundSubstitution.apply_function_free_atom
+                                      unfold GroundSubstitution.apply_function_free_atom TermMapping.apply_generalized_atom
                                       rw [List.mem_map]
                                       exists VarOrConst.var v
                                       simp [GroundSubstitution.apply_var_or_const, v_front'.right]
