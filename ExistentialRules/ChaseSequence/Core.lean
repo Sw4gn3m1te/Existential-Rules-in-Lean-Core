@@ -1184,11 +1184,47 @@ namespace CoreChaseBranch
     apply h_af
     exact memApplyFactSetIfMemApplyFactSetSubSet h cn.core cn.fs f f_in (cn.core_sse.left)
 
+  @[grind]
   theorem kb_det_head_len_eq (kb_det : kb.isDeterministic): ∀ (r : Rule sig), r ∈ kb.rules.rules → r.head.length = 1 := by
     unfold KnowledgeBase.isDeterministic RuleSet.isDeterministic Rule.isDeterministic at kb_det
     intro r r_in
     specialize kb_det r r_in
     grind
+
+  theorem res_trg (cb : CoreChaseBranch obs kb) (node : CoreChaseNode obs kb.rules) (n disj_idx : Nat) (node_eq : cb.branch.infinite_list n = some node) (t : GroundTerm sig) (t_mem : t ∈ node.core.terms)
+    (trg : RTrigger obs kb.rules) (lt : disj_idx < trg.val.rule.head.length) (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
+      have x := (cb.triggers_exist n)
+
+
+      (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet ⊆ node.core := by sorry
+
+  theorem notExActTrigInMod (cb : CoreChaseBranch obs kb) (m : CoreChaseNode obs kb.rules) (m_mod : m.core.modelsKb kb) : ¬ ∃ (trg : RTrigger obs kb.rules), trg.val.active m.core := by
+    simp only [not_exists]
+    intro trg
+    unfold Trigger.active
+    apply Classical.byContradiction
+    simp only [Classical.not_not]
+    intro ⟨trg_loaded, trg_not_obs⟩
+    apply trg_not_obs
+    sorry
+
+  @[grind]
+  theorem act_trg_yields_some_node (trg : RTrigger (obs : LaxObsoletenessCondition sig) kb.rules) (disj_idx : Nat) (fs : FactSet sig) (lt : disj_idx < trg.val.rule.head.length) (trg_act : trg.val.active fs) :
+    ∃ (cn : CoreChaseNode obs kb.rules), (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet ⊆ cn.fs := by
+      apply Classical.byContradiction
+      intro h
+      simp at h
+      have ter' : cb
+      -- sonnst haben wir chase term aber noch active trig d.h. kein mod
+      intro contra
+      simp at contra
+
+      sorry
+
+
+
+
+
 
   noncomputable def induction_homomorphism_core (cb : CoreChaseBranch obs kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
     | .zero => ⟨id, by
@@ -1451,7 +1487,8 @@ namespace CoreChaseBranch
                                       exists VarOrConst.var v
                                       simp [GroundSubstitution.apply_var_or_const, v_front'.right]
 
-                                  have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) = isTrue h := by cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) <;> trivial
+                                  have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) = isTrue h := by
+                                   cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) <;> trivial
                                   unfold GroundTerm.func at this
                                   rw [this]
                               | inr v_front =>
@@ -1460,20 +1497,25 @@ namespace CoreChaseBranch
                                 unfold PreTrigger.functional_term_for_var
                                 unfold next_hom
 
+                                -- have h : ¬ ∃
+                                -- trg vom prev node to next
+                                -- was im core ist ist dann auch in irgendeiner form in core, muss aber nicht das gleiche sein
                                 have h : ¬ ∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms := by
                                   intro contra
                                   apply trg_active_for_current_step.right
                                   apply obs.contains_trg_result_implies_cond result_index_for_trg
+                                  intro e e_in
+
                                   have := (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs_contains_origin_result
                                   have prev_node_origin_some : (prev_node.get (Option.isSome_of_mem prev_node_eq)).origin.isSome := by sorry
                                   simp only [Option.is_none_or_iff] at this
                                   specialize this ⟨trg, result_index_for_trg⟩ sorry
                                   apply Set.subset_trans this
-
                                   sorry
 
 
-                                have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
+                                have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by
+                                 cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
                                 unfold PreTrigger.functional_term_for_var at this
                                 rw [this]
 
@@ -1487,7 +1529,8 @@ namespace CoreChaseBranch
                                     apply List.mem_map_of_mem
                                     exact voc_mem
 
-                                have : Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isTrue h := by cases Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
+                                have : Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isTrue h := by
+                                 cases Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
                                 unfold PreTrigger.functional_term_for_var at this
                                 rw [this]
                                 simp only [GroundTerm.func]
