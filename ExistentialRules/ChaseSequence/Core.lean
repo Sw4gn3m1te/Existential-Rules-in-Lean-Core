@@ -1220,6 +1220,16 @@ namespace CoreChaseBranch
     specialize kb_det r r_in
     grind
 
+  @[grind]
+  theorem subPreservesHom (A B C : FactSet sig) (sub : C ⊆ A) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism  A B) : h.isHomomorphism C B := by
+    rcases h_hom with ⟨idc, af⟩
+    constructor
+    exact idc
+    intro f f_in_afc
+    have f_in_afb := memApplyFactSetIfMemApplyFactSetSubSet h C A
+    specialize f_in_afb f f_in_afc sub
+    exact af f f_in_afb
+
   theorem res_trg (cb : CoreChaseBranch obs kb) (node : CoreChaseNode obs kb.rules) (n disj_idx : Nat) (node_eq : cb.branch.infinite_list n = some node) (t : GroundTerm sig) (t_mem : t ∈ node.core.terms)
     (trg : RTrigger obs kb.rules) (lt : disj_idx < trg.val.rule.head.length) (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
       have x := (cb.triggers_exist n)
@@ -1242,8 +1252,17 @@ namespace CoreChaseBranch
 
   --@[grind]
   -- fs muss in cb vorkommen, fairness nutzen
-  theorem act_trg_yields_some_node (trg : RTrigger (obs : LaxObsoletenessCondition sig) kb.rules) (disj_idx : Nat) (fs : FactSet sig) (lt : disj_idx < trg.val.rule.head.length) (trg_act : trg.val.active fs) :
+  theorem act_trg_yields_some_node (trg : RTrigger (obs : LaxObsoletenessCondition sig) kb.rules) (disj_idx : Nat) (fs : FactSet sig) (lt : disj_idx < trg.val.rule.head.length) (trg_act : trg.val.active fs)
+    (cb : CoreChaseBranch obs kb) (fs_in : ∃ n, (cb.branch.infinite_list n).is_some_and (fun cn => fs = cn.fs)) :
     ∃ (cn : CoreChaseNode obs kb.rules), (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet ⊆ cn.fs := by
+      rcases fs_in with ⟨n, fs_in⟩
+      have fair := cb.fairness trg
+      rcases fair with ⟨i, h⟩
+      rw [Option.is_some_and_iff] at h
+      rcases h with ⟨h1, h2⟩
+      rcases h1 with ⟨cn2, cn2eq⟩
+      exists cn2
+      intro f f_in
       apply Classical.byContradiction
       intro h
       simp at h
@@ -1328,19 +1347,75 @@ namespace CoreChaseBranch
                       . exact t_mem
                       | inr t_mem => exact t_mem
 
+  @[grind]
+  theorem trigger_introducing_functional_term_occurs_in_chase_core
+    {cb : CoreChaseBranch obs kb} {cn : CoreChaseNode obs kb.rules}
+    {disj_idx n : Nat}
+    (cn_eq : cb.branch.infinite_list n = some cn)
+    {t : GroundTerm sig}
+    (t_mem_node : t ∈ cn.fs.terms)
+    {trg : RTrigger obs kb.rules}
+    {lt : disj_idx < trg.val.rule.head.length}
+    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
+    -- war das ∃ (m : Nat), m < n, ... hier wichtig ?
+    ∃ (m : Nat), m < n ∧ (cb.branch.infinite_list m).is_some_and (fun node2 => node2.origin.is_some_and (fun origin => origin.fst.equiv trg ∧ origin.snd.val = disj_idx)) := by
+      rcases functional_term_originates_from_some_trigger_core cb n cn cn_eq t (by
+        cases cn_eq : t with
+          | const _ =>
+            rw [cn_eq] at t_mem_trg
+            simp [PreTrigger.fresh_terms_for_head_disjunct, PreTrigger.functional_term_for_var, GroundTerm.func, GroundTerm.const] at t_mem_trg
+          | func func ts arity_ok => exists func, ts, arity_ok
+          ) t_mem_node with ⟨n2, h⟩
+      simp only [Option.is_some_and_iff] at h
+      rcases h with ⟨cn2, cn2_eq, origin, origin_eq, t_mem_origin⟩
+      simp only [Option.is_some_and_iff]
+      exists n2
+      constructor
+      sorry
+      exists cn2
+      constructor
+      exact cn2_eq
+      exists origin
+      constructor
+      exact origin_eq
+      exact RTrigger.equiv_of_term_mem_fresh_terms_for_head_disjunct t_mem_origin t_mem_trg
 
-  theorem thm1(cb : CoreChaseBranch obs kb) (cn : CoreChaseNode obs kb.rules)
+  @[grind]
+  theorem exNatEqDiff (a b : Nat) (lt : a < b) : ∃ (c : Nat), a + c = b := by
+    have leq : a ≤ b := Nat.le_of_lt lt
+    exact Nat.le.dest leq
+
+  @[grind]
+  theorem exHomStepToAllFollowing (cb : CoreChaseBranch obs kb) (n : Nat) (cn : CoreChaseNode obs kb.rules) (cn_eq : cb.branch.infinite_list n = some cn) :
+    ∀ m, n < m → (cb.branch.infinite_list m).is_none_or (fun cn2 => ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism cn.fs cn2.fs) := by
+      intro m lt
+      simp only [Option.is_none_or_iff]
+      intro cn2 cn2_eq
+      have diff : ∃ x, n + x = m := exNatEqDiff n m lt
+      rcases diff with ⟨x, hx⟩
+      have ex_hom := exHomFsAllFollowingFs cb n cn cn_eq x
+      rw [Option.is_none_or_iff] at ex_hom
+      specialize ex_hom cn2 (by grind)
+      exact ex_hom
+
+  @[grind]
+  theorem result_of_trigger_introducing_functional_term_occurs_in_chase_core (cb : CoreChaseBranch obs kb) (cn : CoreChaseNode obs kb.rules)
     (disj_idx n : Nat) (trg: RTrigger obs kb.rules) (cn_eq : cb.branch.infinite_list n = some cn)
     (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
       ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.fs := by
-        induction n generalizing cn with
-          | zero =>
-            sorry
-          | succ n ih =>
-            sorry
 
-
+        rcases trigger_introducing_functional_term_occurs_in_chase_core cn_eq t_mem_node t_mem_trg with ⟨n2, lt, h⟩
+        simp only [Option.is_some_and_iff] at h
+        rcases h with ⟨cn2, cn2_eq, origin, origin_eq, equiv, index_eq⟩
+        have ex_hom_following := exHomStepToAllFollowing cb n2 cn2 cn2_eq n lt
+        simp only [cn_eq, Option.is_none_or] at ex_hom_following
+        have := cn2.fs_contains_origin_result
+        simp only [origin_eq, Option.is_none_or] at this
+        simp only [← PreTrigger.result_eq_of_equiv equiv, ← index_eq]
+        rcases ex_hom_following with ⟨gtm, h2⟩
+        have := subPreservesHom cn2.fs cn.fs origin.fst.val.mapped_head[↑origin.snd].toSet this gtm h2
+        exact Exists.intro gtm this
 
 
   noncomputable def induction_homomorphism_core (cb : CoreChaseBranch obs kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
@@ -1622,6 +1697,7 @@ namespace CoreChaseBranch
                                   apply trg_active_for_current_step.right
                                   apply obs.contains_trg_result_implies_cond result_index_for_trg
                                   intro e e_in
+                                  
 
                                   have := (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs_contains_origin_result
                                   have prev_node_origin_some : (prev_node.get (Option.isSome_of_mem prev_node_eq)).origin.isSome := by sorry
