@@ -1230,13 +1230,6 @@ namespace CoreChaseBranch
     specialize f_in_afb f f_in_afc sub
     exact af f f_in_afb
 
-  theorem res_trg (cb : CoreChaseBranch obs kb) (node : CoreChaseNode obs kb.rules) (n disj_idx : Nat) (node_eq : cb.branch.infinite_list n = some node) (t : GroundTerm sig) (t_mem : t ∈ node.core.terms)
-    (trg : RTrigger obs kb.rules) (lt : disj_idx < trg.val.rule.head.length) (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
-      have x := (cb.triggers_exist n)
-
-
-      (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet ⊆ node.core := by sorry
-
   -- aus models rule
   --restrcited obs
   --ggf. kann es mod gebene was nicht im kontext der CC ist dann gilt das nicht
@@ -1381,17 +1374,12 @@ namespace CoreChaseBranch
       exact RTrigger.equiv_of_term_mem_fresh_terms_for_head_disjunct t_mem_origin t_mem_trg
 
   @[grind]
-  theorem exNatEqDiff (a b : Nat) (lt : a < b) : ∃ (c : Nat), a + c = b := by
-    have leq : a ≤ b := Nat.le_of_lt lt
-    exact Nat.le.dest leq
-
-  @[grind]
   theorem exHomStepToAllFollowing (cb : CoreChaseBranch obs kb) (n : Nat) (cn : CoreChaseNode obs kb.rules) (cn_eq : cb.branch.infinite_list n = some cn) :
     ∀ m, n < m → (cb.branch.infinite_list m).is_none_or (fun cn2 => ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism cn.fs cn2.fs) := by
       intro m lt
       simp only [Option.is_none_or_iff]
       intro cn2 cn2_eq
-      have diff : ∃ x, n + x = m := exNatEqDiff n m lt
+      have diff : ∃ x, n + x = m := Nat.le.dest (Nat.le_of_lt lt)
       rcases diff with ⟨x, hx⟩
       have ex_hom := exHomFsAllFollowingFs cb n cn cn_eq x
       rw [Option.is_none_or_iff] at ex_hom
@@ -1696,16 +1684,8 @@ namespace CoreChaseBranch
                                   intro contra
                                   apply trg_active_for_current_step.right
                                   apply obs.contains_trg_result_implies_cond result_index_for_trg
-                                  intro e e_in
-                                  
-
-                                  have := (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs_contains_origin_result
-                                  have prev_node_origin_some : (prev_node.get (Option.isSome_of_mem prev_node_eq)).origin.isSome := by sorry
-                                  simp only [Option.is_none_or_iff] at this
-                                  specialize this ⟨trg, result_index_for_trg⟩ sorry
-                                  apply Set.subset_trans this
+                                  have := result_of_trigger_introducing_functional_term_occurs_in_chase_core cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) (prev_hom (prev_hom (prev_hom (obs_for_m_subs v)))) sorry sorry sorry
                                   sorry
-
 
                                 have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by
                                  cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
@@ -1742,15 +1722,35 @@ namespace CoreChaseBranch
                 ⟩
 
 
-  theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
+  theorem coreChaseResultIsUniversal (cb : CoreChaseBranch obs kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
     intro m m_mod
-    let ind_hom := induction_homomorphism_core cb m m_mod 0
-    exists ind_hom
-    unfold InductiveHomomorphismResultCore at ind_hom
-    have := ind_hom.property
-    have db_first := cb.database_first
-    simp only [db_first, Option.is_none_or] at this
+    let ind_hom : GroundTermMapping sig := induction_homomorphism_core cb m m_mod kb_det 0
 
+    let result := cb.result ter'
+
+
+    let global_h : GroundTermMapping sig := fun t =>
+      let dec := Classical.propDecidable (∃ f, f ∈ result ∧ t ∈ f.terms)
+      match dec with
+        | Decidable.isTrue p =>
+          let i := Classical.choose ter'
+          let target_h : GroundTermMapping sig := induction_homomorphism_core cb m m_mod kb_det i
+          (target_h t)
+        | Decidable.isFalse _ => t
+
+    exists global_h
+    constructor
+    intro gt
+    sorry
+    intro f hf
+    unfold CoreChaseBranch.result GroundTermMapping.applyFactSet at hf
+    rcases hf with ⟨e, ⟨hel, her⟩⟩
+    simp at hel
+    split at hel
+    next _ _ _ cn _ heq _ =>
+      · sorry
+    next _ _ _ cn _ heq _ =>
+      . sorry
 
 
 
