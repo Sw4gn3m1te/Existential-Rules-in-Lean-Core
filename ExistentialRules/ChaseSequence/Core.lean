@@ -23,7 +23,7 @@ import ExistentialRules.ChaseSequence.Universality
 -- set_option diagnostics true
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {kb : KnowledgeBase sig}
 
 
 /-------------------------
@@ -112,11 +112,10 @@ structure CoreChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) 
   core : FactSet sig
   is_core : core.isWeakCore
   core_sse : core.homSubset fs
-  origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
+  origin : Option ((trg : RTrigger ((RestrictedObsoleteness sig).toLaxObsoletenessCondition) rules) × Fin trg.val.mapped_head.length)
   fs_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fs)
 
-
-def CoreChaseNode.origin_result {obs : ObsoletenessCondition sig} (node : CoreChaseNode obs rules) (isSome : node.origin.isSome) : List (Fact sig) :=
+def CoreChaseNode.origin_result (node : CoreChaseNode (RestrictedObsoleteness sig) rules) (isSome : node.origin.isSome) : List (Fact sig) :=
   let origin := node.origin.get isSome
   origin.fst.val.mapped_head[origin.snd.val]
 
@@ -126,11 +125,11 @@ def RTrigger.isStep (trg : Trigger (obs : LaxObsoletenessCondition sig)) (before
   ∃ fact, fact ∈ before → after = before ∪ (trg.mapped_head).flatten.toSet
 
 
-def exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
-  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.core ∧ ∃ (c : FactSet sig) (i : _),
+def exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
+  ∃ trg : (RTrigger ((RestrictedObsoleteness sig).toLaxObsoletenessCondition) rules), trg.val.active before.core ∧ ∃ (c : FactSet sig) (i : _),
     after.is_some_and (fun a => a.fs = before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet ∧ a.core = c ∧ a.origin = some ⟨trg, i⟩)
 
-def not_exists_trigger_opt_fs_core (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
+def not_exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode obs rules) (after : Option (CoreChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.core) ∧ after = none
 
 theorem exFactIfExTerm (kb : KnowledgeBase sig) (t : GroundTerm sig) : t ∈ kb.db.toFactSet.val.terms → ∃ f, f ∈ kb.db.toFactSet.val := by
@@ -247,8 +246,8 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
   exact b_in
   exact a_in
 
-structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase sig) where
-  branch : PossiblyInfiniteList (CoreChaseNode obs kb.rules)
+structure CoreChaseBranch (kb: KnowledgeBase sig) where
+  branch : PossiblyInfiniteList (CoreChaseNode (RestrictedObsoleteness sig) kb.rules)
   database_first : branch.infinite_list 0 = some {
     fs := kb.db.toFactSet
     fs_fin := by exact kb.db.toFactSet.property.left
@@ -265,8 +264,8 @@ structure CoreChaseBranch (obs : ObsoletenessCondition sig) (kb: KnowledgeBase s
 
   triggers_exist : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun before =>
   let after := branch.infinite_list (n+1)
-  (exists_trigger_opt_fs_core obs kb.rules before after) ∨
-    (not_exists_trigger_opt_fs_core obs kb.rules before after))
+  (exists_trigger_opt_fs_core kb.rules before after) ∨
+    (not_exists_trigger_opt_fs_core kb.rules before after))
   fairness : ∀ trg : (RTrigger obs kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fs))
     ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fs))
 
@@ -678,7 +677,7 @@ namespace CoreChaseBranch
         simp at cn_eq
 
   @[grind]
-  theorem origin_trg_result_yields_next_node_fs (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
+  theorem origin_trg_result_yields_next_node_fs (cb : CoreChaseBranch obs kb) (i : Nat) (node : CoreChaseNode (RestrictedObsoleteness sig) kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
       node.fs = (cb.prev_node i (by simp [eq])).core ∪ (node.origin_result (cb.origin_isSome i eq)).toSet := by
     have trg_ex := cb.triggers_exist i
     rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
