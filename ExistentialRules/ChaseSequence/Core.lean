@@ -92,6 +92,9 @@ If the Core Chase terminates there is some (n : Nat), s.t. Result = A_n
 
 -------------------------/
 
+def Fact.hom_mem (f : Fact sig) (fs : FactSet sig) :=
+  ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (fun x => x = f) fs ∧ (gtm.applyFact f) ∈ fs
+
 def ChaseNode.isWeakCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
   Prop := FactSet.isWeakCore node.facts.val
 
@@ -1405,6 +1408,24 @@ namespace CoreChaseBranch
         have := subPreservesHom cn2.fs cn.fs origin.fst.val.mapped_head[↑origin.snd].toSet this gtm h2
         exact Exists.intro gtm this
 
+  theorem applyFactSetIdEq (fs : FactSet sig) : fs = GroundTermMapping.applyFactSet id fs := by
+    unfold GroundTermMapping.applyFactSet TermMapping.apply_generalized_atom_set
+    apply Set.ext
+    intro f
+    constructor
+    intro f_in
+    exists f
+    constructor
+    exact f_in
+    exact applyFactIdEq f (TermMapping.apply_generalized_atom id f) rfl
+    intro f_in_map
+    rcases f_in_map with ⟨ga, ga_in, ga_eq⟩
+    unfold TermMapping.apply_generalized_atom at ga_eq
+    rw [GeneralizedAtom.mk.injEq] at ga_eq
+    simp only [List.map_id_fun, id_eq] at ga_eq
+    sorry
+
+
 
   noncomputable def induction_homomorphism_core (cb : CoreChaseBranch obs kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
     | .zero => ⟨id, by
@@ -1500,6 +1521,7 @@ namespace CoreChaseBranch
                 | FiniteTree.leaf _ => t
                 | FiniteTree.inner _ _ =>
                     let t_in_step_j_dec := Classical.propDecidable (t ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms)
+                    --let t_in_step_j_dec := Classical.propDecidable (∃ (gtm : GroundTermMapping sig), t ∈ (gtm.applyFactSet (prev_node.get (Option.isSome_of_mem prev_node_eq)).core).terms)
                     match t_in_step_j_dec with
                     | Decidable.isTrue _ => prev_hom t
                     | Decidable.isFalse _ =>
@@ -1593,6 +1615,7 @@ namespace CoreChaseBranch
                         split
                         . rfl
                         . simp only [eq, GroundTerm.func] at this
+                          --sorry
                           contradiction
                   | inr fact_in_trg_result =>
                           apply h_obs_at_head_index_for_m_subs.right
@@ -1618,6 +1641,7 @@ namespace CoreChaseBranch
                               rw [GroundSubstitution.apply_var_or_const_compose_of_isIdOnConstants _ _ next_hom_id_const]
                               simp only [Function.comp_apply, GroundSubstitution.apply_var_or_const]
                               cases Decidable.em (v ∈ trg.val.rule.frontier) with
+                              -- non existential var
                               | inl v_front =>
                                 rw [h_obs_at_head_index_for_m_subs.left v v_front]
                                 unfold PreTrigger.subs_for_mapped_head
@@ -1668,13 +1692,21 @@ namespace CoreChaseBranch
                                       simp [GroundSubstitution.apply_var_or_const, v_front'.right]
 
                                   have h2 : (GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms := h
+                                  have h3 : ∃ (gtm : GroundTermMapping sig), (GroundTerm.func func ts arity_ok) ∈ (gtm.applyFactSet (prev_node.get (Option.isSome_of_mem prev_node_eq)).core).terms := by
+                                    exists id
+                                    have eq : (prev_node.get (Option.isSome_of_mem prev_node_eq)).core = GroundTermMapping.applyFactSet id (prev_node.get (Option.isSome_of_mem prev_node_eq)).core := applyFactSetIdEq (prev_node.get (Option.isSome_of_mem prev_node_eq)).core
+                                    rw [← eq]
+                                    exact h2
                                     --exact fs_terms_sub_core_terms (prev_node.get (Option.isSome_of_mem prev_node_eq)) (GroundTerm.func func ts arity_ok) h
+                                  --have : Classical.propDecidable (∃ (gtm : GroundTermMapping sig), (GroundTerm.func func ts arity_ok) ∈ (gtm.applyFactSet (prev_node.get (Option.isSome_of_mem prev_node_eq)).core).terms) = isTrue h3 := by
+                                  --  cases Classical.propDecidable (∃ (gtm : GroundTermMapping sig), (GroundTerm.func func ts arity_ok) ∈ (gtm.applyFactSet (prev_node.get (Option.isSome_of_mem prev_node_eq)).core).terms) <;> trivial
 
                                   have : Classical.propDecidable ((GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) = isTrue h2 := by
                                     cases Classical.propDecidable ((GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) <;> trivial
                                   unfold GroundTerm.func at this
 
                                   rw [this]
+                              -- existential var
                               | inr v_front =>
                                 unfold PreTrigger.subs_for_mapped_head
                                 rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_front]
