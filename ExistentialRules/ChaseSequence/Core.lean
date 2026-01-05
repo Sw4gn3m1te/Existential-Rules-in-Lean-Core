@@ -1499,7 +1499,7 @@ namespace CoreChaseBranch
               match t.val with
                 | FiniteTree.leaf _ => t
                 | FiniteTree.inner _ _ =>
-                    let t_in_step_j_dec := Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ t ∈ f.terms)
+                    let t_in_step_j_dec := Classical.propDecidable (t ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms)
                     match t_in_step_j_dec with
                     | Decidable.isTrue _ => prev_hom t
                     | Decidable.isFalse _ =>
@@ -1667,9 +1667,13 @@ namespace CoreChaseBranch
                                       exists VarOrConst.var v
                                       simp [GroundSubstitution.apply_var_or_const, v_front'.right]
 
-                                  have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) = isTrue h := by
-                                   cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) <;> trivial
+                                  have h2 : (GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms := h
+                                    --exact fs_terms_sub_core_terms (prev_node.get (Option.isSome_of_mem prev_node_eq)) (GroundTerm.func func ts arity_ok) h
+
+                                  have : Classical.propDecidable ((GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) = isTrue h2 := by
+                                    cases Classical.propDecidable ((GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) <;> trivial
                                   unfold GroundTerm.func at this
+
                                   rw [this]
                               | inr v_front =>
                                 unfold PreTrigger.subs_for_mapped_head
@@ -1677,18 +1681,15 @@ namespace CoreChaseBranch
                                 unfold PreTrigger.functional_term_for_var
                                 unfold next_hom
 
-                                -- have h : ¬ ∃
-                                -- trg vom prev node to next
-                                -- was im core ist ist dann auch in irgendeiner form in core, muss aber nicht das gleiche sein
-                                have h : ¬ ∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms := by
+                                have h : ¬ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms := by
                                   intro contra
                                   apply trg_active_for_current_step.right
                                   apply obs.contains_trg_result_implies_cond result_index_for_trg
-                                  have := result_of_trigger_introducing_functional_term_occurs_in_chase_core cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) (prev_hom (prev_hom (prev_hom (obs_for_m_subs v)))) sorry sorry sorry
+                                  have := result_of_trigger_introducing_functional_term_occurs_in_chase_core cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq))
                                   sorry
 
-                                have : Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by
-                                 cases Classical.propDecidable (∃ f, f ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
+                                have : Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) = isFalse h := by
+                                  cases Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) <;> trivial
                                 unfold PreTrigger.functional_term_for_var at this
                                 rw [this]
 
