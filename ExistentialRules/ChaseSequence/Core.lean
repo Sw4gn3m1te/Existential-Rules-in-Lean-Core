@@ -24,6 +24,7 @@ import ExistentialRules.ChaseSequence.Universality
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
+abbrev obs := RestrictedObsoleteness sig
 
 
 /-------------------------
@@ -96,8 +97,6 @@ If the Core Chase terminates there is some (n : Nat), s.t. Result = A_n
 
 def Fact.hom_mem (f : Fact sig) (fs : FactSet sig) :=
   ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (fun x => x = f) fs ∧ (gtm.applyFact f) ∈ fs
-
-abbrev obs := RestrictedObsoleteness sig
 
 def ChaseNode.isWeakCore {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) :
   Prop := FactSet.isWeakCore node.facts.val
@@ -301,8 +300,6 @@ def Option.castToMemIfIsSome (o : Option α) (is_some : o.isSome) : α :=
     | none => by contradiction
 
 namespace CoreChaseBranch
-
-  variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
   def terminates (cb : CoreChaseBranch kb) : Prop :=
     ∃ n, (cb.branch.infinite_list n = none)
@@ -789,7 +786,7 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules)
-     (cn_eq : cb.branch.infinite_list n = some cn) (trg : RTrigger (RestrictedObsoleteness sig) kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
+     (cn_eq : cb.branch.infinite_list n = some cn) (trg : RTrigger obs.toLaxObsoletenessCondition kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
       ∃ (cn' : CoreChaseNode kb.rules), cb.branch.infinite_list (n+1) = some cn' := by
       cases h : cb.branch.infinite_list (n+1) with
         | none =>
@@ -806,7 +803,7 @@ namespace CoreChaseBranch
               unfold Trigger.active at nex
               simp only [not_exists, not_and, Classical.not_not, and_true] at nex
               specialize nex trg trg_loaded
-              sorry
+              contradiction
         | some succ_cn =>
           exists succ_cn
 
@@ -1238,7 +1235,7 @@ namespace CoreChaseBranch
   -- aus models rule
   --restrcited obs
   --ggf. kann es mod gebene was nicht im kontext der CC ist dann gilt das nicht
-  theorem notExActTrigInMod (cb : CoreChaseBranch kb) (m : CoreChaseNode kb.rules) (m_mod : m.core.modelsKb kb) : ¬ ∃ (trg : RTrigger obs kb.rules), trg.val.active m.core := by
+  theorem notExActTrigInMod (cb : CoreChaseBranch kb) (m : CoreChaseNode kb.rules) (m_mod : m.core.modelsKb kb) : ¬ ∃ (trg : RTrigger obs.toLaxObsoletenessCondition kb.rules), trg.val.active m.core := by
     simp only [not_exists]
     intro trg
     unfold Trigger.active
@@ -1250,7 +1247,7 @@ namespace CoreChaseBranch
 
   --@[grind]
   -- fs muss in cb vorkommen, fairness nutzen
-  theorem act_trg_yields_some_node (trg : RTrigger (RestrictedObsoleteness sig) kb.rules) (disj_idx : Nat) (fs : FactSet sig) (lt : disj_idx < trg.val.rule.head.length) (trg_act : trg.val.active fs)
+  theorem act_trg_yields_some_node (trg : RTrigger obs.toLaxObsoletenessCondition kb.rules) (disj_idx : Nat) (fs : FactSet sig) (lt : disj_idx < trg.val.rule.head.length) (trg_act : trg.val.active fs)
     (cb : CoreChaseBranch kb) (fs_in : ∃ n, (cb.branch.infinite_list n).is_some_and (fun cn => fs = cn.fs)) :
     ∃ (cn : CoreChaseNode kb.rules), (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet ⊆ cn.fs := by
       rcases fs_in with ⟨n, fs_in⟩
@@ -1352,7 +1349,7 @@ namespace CoreChaseBranch
     (cn_eq : cb.branch.infinite_list n = some cn)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ cn.fs.terms)
-    {trg : RTrigger (RestrictedObsoleteness sig) kb.rules}
+    {trg : RTrigger obs.toLaxObsoletenessCondition kb.rules}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     -- war das ∃ (m : Nat), m < n, ... hier wichtig ?
@@ -1393,7 +1390,7 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem result_of_trigger_introducing_functional_term_occurs_in_chase_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
-    (disj_idx n : Nat) (trg: RTrigger (RestrictedObsoleteness sig) kb.rules) (cn_eq : cb.branch.infinite_list n = some cn)
+    (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsoletenessCondition kb.rules) (cn_eq : cb.branch.infinite_list n = some cn)
     (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
       ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.fs := by
@@ -1425,8 +1422,6 @@ namespace CoreChaseBranch
     rw [GeneralizedAtom.mk.injEq] at ga_eq
     simp only [List.map_id_fun, id_eq] at ga_eq
     sorry
-
-
 
   noncomputable def induction_homomorphism_core (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
     | .zero => ⟨id, by
@@ -1487,7 +1482,7 @@ namespace CoreChaseBranch
               let trg_active_for_current_step := trg_spec.left
               let trg_result_used_for_next_chase_step := trg_spec.right
 
-              let trg_variant_for_m : RTrigger obs kb.rules := {
+              let trg_variant_for_m : RTrigger obs.toLaxObsoletenessCondition kb.rules := {
                 val := {
                   rule := trg.val.rule
                   subs := fun t => prev_hom (trg.val.subs t)
@@ -1616,7 +1611,6 @@ namespace CoreChaseBranch
                         split
                         . rfl
                         . simp only [eq, GroundTerm.func] at this
-                          --sorry
                           contradiction
                   | inr fact_in_trg_result =>
                           apply h_obs_at_head_index_for_m_subs.right
@@ -1717,7 +1711,15 @@ namespace CoreChaseBranch
                                 have h : ¬ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms := by
                                   intro contra
                                   apply trg_active_for_current_step.right
+                                  unfold LaxObsoletenessCondition.cond ObsoletenessCondition.toLaxObsoletenessCondition 
+                                  have := @obs.contains_trg_result_implies_cond (Classical.choose trg_ex).val.toPreTrigger (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs result_index_for_trg
+                                  apply obs.contains_trg_result_implies_cond result_index_for_trg
+                                  have : (Classical.choose trg_ex).val.toPreTrigger.satisfied (prev_node.get (Option.isSome_of_mem prev_node_eq)).core := ObsoletenessCondition.cond_implies_trg_is_satisfied obs (obs.contains_trg_result_implies_cond result_index_for_trg)
+
+                                  unfold LaxObsoletenessCondition.cond
+
                                   have := result_of_trigger_introducing_functional_term_occurs_in_chase_core cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq))
+
                                   sorry
 
                                 have : Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) = isFalse h := by
