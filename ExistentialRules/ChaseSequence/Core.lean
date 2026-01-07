@@ -1546,6 +1546,15 @@ namespace CoreChaseBranch
                 exact next_hom_id_const
                 -- prev node @ j, next node at j+1
                 -- next_node_eq
+
+                have head_i_eq : head_index_for_m_subs.val = 0 := by
+                  rw [← Nat.lt_one_iff]
+                  have len_eq := kb_det_head_len_eq kb_det trg_variant_for_m.val.rule trg.property
+                  have trg_len_eq : trg_variant_for_m.val.mapped_head.length = trg_variant_for_m.val.rule.head.length := PreTrigger.length_mapped_head trg_variant_for_m.val.toPreTrigger
+                  subst trg_variant_for_m
+                  rw [← len_eq]
+                  exact head_index_for_m_subs.isLt
+
                 have next_node_results_from_trg : next_node.fs = (prev_node.get (Option.isSome_of_mem prev_node_eq)).core ∪ trg.val.mapped_head[result_index_for_trg.val].toSet := by
                   unfold exists_trigger_opt_fs_core at trg_ex
 
@@ -1563,15 +1572,6 @@ namespace CoreChaseBranch
                     rw [← len_eq]
                     have := i.isLt
                     exact Nat.lt_of_lt_of_eq this trg_len_eq
-
-                  have head_i_eq : head_index_for_m_subs.val = 0 := by
-                    rw [← Nat.lt_one_iff]
-                    have len_eq := kb_det_head_len_eq kb_det trg_variant_for_m.val.rule trg.property
-                    have trg_len_eq : trg_variant_for_m.val.mapped_head.length = trg_variant_for_m.val.rule.head.length := PreTrigger.length_mapped_head trg_variant_for_m.val.toPreTrigger
-                    subst trg_variant_for_m
-                    rw [← len_eq]
-                    have := i.isLt
-                    exact head_index_for_m_subs.isLt
 
                   subst trg
                   have next_node_fs_eq' := next_node_fs_eq
@@ -1686,20 +1686,9 @@ namespace CoreChaseBranch
                                       exists VarOrConst.var v
                                       simp [GroundSubstitution.apply_var_or_const, v_front'.right]
 
-                                  have h2 : (GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms := h
-                                  have h3 : ∃ (gtm : GroundTermMapping sig), (GroundTerm.func func ts arity_ok) ∈ (gtm.applyFactSet (prev_node.get (Option.isSome_of_mem prev_node_eq)).core).terms := by
-                                    exists id
-                                    have eq : (prev_node.get (Option.isSome_of_mem prev_node_eq)).core = GroundTermMapping.applyFactSet id (prev_node.get (Option.isSome_of_mem prev_node_eq)).core := applyFactSetIdEq (prev_node.get (Option.isSome_of_mem prev_node_eq)).core
-                                    rw [← eq]
-                                    exact h2
-                                    --exact fs_terms_sub_core_terms (prev_node.get (Option.isSome_of_mem prev_node_eq)) (GroundTerm.func func ts arity_ok) h
-                                  --have : Classical.propDecidable (∃ (gtm : GroundTermMapping sig), (GroundTerm.func func ts arity_ok) ∈ (gtm.applyFactSet (prev_node.get (Option.isSome_of_mem prev_node_eq)).core).terms) = isTrue h3 := by
-                                  --  cases Classical.propDecidable (∃ (gtm : GroundTermMapping sig), (GroundTerm.func func ts arity_ok) ∈ (gtm.applyFactSet (prev_node.get (Option.isSome_of_mem prev_node_eq)).core).terms) <;> trivial
-
-                                  have : Classical.propDecidable ((GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) = isTrue h2 := by
+                                  have : Classical.propDecidable ((GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) = isTrue h := by
                                     cases Classical.propDecidable ((GroundTerm.func func ts arity_ok) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) <;> trivial
                                   unfold GroundTerm.func at this
-
                                   rw [this]
                               -- existential var
                               | inr v_front =>
@@ -1711,15 +1700,34 @@ namespace CoreChaseBranch
                                 have h : ¬ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms := by
                                   intro contra
                                   apply trg_active_for_current_step.right
-                                  unfold LaxObsoletenessCondition.cond ObsoletenessCondition.toLaxObsoletenessCondition 
-                                  have := @obs.contains_trg_result_implies_cond (Classical.choose trg_ex).val.toPreTrigger (prev_node.get (Option.isSome_of_mem prev_node_eq)).fs result_index_for_trg
-                                  apply obs.contains_trg_result_implies_cond result_index_for_trg
-                                  have : (Classical.choose trg_ex).val.toPreTrigger.satisfied (prev_node.get (Option.isSome_of_mem prev_node_eq)).core := ObsoletenessCondition.cond_implies_trg_is_satisfied obs (obs.contains_trg_result_implies_cond result_index_for_trg)
+                                  simp only [obs]
+                                  simp only [RestrictedObsoleteness]
+                                  unfold PreTrigger.satisfied
+                                  exists head_index_for_m_subs
+                                  unfold PreTrigger.satisfied_for_disj
+                                  exists trg_variant_for_m.val.subs
 
-                                  unfold LaxObsoletenessCondition.cond
+                                  have lt : result_index_for_trg.val < trg.val.rule.head.length := by
+                                    have len_eq := kb_det_head_len_eq kb_det trg_variant_for_m.val.rule trg.property
+                                    rw [head_i_eq, len_eq]
+                                    exact Nat.one_pos
+                                  have := functional_term_originates_from_some_trigger_core cb j (prev_node.get (Option.isSome_of_mem prev_node_eq)) (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) sorry sorry sorry
+                                  rcases this with ⟨m, h2⟩
+                                  rw [Option.is_some_and_iff] at h2
+                                  rcases h2 with ⟨cn_m, cn_m_eq, h3⟩
+                                  rw [Option.is_some_and_iff] at h3
+                                  rcases h3 with ⟨m_origin, m_origin_eq, h4⟩
 
-                                  have := result_of_trigger_introducing_functional_term_occurs_in_chase_core cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq))
+                                  have ex_t : ∃ t, t ∈ trg.val.fresh_terms_for_head_disjunct result_index_for_trg lt := by sorry
+                                  rcases ex_t with ⟨t, t_mem⟩
 
+                                  have := result_of_trigger_introducing_functional_term_occurs_in_chase_core cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) t lt t_mem sorry
+                                  rcases this with ⟨gtm, gtm_hom⟩
+
+                                  
+                                  constructor
+                                  intro v2 v2_in
+                                  sorry
                                   sorry
 
                                 have : Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ (prev_node.get (Option.isSome_of_mem prev_node_eq)).core.terms) = isFalse h := by
@@ -1759,18 +1767,19 @@ namespace CoreChaseBranch
 
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
     intro m m_mod
-    let ind_hom : GroundTermMapping sig := induction_homomorphism_core cb m m_mod kb_det 0
+    let ind_hom := induction_homomorphism_core cb m m_mod kb_det
 
-    let result := cb.result ter'
+    let result : FactSet sig := cb.result ter'
 
 
     let global_h : GroundTermMapping sig := fun t =>
       let dec := Classical.propDecidable (∃ f, f ∈ result ∧ t ∈ f.terms)
       match dec with
         | Decidable.isTrue p =>
+          -- let hfl := (Classical.choose_spec p).right
           let i := Classical.choose ter'
-          let target_h : GroundTermMapping sig := induction_homomorphism_core cb m m_mod kb_det i
-          (target_h t)
+          let target_h : GroundTermMapping sig := ind_hom i
+          target_h t
         | Decidable.isFalse _ => t
 
     exists global_h
