@@ -1705,13 +1705,14 @@ namespace CoreChaseBranch
                                   unfold PreTrigger.satisfied
                                   exists head_index_for_m_subs
                                   unfold PreTrigger.satisfied_for_disj
-                                  exists trg_variant_for_m.val.subs
+
 
                                   have lt : result_index_for_trg.val < trg.val.rule.head.length := by
                                     have len_eq := kb_det_head_len_eq kb_det trg_variant_for_m.val.rule trg.property
                                     rw [head_i_eq, len_eq]
                                     exact Nat.one_pos
-                                  have := functional_term_originates_from_some_trigger_core cb j (prev_node.get (Option.isSome_of_mem prev_node_eq)) (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) sorry sorry sorry
+                                  have := functional_term_originates_from_some_trigger_core
+                                    cb j (prev_node.get (Option.isSome_of_mem prev_node_eq)) (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) (trg.val.functional_term_for_var result_index_for_trg.val v) sorry sorry
                                   rcases this with ⟨m, h2⟩
                                   rw [Option.is_some_and_iff] at h2
                                   rcases h2 with ⟨cn_m, cn_m_eq, h3⟩
@@ -1721,10 +1722,12 @@ namespace CoreChaseBranch
                                   have ex_t : ∃ t, t ∈ trg.val.fresh_terms_for_head_disjunct result_index_for_trg lt := by sorry
                                   rcases ex_t with ⟨t, t_mem⟩
 
-                                  have := result_of_trigger_introducing_functional_term_occurs_in_chase_core cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) t lt t_mem sorry
+                                  have := result_of_trigger_introducing_functional_term_occurs_in_chase_core
+                                    cb (prev_node.get (Option.isSome_of_mem prev_node_eq)) result_index_for_trg.val j trg (Option.eq_some_of_isSome (Option.isSome_of_mem prev_node_eq)) (trg.val.functional_term_for_var result_index_for_trg.val v) lt sorry sorry
                                   rcases this with ⟨gtm, gtm_hom⟩
+                                  exists gtm ∘ (trg.val.subs_for_mapped_head result_index_for_trg)
 
-                                  
+
                                   constructor
                                   intro v2 v2_in
                                   sorry
@@ -1776,12 +1779,12 @@ namespace CoreChaseBranch
       let dec := Classical.propDecidable (∃ f, f ∈ result ∧ t ∈ f.terms)
       match dec with
         | Decidable.isTrue p =>
-          -- let hfl := (Classical.choose_spec p).right
+          let hfl := (Classical.choose_spec p).right
           let i := Classical.choose ter'
           let target_h : GroundTermMapping sig := ind_hom i
           target_h t
         | Decidable.isFalse _ => t
-
+    -- i aus rcases von ter und das als globalh
     exists global_h
     constructor
     intro gt
