@@ -1667,13 +1667,20 @@ namespace CoreChaseBranch
                         exists head_index_for_m_subs
                         unfold PreTrigger.satisfied_for_disj
 
-
                         have lt : result_index_for_trg.val < trg.val.rule.head.length := by
                           have len_eq := kb_det_head_len_eq kb_det trg_variant_for_m.val.rule trg.property
                           rw [head_i_eq, len_eq]
                           exact Nat.one_pos
 
-                        have t_mem_fresh : (trg.val.functional_term_for_var (↑result_index_for_trg) v ∈ trg.val.fresh_terms_for_head_disjunct result_index_for_trg.val lt) := by sorry
+                        have t_mem_fresh : (trg.val.functional_term_for_var (↑result_index_for_trg) v ∈ trg.val.fresh_terms_for_head_disjunct result_index_for_trg.val lt) := by
+                          simp [PreTrigger.fresh_terms_for_head_disjunct, PreTrigger.functional_term_for_var, GroundTerm.func]
+                          unfold Rule.existential_vars_for_head_disjunct
+                          rw [List.mem_filter]
+                          constructor
+                          rw [FunctionFreeConjunction.mem_vars]
+                          exists (trg.val.atom_for_result_fact result_index_for_trg fact_in_trg_result)
+                          exact ⟨PreTrigger.atom_for_result_fact_mem_head, voc_mem⟩
+                          exact decide_eq_true v_front
 
                         have : ∃ func ts arity_ok, trg.val.functional_term_for_var (↑result_index_for_trg) v = GroundTerm.func func ts arity_ok := ex_func_eq t_mem_fresh
 
@@ -1686,20 +1693,26 @@ namespace CoreChaseBranch
                         rw [Option.is_some_and_iff] at h3
                         rcases h3 with ⟨m_origin, m_origin_eq, h4⟩
 
-                        have := result_of_trigger_introducing_functional_term_occurs_in_chase_core
+                        have ex_gtm := result_of_trigger_introducing_functional_term_occurs_in_chase_core
                           cb prev_node result_index_for_trg.val prev_depth trg prev_node_eq
                             (trg.val.functional_term_for_var result_index_for_trg.val v) lt t_mem_fresh
                             (fs_terms_sub_core_terms prev_node (trg.val.functional_term_for_var (↑result_index_for_trg) v) contra)
 
-
-                        rcases this with ⟨gtm, gtm_hom⟩
-                        exists gtm ∘ (trg.val.subs_for_mapped_head result_index_for_trg)
+                        rcases ex_gtm with ⟨gtm, gtm_hom⟩
+                        exists (gtm ∘ trg.val.subs_for_mapped_head result_index_for_trg)
                         constructor
                         intro v2 v2_in
-                        -- unfold PreTrigger.subs_for_mapped_head PreTrigger.apply_to_var_or_const GroundSubstitution.apply_skolem_term PreTrigger.skolemize_var_or_const VarOrConst.skolemize
-                        simp only [Function.comp_apply, Nat.succ_eq_add_one]
-                        
+                        rcases h_obs_at_head_index_for_m_subs with ⟨lhs, rhs⟩
+                        specialize lhs v2 v2_in
+
                         sorry
+                        intro f' f'_in
+                        unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list at f'_in
+                        rw [List.mem_toSet, List.mem_map] at f'_in
+                        rcases f'_in with ⟨a, ahl, ahr⟩
+                        rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ (gtm_hom.left)] at ahr
+                        unfold GroundSubstitution.apply_function_free_atom GroundTermMapping.applyFact GroundSubstitution.apply_var_or_const at ahr
+                        rw [← ahr]
                         sorry
 
                       have : Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ prev_node.core.terms) = isFalse h := by
@@ -1790,36 +1803,33 @@ namespace CoreChaseBranch
 
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
     intro m m_mod
-    let ind_hom := induction_homomorphism_core cb m m_mod kb_det
-
     let result : FactSet sig := cb.result ter'
+    rcases ter' with ⟨n_ter, ter_at_n⟩
 
+    let inductive_homomorphism_core_shortcut := inductive_homomorphism_core cb m m_mod kb_det
 
-    let global_h : GroundTermMapping sig := fun t =>
-      let dec := Classical.propDecidable (∃ f, f ∈ result ∧ t ∈ f.terms)
-      match dec with
-        | Decidable.isTrue p =>
-          let hfl := (Classical.choose_spec p).right
-          let i := Classical.choose ter'
-          let target_h : GroundTermMapping sig := ind_hom i
-          target_h t
-        | Decidable.isFalse _ => t
-    -- i aus rcases von ter und das als globalh
+    let global_h : GroundTermMapping sig := inductive_homomorphism_core_shortcut n_ter
+
+    have : ∀ (i : Nat), (cb.branch.infinite_list i).is_none_or (fun cn => ∀ f, f ∈ cn.fs → global_h.applyFact f = (inductive_homomorphism_core_shortcut n_ter).val.applyFact f) := by
+      intro i
+      rw [Option.is_none_or_iff]
+      intro node eq f f_in_node
+      apply TermMapping.apply_generalized_atom_congr_left
+      intro t t_mem
+      simp only [global_h]
+
     exists global_h
     constructor
     intro gt
-    sorry
+    split
+    next x y => sorry
+    next => trivial
     intro f hf
     unfold CoreChaseBranch.result GroundTermMapping.applyFactSet at hf
-    rcases hf with ⟨e, ⟨hel, her⟩⟩
-    simp at hel
-    split at hel
-    next _ _ _ cn _ heq _ =>
-      · sorry
-    next _ _ _ cn _ heq _ =>
-      . sorry
-
-
+    simp only [Option.castToMemIfNotNone, ne_eq] at hf
+    split at hf
+    next => sorry
+    next => trivial
 
   -- main theorem
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
