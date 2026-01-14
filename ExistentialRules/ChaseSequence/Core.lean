@@ -1709,10 +1709,13 @@ namespace CoreChaseBranch
                         intro f' f'_in
                         unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list at f'_in
                         rw [List.mem_toSet, List.mem_map] at f'_in
+
                         rcases f'_in with ⟨a, ahl, ahr⟩
                         rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ (gtm_hom.left)] at ahr
-                        unfold GroundSubstitution.apply_function_free_atom GroundTermMapping.applyFact GroundSubstitution.apply_var_or_const at ahr
                         rw [← ahr]
+                        simp only [Function.comp_apply]
+                        have := PreTrigger.apply_subs_for_var_or_const_eq trg.val.toPreTrigger result_index_for_trg (VarOrConst.var v)
+
                         sorry
 
                       have : Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ prev_node.core.terms) = isFalse h := by
@@ -1799,37 +1802,22 @@ namespace CoreChaseBranch
         | .some cn =>
           inductive_homomorphism_core_with_prev_node cb m m_mod kb_det j ⟨prev_hom, prev_cond⟩ cn prev_node_eq
 
-
-
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
     intro m m_mod
     let result : FactSet sig := cb.result ter'
     rcases ter' with ⟨n_ter, ter_at_n⟩
-
-    let inductive_homomorphism_core_shortcut := inductive_homomorphism_core cb m m_mod kb_det
-
-    let global_h : GroundTermMapping sig := inductive_homomorphism_core_shortcut n_ter
-
-    have : ∀ (i : Nat), (cb.branch.infinite_list i).is_none_or (fun cn => ∀ f, f ∈ cn.fs → global_h.applyFact f = (inductive_homomorphism_core_shortcut n_ter).val.applyFact f) := by
-      intro i
-      rw [Option.is_none_or_iff]
-      intro node eq f f_in_node
-      apply TermMapping.apply_generalized_atom_congr_left
-      intro t t_mem
-      simp only [global_h]
-
-    exists global_h
-    constructor
-    intro gt
+    let h:= inductive_homomorphism_core cb m m_mod kb_det n_ter
+    exists h
+    have p := h.property
+    unfold CoreChaseBranch.result
+    simp only [Option.castToMemIfNotNone, ne_eq]
     split
-    next x y => sorry
+    next _ _ _ cn _ _ _ =>
+      rw [Option.is_none_or_iff] at p
+      specialize p cn (by grind)
+      exact homFsToFsAlsoHomCoreToFs m cn h.val p
     next => trivial
-    intro f hf
-    unfold CoreChaseBranch.result GroundTermMapping.applyFactSet at hf
-    simp only [Option.castToMemIfNotNone, ne_eq] at hf
-    split at hf
-    next => sorry
-    next => trivial
+
 
   -- main theorem
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
