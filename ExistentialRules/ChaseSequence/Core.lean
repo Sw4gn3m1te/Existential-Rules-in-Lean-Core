@@ -1721,6 +1721,57 @@ namespace CoreChaseBranch
                         rcases h_obs_at_head_index_for_m_subs with ⟨lhs, rhs⟩
                         specialize lhs v2 v2_in
 
+                        /-
+                          fallunterscheidung des hom ob surjektiv von frontier nach frontier -> permulation der terme
+
+                          anwendung von trigger auf v kann nicht vorher kommen, da der trigger sonnst hätte schon eher benutzt werden müssen und somit nicht mehr anwendbar wäre
+
+                          ggf. term mapping a → b → a
+
+                          wenn gtm nicht id, dann gibt es sin subset der domain auf welchem er (ggf.) nicht surjektiv ist
+
+                          nicht surjektiv auf frontier termen, dann kann aber sein dass er einen frontier term auf einen nicht frontier term mapped und einen nicht frontier term auf einen frontier term
+
+                          homomorphismus solange wiederholen bis die permutation wieder die id ist
+
+                           fs
+                           |
+                           ↓
+                          core
+
+
+
+                          das resultat mit endo auf core erstmal mit sorry
+                          → auf prev node core ist gtm endo
+
+                          core is weak und finite also strong daher h von fs.term nach fs.terms ist surjektiv
+
+                          exists_repetition_that_is_inverse_or_surj -> gibt n wie of perm rep bis id
+
+                          dann exists n fachte wdh von gtm ∘ ...
+
+                          hom von mapped head in core
+                          → n fache wdh von mapped head in core z.z.
+                          → repeat_hom_is_isomorphism
+                          → ishomomorphism_compose
+
+
+
+                          jeder endo auf core ist surjektiv
+
+                          result dass gtm auch endo auf core ist
+
+                          problem: ein trigger wird wieder loaded -> duch core berechnung unloaded dann wieder loaded aber dann wird der funktions term der entfernt wurde wieder eingeführt wird das kann aber nicht sein weil dann ex trigger der 2 mal angewand wurde.
+
+
+                          → in core chase trigger nicht 2 mal angewand werden also kommt nicht vor in allen späteren origins
+                          
+                        -/
+                        have eq : trg.val.subs_for_mapped_head result_index_for_trg v2 = trg.val.subs v2 := by --gleich auf frontier vars, auf ex. nicht by def
+                          sorry
+
+
+
                         sorry
                         intro f' f'_in
                         unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list at f'_in
@@ -1731,36 +1782,11 @@ namespace CoreChaseBranch
                         simp only [Function.comp_apply]
                         apply gtm_hom.right
                         apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-                        unfold GroundSubstitution.apply_function_free_atom
-                        have := PreTrigger.apply_to_var_or_const_non_frontier_var _ result_index_for_trg _ v_front
-                        cases eq_v : trg.val.subs v with
-                          | const c =>
-
-                            sorry
-                          | func func ts arity_ok =>
-                            sorry
-                        rw [← PreTrigger.apply_subs_for_atom_eq trg.val.toPreTrigger result_index_for_trg]
-                        subst obs_for_m_subs rw_aux ahr trg
-
-
-
-                        rcases trg_spec.right with ⟨c', i', h'⟩
-                        rw [Option.is_some_and_iff] at h'
-                        rcases h' with ⟨a', a'_eq, a'_1, a'_2⟩
-                        rcases this with ⟨x, y⟩
-                        rcases trg_result_used_for_next_chase_step with ⟨h1, h2, h3⟩
-
-                        rw [List.mem_toSet]
 
                         rw [← PreTrigger.apply_subs_for_mapped_head_eq]
-                        rw [GroundSubstitution.apply_function_free_atom.eq_def]
-
-
-
-
-                        have := PreTrigger.apply_subs_for_var_or_const_eq trg.val.toPreTrigger result_index_for_trg (VarOrConst.var v)
-
-                        sorry
+                        rw [List.mem_toSet]
+                        apply List.mem_map_of_mem
+                        exact ahl
 
                       have : Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ prev_node.core.terms) = isFalse h := by
                         cases Classical.propDecidable ((trg.val.functional_term_for_var result_index_for_trg.val v) ∈ prev_node.core.terms) <;> trivial
