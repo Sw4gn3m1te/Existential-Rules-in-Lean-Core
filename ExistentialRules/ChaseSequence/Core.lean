@@ -14,7 +14,7 @@ import ExistentialRules.ChaseSequence.Universality
 --import ExistentialRules.BasicTypes.Functions.Function
 
 
--- import Aesop
+import Aesop
 -- import Canonical
 -- import Mathlib.Combinatorics.Graph.Basic
 
@@ -1409,6 +1409,17 @@ namespace CoreChaseBranch
         have := subPreservesHom cn2.fs cn.fs origin.fst.val.mapped_head[↑origin.snd].toSet this gtm h2
         exact Exists.intro gtm this
 
+  @[grind]
+  theorem result_of_trigger_introducing_functional_term_occurs_in_chase_core' (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
+    (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsoletenessCondition kb.rules) (cn_eq : cb.branch.infinite_list n = some cn)
+    (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
+    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
+      ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.core := by
+      rcases result_of_trigger_introducing_functional_term_occurs_in_chase_core cb cn disj_idx n trg cn_eq t lt t_mem_trg t_mem_node with ⟨gtm, gtm_hom⟩
+      rcases exHomFsCore cb n cn cn_eq with ⟨gtm2, gtm2_hom⟩
+      exists gtm2 ∘ gtm
+      exact GroundTermMapping.isHomomorphism_compose gtm gtm2 (trg.val.mapped_head[disj_idx]'(by grind)).toSet cn.fs cn.core gtm_hom gtm2_hom
+
   theorem applyFactSetIdEq (fs : FactSet sig) : fs = GroundTermMapping.applyFactSet id fs := by
     unfold GroundTermMapping.applyFactSet TermMapping.apply_generalized_atom_set
     apply Set.ext
@@ -1426,6 +1437,7 @@ namespace CoreChaseBranch
     simp only [List.map_id_fun, id_eq] at ga_eq
     sorry
 
+  set_option maxHeartbeats 5000000
   noncomputable def inductive_homomorphism_core_with_prev_node_and_trg (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) (prev_depth : Nat) (prev_result : InductiveHomomorphismResultCore cb m prev_depth) (prev_node : CoreChaseNode kb.rules) (prev_node_eq : (cb.branch.infinite_list prev_depth = some prev_node)) (trg_ex : exists_trigger_opt_fs_core kb.rules prev_node (cb.branch.infinite_list prev_depth.succ)): InductiveHomomorphismResultCore cb m (prev_depth + 1) :=
 
     let ⟨prev_hom, prev_cond⟩ := prev_result
@@ -1661,6 +1673,10 @@ namespace CoreChaseBranch
                       have h : ¬ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ prev_node.core.terms := by
                         intro contra
                         apply trg_active_for_current_step.right
+
+                        rcases trg_spec.left with ⟨tsl, tsr⟩
+                        unfold PreTrigger.loaded at tsl
+
                         simp only [obs]
                         simp only [RestrictedObsoleteness]
                         unfold PreTrigger.satisfied
@@ -1693,7 +1709,7 @@ namespace CoreChaseBranch
                         rw [Option.is_some_and_iff] at h3
                         rcases h3 with ⟨m_origin, m_origin_eq, h4⟩
 
-                        have ex_gtm := result_of_trigger_introducing_functional_term_occurs_in_chase_core
+                        have ex_gtm := result_of_trigger_introducing_functional_term_occurs_in_chase_core'
                           cb prev_node result_index_for_trg.val prev_depth trg prev_node_eq
                             (trg.val.functional_term_for_var result_index_for_trg.val v) lt t_mem_fresh
                             (fs_terms_sub_core_terms prev_node (trg.val.functional_term_for_var (↑result_index_for_trg) v) contra)
@@ -1709,11 +1725,39 @@ namespace CoreChaseBranch
                         intro f' f'_in
                         unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list at f'_in
                         rw [List.mem_toSet, List.mem_map] at f'_in
-
                         rcases f'_in with ⟨a, ahl, ahr⟩
                         rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ (gtm_hom.left)] at ahr
                         rw [← ahr]
                         simp only [Function.comp_apply]
+                        apply gtm_hom.right
+                        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
+                        unfold GroundSubstitution.apply_function_free_atom
+                        have := PreTrigger.apply_to_var_or_const_non_frontier_var _ result_index_for_trg _ v_front
+                        cases eq_v : trg.val.subs v with
+                          | const c =>
+
+                            sorry
+                          | func func ts arity_ok =>
+                            sorry
+                        rw [← PreTrigger.apply_subs_for_atom_eq trg.val.toPreTrigger result_index_for_trg]
+                        subst obs_for_m_subs rw_aux ahr trg
+
+
+
+                        rcases trg_spec.right with ⟨c', i', h'⟩
+                        rw [Option.is_some_and_iff] at h'
+                        rcases h' with ⟨a', a'_eq, a'_1, a'_2⟩
+                        rcases this with ⟨x, y⟩
+                        rcases trg_result_used_for_next_chase_step with ⟨h1, h2, h3⟩
+
+                        rw [List.mem_toSet]
+
+                        rw [← PreTrigger.apply_subs_for_mapped_head_eq]
+                        rw [GroundSubstitution.apply_function_free_atom.eq_def]
+
+
+
+
                         have := PreTrigger.apply_subs_for_var_or_const_eq trg.val.toPreTrigger result_index_for_trg (VarOrConst.var v)
 
                         sorry
@@ -1817,7 +1861,6 @@ namespace CoreChaseBranch
       specialize p cn (by grind)
       exact homFsToFsAlsoHomCoreToFs m cn h.val p
     next => trivial
-
 
   -- main theorem
   -- if cb.terminates → cb.result.universalmodels kb ∧ Set.finite cb.result
