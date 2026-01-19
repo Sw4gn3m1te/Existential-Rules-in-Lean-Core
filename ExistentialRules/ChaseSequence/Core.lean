@@ -1420,6 +1420,16 @@ namespace CoreChaseBranch
       exists gtm2 ∘ gtm
       exact GroundTermMapping.isHomomorphism_compose gtm gtm2 (trg.val.mapped_head[disj_idx]'(by grind)).toSet cn.fs cn.core gtm_hom gtm2_hom
 
+@[grind]
+theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
+    (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsoletenessCondition kb.rules) (cn_eq : cb.branch.infinite_list n = some cn)
+    (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
+    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
+      ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.core ∧ gtm.isHomomorphism cn.core cn.core ∧ (Function.surjective_for_domain_and_image_set gtm cn.core.terms cn.core.terms) := by
+        sorry
+
+  -- jeder surjektive endomorphisms auf endlichen mengen ist auch ein isomorphismus
+
   theorem applyFactSetIdEq (fs : FactSet sig) : fs = GroundTermMapping.applyFactSet id fs := by
     unfold GroundTermMapping.applyFactSet TermMapping.apply_generalized_atom_set
     apply Set.ext
@@ -1437,7 +1447,7 @@ namespace CoreChaseBranch
     simp only [List.map_id_fun, id_eq] at ga_eq
     sorry
 
-  set_option maxHeartbeats 5000000
+  -- set_option maxHeartbeats 5000000
   noncomputable def inductive_homomorphism_core_with_prev_node_and_trg (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) (prev_depth : Nat) (prev_result : InductiveHomomorphismResultCore cb m prev_depth) (prev_node : CoreChaseNode kb.rules) (prev_node_eq : (cb.branch.infinite_list prev_depth = some prev_node)) (trg_ex : exists_trigger_opt_fs_core kb.rules prev_node (cb.branch.infinite_list prev_depth.succ)): InductiveHomomorphismResultCore cb m (prev_depth + 1) :=
 
     let ⟨prev_hom, prev_cond⟩ := prev_result
@@ -1715,7 +1725,28 @@ namespace CoreChaseBranch
                             (fs_terms_sub_core_terms prev_node (trg.val.functional_term_for_var (↑result_index_for_trg) v) contra)
 
                         rcases ex_gtm with ⟨gtm, gtm_hom⟩
-                        exists (gtm ∘ trg.val.subs_for_mapped_head result_index_for_trg)
+                        ----
+
+                        have ex_gtm := ex_endo_hom cb prev_node result_index_for_trg.val prev_depth trg prev_node_eq
+                            (trg.val.functional_term_for_var result_index_for_trg.val v) lt t_mem_fresh
+                            (fs_terms_sub_core_terms prev_node (trg.val.functional_term_for_var (↑result_index_for_trg) v) contra)
+
+                        rcases ex_gtm with ⟨gtm, gtm_hom, gtm_endo, gtm_surj⟩
+
+                        have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = prev_node.core.terms := by sorry
+                        rcases ex_eq_list with ⟨tl, tl_eq⟩
+                        have gtm_surj_list : Function.surjective_for_domain_and_image_list gtm tl tl := by sorry
+                        have ex_reps := gtm.exists_repetition_that_is_inverse_of_surj tl gtm_surj_list
+
+                        rcases ex_reps with ⟨rep, h⟩
+
+
+                        let rep_hom := gtm.repeat_hom rep
+                        exists (rep_hom ∘ trg.val.subs_for_mapped_head result_index_for_trg)
+
+
+
+
                         constructor
                         intro v2 v2_in
                         rcases h_obs_at_head_index_for_m_subs with ⟨lhs, rhs⟩
@@ -1765,7 +1796,10 @@ namespace CoreChaseBranch
 
 
                           → in core chase trigger nicht 2 mal angewand werden also kommt nicht vor in allen späteren origins
-                          
+
+                          wenn trigger angewender ist er danach obsolete falls er loaded war
+
+
                         -/
                         have eq : trg.val.subs_for_mapped_head result_index_for_trg v2 = trg.val.subs v2 := by --gleich auf frontier vars, auf ex. nicht by def
                           sorry
@@ -1914,6 +1948,52 @@ namespace CoreChaseBranch
     exact n_ter
 
 
+  theorem coreChaseTermIfStandardChaseTerm (scb : ChaseBranch obs kb) (scb_term : scb.terminates) : ∃ (ccb : CoreChaseBranch kb), ccb.terminates' := by
+    rcases scb_term with ⟨n, is_none_at_n⟩
+    unfold CoreChaseBranch.terminates' CoreChaseBranch.terminates_at_step
+    apply Classical.byContradiction
+    intro contra
+    simp at contra
+    -- wenn term dann gibt es eine node in der keine trigger mehr aktiv sind
+    -- jedes .fs und .core @n aus der ccb ist homsubet der sbc @n
+    sorry
+
+
+  def get_terminating_core_chase (sc : ChaseBranch obs kb) (sc_term : sc.terminates) : CoreChaseBranch kb := by
+    let branch : PossiblyInfiniteList (CoreChaseNode kb.rules) :=
+    sorry
+  -- ist das festlegen der obs auf restited obs jetzt hier ein problem ?
+  theorem sbc_homsub_ccb (scb : ChaseBranch obs kb) (ccb : CoreChaseBranch kb) (some_eq : ∀ (m : Nat), (scb.branch.infinite_list m).isSome → (ccb.branch.infinite_list m).isSome) :
+    ∀ (n : Nat), n > 0 → (scb.branch.infinite_list n).is_some_and (fun scn => (ccb.branch.infinite_list n).is_some_and (fun ccn => scn.origin.is_some_and (fun scn_origin => ccn.origin.is_some_and (fun ccn_origin => scn_origin.fst.val.rule = ccn_origin.fst.val.rule)))) := by
+
+      have scb_dbf := scb.database_first
+      have ccb_dbf := ccb.database_first
+
+      have eq : scb_dbf ≍ ccb_dbf := proof_irrel_heq scb_dbf ccb_dbf
+
+      have : ((scb.branch.infinite_list 0).get (Option.isSome_of_mem scb_dbf)).facts.val = ((ccb.branch.infinite_list 0).get (Option.isSome_of_mem ccb_dbf)).fs := by sorry
+
+      intro n gt
+      rw [Option.is_some_and_iff]
+      by_cases c : (scb.branch.infinite_list n).isSome
+
+
+      exists (scb.branch.infinite_list n).get c
+      simp
+      rw [Option.is_some_and_iff]
+      exists (ccb.branch.infinite_list n).get (some_eq n c)
+      simp
+      simp only [Option.is_some_and]
+      split
+      next =>
+        ·
+
+      constructor
+      simp
+
+
+      sorry
+
   theorem main_lhs (cb : CoreChaseBranch kb ) : (∃ (fs : FactSet sig), fs.finite ∧ fs.universallyModelsKb kb) → cb.terminates' := by
     intro ⟨U, U_fin, U_umod⟩
     apply terminates'IfTerminatesAndNonEmpty
@@ -1923,13 +2003,13 @@ namespace CoreChaseBranch
     intro contra
     unfold terminates at contra
     simp only [not_exists] at contra
-    have core_cb_all_some : ∀ (n : Nat), (cb.branch.infinite_list n).isSome := by grind
+    have core_cb_all_some : ∀ (n : Nat), (cb.branch.infinite_list n).isSome := fun n => (fun {α} o => (Option.isSomeIffNeqNone o).mpr) (cb.branch.infinite_list n) (contra n)
     have ex_inf_sc : ∀ (std_cb : ChaseBranch obs kb), ¬ std_cb.terminates := by sorry -- contraposition of ∃ finite SC → ∃ finite CC
     let std_cb : ChaseBranch obs kb := sorry
     specialize ex_inf_sc std_cb
     have std_cb_all_some : ∀ (n : Nat), (std_cb.branch.infinite_list n).isSome := by
       unfold ChaseBranch.terminates at ex_inf_sc
-      grind
+      sorry
     let R := std_cb.result
     have R_umod : R.universallyModelsKb kb := by
       constructor
