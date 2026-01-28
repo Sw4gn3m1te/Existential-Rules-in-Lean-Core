@@ -1633,6 +1633,8 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         specialize tl_eq (trg.subs v)
         rcases tl_eq with ⟨tl_eq_l, tl_eq_r⟩
         apply tl_eq_r
+        specialize h1 v v_in
+        rw [← eq]
         sorry
         )
       exact h
@@ -1673,6 +1675,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       right
       exact (trg_obs_in_fs_iff_obs_in_core cb cn n cn_eq trg).mpr trg_obs
 
+  @[grind]
   theorem trgObsInSuccIfObs (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n : Nat) (trg : Trigger obs.toLaxObsoletenessCondition)
     (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + 1) = some cn_succ) :
       obs.cond trg.toPreTrigger cn.fs → obs.cond trg.toPreTrigger cn_succ.fs := by
@@ -1696,6 +1699,28 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         apply h2
         rw [List.mem_toSet] at *
         exact f_in
+
+  theorem trgNotLoadedInSuccIfNotLoaded (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n : Nat) (trg : Trigger obs.toLaxObsoletenessCondition)
+    (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + 1) = some cn_succ) :
+      ¬ trg.toPreTrigger.loaded cn.core → ¬ trg.toPreTrigger.loaded cn_succ.core := by
+        rw [contrapose]
+        simp only [Classical.not_not]
+        intro trg_succ_loaded
+        intro f f_in
+        specialize trg_succ_loaded f f_in
+        rw [List.mem_toSet] at f_in
+        unfold PreTrigger.mapped_body GroundSubstitution.apply_function_free_conj at f_in
+        have trg_ex := cb.triggers_exist n
+        rw [Option.is_none_or_iff] at trg_ex
+        specialize trg_ex cn cn_eq
+        rcases trg_ex with trg_ex | trg_nex
+        rcases trg_ex with ⟨trg', trg'_act, ⟨c, i, h⟩⟩
+        rw [Option.is_some_and_iff] at h
+        rcases h with ⟨cn_succ', cn_succ'_eq, h1, h2, h3⟩
+        have eq : cn_succ = cn_succ' := by grind
+        subst eq c
+        sorry
+        sorry
 
   theorem triggerInactiveAfterApplication (cb : CoreChaseBranch kb) (cn cn_next : CoreChaseNode kb.rules) (n k : Nat)
     (cn_eq : cb.branch.infinite_list n = some cn) (cn_next_eq : cb.branch.infinite_list (n + k) = some cn_next) (cn_origin_some : cn.origin.isSome) :
@@ -1722,7 +1747,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             have ih : ¬(cn.origin.get cn_origin_some).fst.val.loaded cn'.core ∨ (obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn'.core ∧ (cn.origin.get cn_origin_some).fst.val.loaded cn'.core) := by grind
             rcases ih with trg_not_loaded | ⟨trg_obs, trg_loaded⟩
             left
-            sorry
+            exact trgNotLoadedInSuccIfNotLoaded cb cn' cn_next (n + k) (cn.origin.get cn_origin_some).fst.val cn'_eq cn_next_eq trg_not_loaded
             right
             have := trgObsInSuccIfObs cb cn' cn_next (n + k) (cn.origin.get cn_origin_some).fst.val cn'_eq cn_next_eq
               ((trg_obs_in_fs_iff_obs_in_core cb cn' (n + k) cn'_eq (cn.origin.get cn_origin_some).fst.val).mp trg_obs)
@@ -2476,16 +2501,20 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
   -- ∃ (ccb : CoreChaseBranch kb), ccb.terminates' := by oder cbb im header also assumption
 
-  theorem exTerminatingCoreChaseBranchIfExTerminatingChaseBranch (scb : ChaseBranch obs kb) (scb_term : scb.terminates) :
+  theorem exTerminatingCoreChaseBranchIfExTerminatingChaseBranch (scb : ChaseBranch obs kb) (kb_det : kb.isDeterministic) (scb_term : scb.terminates) :
     ∃ (ccb : CoreChaseBranch kb), ccb.terminates' := by
 
       rcases exLastNodeWithLastIndexIfTerminatesAndNoneAdter_std scb scb_term with ⟨final_scn, n_ter, n_ter_some, n_ter_succ_none⟩
 
-      have final_scn_mod : final_scn.facts.val.modelsKb kb := by sorry
+      have final_scn_umod : final_scn.facts.val.universallyModelsKb kb := by
+        have := deterministicChaseBranchResultUniversallyModelsKb scb kb_det
+        unfold ChaseBranch.result at this
+        rcases this with ⟨fs_mod, fs_univ⟩
+        sorry
 
       have sc_universal : ∀ (m : FactSet sig), m.modelsKb kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ⊆ scb.result ∧ h.isHomomorphism fs m := by sorry
 
-      have no_act_trg_on_final_scn := notExActTrigInMod_std scb final_scn final_scn_mod
+      have no_act_trg_on_final_scn := notExActTrigInMod_std scb final_scn final_scn_umod.left
 
       have := allCoreChaseStepsHomSubsetOfAllStandardChaseSteps scb n_ter (Option.castisSomeIfEqSome (scb.branch.infinite_list n_ter) final_scn n_ter_some)
       rw [Option.is_some_and_iff] at this
