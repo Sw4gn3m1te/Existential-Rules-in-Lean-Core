@@ -1647,7 +1647,15 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       apply rep_hom_hom.right
       unfold GroundTermMapping.applyFactSet GroundTermMapping.applyFact
       apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-      sorry
+      have e : trg.mapped_head[↑i].toSet = cn.core := by sorry -- ⇐ stimmt nicht ?
+      rw [← e]
+      have := PreTrigger.apply_subs_for_mapped_head_eq trg.toPreTrigger ⟨↑i, lt⟩
+      simp at this
+      have f : ((trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_atom a ∈ trg.mapped_head[i].toSet) = ((trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_atom a ∈ (trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_conj trg.rule.head[↑i]) := congrFun (congrArg Membership.mem (congrArg List.toSet (id (Eq.symm this)))) ((trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_atom a)
+      rw [f]
+      apply List.mem_map_of_mem
+      exact ahl
+
 
   @[grind]
   theorem trg_inactive_in_core_if_inactive_in_fs (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
@@ -1670,7 +1678,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       obs.cond trg.toPreTrigger cn.fs → obs.cond trg.toPreTrigger cn_succ.fs := by
 
         rw [← trg_obs_in_fs_iff_obs_in_core cb cn n cn_eq trg]
-
         simp only [obs, RestrictedObsoleteness]
         unfold PreTrigger.satisfied
         intro ⟨i, gs, h1, h2⟩
@@ -1678,15 +1685,17 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         rcases (exHomFsCore cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
         have len_eq : trg.mapped_head.length = trg.rule.head.length := by exact PreTrigger.length_mapped_head trg.toPreTrigger
         have lt : ↑i < trg.mapped_head.length := by grind
-        exists i, trg.subs_for_mapped_head ⟨i, lt⟩
+        exists i, gs
         constructor
         intro v v_in
-        unfold PreTrigger.subs_for_mapped_head
-        exact PreTrigger.apply_to_var_or_const_frontier_var trg.toPreTrigger ↑i v v_in
+        exact h1 v v_in
         intro f f_in
+        have sub1 : cn.core ⊆ cn_succ.fs := prevCoreSubsetOfFactset cb n cn_succ cn_eq cn_succ_eq
         specialize h2 f
-        sorry
-
+        apply sub1
+        apply h2
+        rw [List.mem_toSet] at *
+        exact f_in
 
   theorem triggerInactiveAfterApplication (cb : CoreChaseBranch kb) (cn cn_next : CoreChaseNode kb.rules) (n k : Nat)
     (cn_eq : cb.branch.infinite_list n = some cn) (cn_next_eq : cb.branch.infinite_list (n + k) = some cn_next) (cn_origin_some : cn.origin.isSome) :
