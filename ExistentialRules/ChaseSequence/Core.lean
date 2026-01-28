@@ -362,6 +362,20 @@ namespace CoreChaseBranch
     simp at is_some_at
 
   @[grind]
+  theorem prev_is_some_if_is_some' (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cb.branch.infinite_list n = some cn) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
+    intro m leq
+    intro contra
+    rcases (Nat.eq_or_lt_of_le leq) with eq | lt
+    rw [eq, cn_eq] at contra
+    contradiction
+
+    have := cb.branch.get?_eq_none_of_le_of_eq_none contra n leq
+    simp only [PossiblyInfiniteList.get?, InfiniteList.get] at this
+    have is_some_at : cb.branch.infinite_list n ≠ none := Option.NeqNoneIfIsSome (cb.branch.infinite_list n) cn cn_eq
+    simp at is_some_at
+    contradiction
+
+  @[grind]
   theorem prev_eq_is_some_if_is_some (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
     grind
 
@@ -1326,7 +1340,6 @@ namespace CoreChaseBranch
       have f_fs : f ∈ cn.fs := cn.core_sse.left f f_c
       exists f
 
-
   @[grind]
   theorem functional_term_originates_from_some_trigger_core (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules)
     (cn_eq : cb.branch.infinite_list n = some cn) (t : GroundTerm sig) (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) (t_mem : t ∈ cn.fs.terms) :
@@ -1520,6 +1533,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         | succ n ih =>
           grind
 
+  @[grind]
   theorem origin_trg_inactive_in_fs (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (cn_origin_some : cn.origin.isSome) :
     ¬ (cn.origin.get cn_origin_some).fst.val.active cn.fs := by
         have trg_ex := cb.triggers_exist (n - 1)
@@ -1542,7 +1556,8 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         rcases contra with ⟨loaded, non_obs⟩
         apply non_obs
         have len_eq : trg.val.mapped_head.length = trg.val.rule.head.length := by exact PreTrigger.length_mapped_head trg.val.toPreTrigger
-        exists ⟨i, (by grind)⟩
+        have lt : ↑i < (cn.origin.get cn_origin_some).fst.val.rule.head.length := by grind
+        exists ⟨i, lt⟩
         rcases (exHomFsCore cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
         have := trg.val.term_mapping_preserves_loadedness cn.fs gtm gtm_hom.left (by grind)
         have := PreTrigger.satisfied_for_disj_of_mapped_head_contained (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn.fs ⟨↑i, by grind⟩
@@ -1557,70 +1572,86 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         rcases trg_nex with ⟨next_eq, _⟩
         grind
 
-  theorem trg_obs_in_fs_if_obs_in_core (cn : CoreChaseNode kb.rules) (trg : Trigger obs.toLaxObsoletenessCondition) :
+  @[grind]
+  theorem gtmFsCoreIsEndo (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism cn.fs cn.core):
+     (gtm.surjective_for_domain_and_image_set cn.core.terms cn.core.terms) := by
+      have sc := FactSet.isStrongCore_of_isWeakCore_of_finite cn.core cn.is_core (all_core_finite cn)
+      specialize sc gtm (homFsToFsAlsoHomCoreToFs cn.core cn gtm gtm_hom)
+      rcases sc with ⟨s1, s2, s3⟩
+      exact s3
+
+  theorem trg_obs_in_fs_iff_obs_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
     obs.cond trg.toPreTrigger cn.core ↔ obs.cond trg.toPreTrigger cn.fs := by
 
       simp only [obs, RestrictedObsoleteness]
       unfold PreTrigger.satisfied
 
+      rcases (exHomFsCore cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
+
       constructor
       intro ⟨i, gs, h1, h2⟩
-      exists i, gs
+      exists i, gs -- ⇐ maybe (gtm ∘ gs) ?
       constructor
-      exact h1
+      intro v v_in
+      exact h1 v v_in
+
       have sub := cn.core_sse.left
       apply Set.subset_trans h2 sub
-
       intro ⟨i, gs, h1, h2⟩
-      exists i, gs
+
+
+      have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = cn.core.terms := by
+        have := FactSet.terms_finite_of_finite cn.core (all_core_finite cn)
+        rcases this with ⟨tl, h1, h2⟩
+        exists tl
+        exact Set.ext tl.toSet cn.core.terms h2
+
+      rcases ex_eq_list with ⟨tl, tl_eq⟩
+      have gtm_surj := gtmFsCoreIsEndo cb cn n cn_eq gtm gtm_hom
+      have gtm_surj_eq := gtm.surjective_set_list_equiv tl.toSet tl (fun e => Eq.to_iff rfl) tl.toSet tl (fun e => Eq.to_iff rfl)
+      rw [tl_eq] at gtm_surj_eq
+      rw [gtm_surj_eq] at gtm_surj
+
+      have ex_reps := gtm.exists_repetition_that_is_inverse_of_surj tl gtm_surj
+      rcases ex_reps with ⟨rep, h⟩
+
+      let rep_hom := gtm.repeat_hom (rep + 1)
+      have rep_hom_hom := gtm.repeat_hom_isHomomorphism cn.core (homFsToFsAlsoHomCoreToFs cn.core cn gtm gtm_hom) (rep + 1)
+      have len_eq : trg.mapped_head.length = trg.rule.head.length := by exact PreTrigger.length_mapped_head trg.toPreTrigger
+      have lt : ↑i < trg.mapped_head.length := by grind
+      exists i, (rep_hom ∘ (trg.subs_for_mapped_head ⟨i, lt⟩))
       constructor
-      exact fun v a => h1 v a
+      intro v v_in
+      have eq : trg.subs_for_mapped_head ⟨i, lt⟩ v = trg.subs v := by apply trg.apply_to_var_or_const_frontier_var i v v_in
+      have one_more_eq : gtm.repeat_hom (rep + 1) (trg.subs v) = gtm.repeat_hom rep (gtm (trg.subs v)) := GroundTermMapping.repeat_hom_swap gtm rep (trg.subs v)
+      simp only [Function.comp_apply]
+      rw [eq]
+      simp [rep_hom]
+      rw [one_more_eq]
+      specialize h (trg.subs v) (by
+        rw [← Set.ext_iff] at tl_eq
+        specialize tl_eq (trg.subs v)
+        rcases tl_eq with ⟨tl_eq_l, tl_eq_r⟩
+        apply tl_eq_r
+        sorry
+        )
+      exact h
+
       intro f f_in
-
-      specialize h2 f f_in
-
-
-
-
-      have sc : cn.core.isStrongCore := cn.core.isStrongCore_of_isWeakCore_of_finite cn.is_core (all_core_finite cn)
-      unfold FactSet.isStrongCore at sc
-      rcases (exHomFsCore sorry sorry cn sorry) with ⟨gtm, gtm_hom⟩
-      specialize sc gtm (homFsToFsAlsoHomCoreToFs cn.core cn gtm gtm_hom)
-      rcases sc with ⟨sch1, sch2, sch3⟩
-
-
-      unfold GroundTermMapping.strong at sch1
-      unfold Function.injective_for_domain_set at sch2
-      unfold Function.surjective_for_domain_and_image_set at sch3
-      specialize sch1 f
-
-      apply gtm_hom.right
-
-
-
-      /-
       unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list at f_in
       rw [List.mem_toSet, List.mem_map] at f_in
       rcases f_in with ⟨a, ahl, ahr⟩
-      rw [← GroundSubstitution.apply_function_free_atom.eq_def] at ahr
-      rw[← ahr]
-      -/
-
-
-      apply Classical.byContradiction
-      intro contra
-      apply sch1
-      intro gt gt_in
-      specialize sch2 (gtm gt) gt
-      specialize sch3 gt
-
-
+      rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ (rep_hom_hom.left)] at ahr
+      rw [← ahr]
+      simp only [Function.comp_apply]
+      apply rep_hom_hom.right
+      unfold GroundTermMapping.applyFactSet GroundTermMapping.applyFact
+      apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
       sorry
 
-
+  @[grind]
   theorem trg_inactive_in_core_if_inactive_in_fs (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
     ¬ trg.active cn.fs → ¬ trg.active cn.core := by
-
       intro trg_not_active_fs
       unfold Trigger.active PreTrigger.loaded at *
       rw [Classical.not_and_iff_not_or_not, Classical.not_not] at *
@@ -1632,22 +1663,29 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       specialize contra e e_in
       exact cn.core_sse.left e contra
       right
-      -- exact trg_obs_in_core_if_obs_in_fs cn trg trg_obs
-      simp only [obs, RestrictedObsoleteness] at *
-      unfold PreTrigger.satisfied PreTrigger.satisfied_for_disj at *
-      rcases trg_obs with ⟨i, gs, h1, h2⟩
-      exists i, gs
-      constructor
-      exact h1
-      intro f f_in
-      specialize h2 f f_in
-      have := cn.core_sse.right
-      rcases (exHomFsCore cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
-      have := TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set gtm f cn.fs
-      have := memApplyFactSetIfMemApplyFactSetSubSet gtm cn.core cn.fs f ?_ cn.core_sse.left
+      exact (trg_obs_in_fs_iff_obs_in_core cb cn n cn_eq trg).mpr trg_obs
 
-      sorry
+  theorem trgObsInSuccIfObs (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n : Nat) (trg : Trigger obs.toLaxObsoletenessCondition)
+    (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + 1) = some cn_succ) :
+      obs.cond trg.toPreTrigger cn.fs → obs.cond trg.toPreTrigger cn_succ.fs := by
 
+        rw [← trg_obs_in_fs_iff_obs_in_core cb cn n cn_eq trg]
+
+        simp only [obs, RestrictedObsoleteness]
+        unfold PreTrigger.satisfied
+        intro ⟨i, gs, h1, h2⟩
+        have s := (cn_succ.origin.get (by exact origin_isSome cb n cn_succ_eq)).fst.val.subs
+        rcases (exHomFsCore cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
+        have len_eq : trg.mapped_head.length = trg.rule.head.length := by exact PreTrigger.length_mapped_head trg.toPreTrigger
+        have lt : ↑i < trg.mapped_head.length := by grind
+        exists i, trg.subs_for_mapped_head ⟨i, lt⟩
+        constructor
+        intro v v_in
+        unfold PreTrigger.subs_for_mapped_head
+        exact PreTrigger.apply_to_var_or_const_frontier_var trg.toPreTrigger ↑i v v_in
+        intro f f_in
+        specialize h2 f
+        sorry
 
 
   theorem triggerInactiveAfterApplication (cb : CoreChaseBranch kb) (cn cn_next : CoreChaseNode kb.rules) (n k : Nat)
@@ -1657,16 +1695,30 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         have ex_prev_node := exPrevCoreChaseNodeIfOriginIsSome cb cn n cn_eq cn_origin_some
         rcases ex_prev_node with ⟨prev_cn, prev_cn_eq⟩
 
-        induction k with
+        induction k generalizing cn_next with
           | zero =>
             have eq : cn = cn_next := by grind
             subst eq
             have trg_inactive_fs := origin_trg_inactive_in_fs cb cn n cn_eq cn_origin_some
             have trg_inactive_core := trg_inactive_in_core_if_inactive_in_fs cb cn n cn_eq (cn.origin.get cn_origin_some).fst.val
-            grind
+            exact trg_inactive_core trg_inactive_fs
           | succ k ih =>
-
+            have ex_cn : ∃ (cn : CoreChaseNode kb.rules), cb.branch.infinite_list (n + k) = some cn := by
+              have := prev_is_some_if_is_some' cb (n + (k + 1)) cn_next cn_next_eq (n + k) (by grind)
+              exact Option.ne_none_iff_exists'.mp this
+            rcases ex_cn with ⟨cn', cn'_eq⟩
+            specialize ih cn' cn'_eq
+            unfold Trigger.active at *
+            rw [Classical.not_and_iff_not_or_not, Classical.not_not] at *
+            have ih : ¬(cn.origin.get cn_origin_some).fst.val.loaded cn'.core ∨ (obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn'.core ∧ (cn.origin.get cn_origin_some).fst.val.loaded cn'.core) := by grind
+            rcases ih with trg_not_loaded | ⟨trg_obs, trg_loaded⟩
+            left
             sorry
+            right
+            have := trgObsInSuccIfObs cb cn' cn_next (n + k) (cn.origin.get cn_origin_some).fst.val cn'_eq cn_next_eq
+              ((trg_obs_in_fs_iff_obs_in_core cb cn' (n + k) cn'_eq (cn.origin.get cn_origin_some).fst.val).mp trg_obs)
+            exact (trg_obs_in_fs_iff_obs_in_core cb cn_next (n + (k + 1)) cn_next_eq (cn.origin.get cn_origin_some).fst.val).mpr this
+
 
 
   -- set_option maxHeartbeats 5000000
