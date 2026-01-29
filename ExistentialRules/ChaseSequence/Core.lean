@@ -1514,6 +1514,13 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     unfold TermMapping.apply_generalized_atom at ga_eq
     rw [GeneralizedAtom.mk.injEq] at ga_eq
     simp only [List.map_id_fun, id_eq] at ga_eq
+    apply Classical.byContradiction
+    intro contra
+    have neq : ga ≠ f := ne_of_mem_of_not_mem ga_in contra
+    have := GeneralizedAtom.mk.injEq f.predicate f.terms sorry ga.predicate ga.terms sorry
+
+    -- ga = f thus contra
+
     sorry
 
   theorem prevNodeEqDbIfOriginNone (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (cn_origin_some : cn.origin.isNone) :
@@ -1580,6 +1587,20 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       rcases sc with ⟨s1, s2, s3⟩
       exact s3
 
+
+  /-
+  obs → trg is sat auf fs
+
+  -- ¬ loaded ∨ obs auf fs ↔ ¬ loaded ∨ obs auf core
+  --
+  -- assume loader auf fs
+
+
+  active core → active fs
+  gegenrichtung nicht
+  -/
+
+  -- ← gilt nur falls loaded auf core
   theorem trg_obs_in_fs_iff_obs_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
     obs.cond trg.toPreTrigger cn.core ↔ obs.cond trg.toPreTrigger cn.fs := by
 
@@ -1597,9 +1618,9 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
       have sub := cn.core_sse.left
       apply Set.subset_trans h2 sub
+
+      ------
       intro ⟨i, gs, h1, h2⟩
-
-
       have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = cn.core.terms := by
         have := FactSet.terms_finite_of_finite cn.core (all_core_finite cn)
         rcases this with ⟨tl, h1, h2⟩
@@ -1619,44 +1640,57 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       have rep_hom_hom := gtm.repeat_hom_isHomomorphism cn.core (homFsToFsAlsoHomCoreToFs cn.core cn gtm gtm_hom) (rep + 1)
       have len_eq : trg.mapped_head.length = trg.rule.head.length := by exact PreTrigger.length_mapped_head trg.toPreTrigger
       have lt : ↑i < trg.mapped_head.length := by grind
-      exists i, (rep_hom ∘ (trg.subs_for_mapped_head ⟨i, lt⟩))
+
+      exists i, (rep_hom ∘ gs)
       constructor
-      intro v v_in
-      have eq : trg.subs_for_mapped_head ⟨i, lt⟩ v = trg.subs v := by apply trg.apply_to_var_or_const_frontier_var i v v_in
-      have one_more_eq : gtm.repeat_hom (rep + 1) (trg.subs v) = gtm.repeat_hom rep (gtm (trg.subs v)) := GroundTermMapping.repeat_hom_swap gtm rep (trg.subs v)
-      simp only [Function.comp_apply]
-      rw [eq]
-      simp [rep_hom]
-      rw [one_more_eq]
-      specialize h (trg.subs v) (by
-        rw [← Set.ext_iff] at tl_eq
-        specialize tl_eq (trg.subs v)
-        rcases tl_eq with ⟨tl_eq_l, tl_eq_r⟩
-        apply tl_eq_r
+      · intro v v_in
+        have eq : trg.subs_for_mapped_head ⟨i, lt⟩ v = trg.subs v := by apply trg.apply_to_var_or_const_frontier_var i v v_in
+        have one_more_eq : gtm.repeat_hom (rep + 1) (gs v) = gtm.repeat_hom rep (gtm (gs v)) := GroundTermMapping.repeat_hom_swap gtm rep (gs v)
+        simp only [Function.comp_apply]
         specialize h1 v v_in
-        rw [← eq]
-        sorry
-        )
-      exact h
+        rw [← h1]
+        simp [rep_hom]
+
+        rw [one_more_eq]
+        specialize h (gs v) (by
+          rw [← Set.ext_iff] at tl_eq
+          specialize tl_eq (gs v)
+          rcases tl_eq with ⟨tl_eq_l, tl_eq_r⟩
+
+          apply tl_eq_r
+          rw [h1]
+
+          -- trg obs in fs nicht auf core obs falls nicht loaded auf core
+          sorry
+          )
+        exact h
+
+
 
       intro f f_in
+      --apply rep_hom_hom.right
+      have rep_hom_hom' : rep_hom.isHomomorphism cn.fs cn.core := sorry
+      apply rep_hom_hom'.right
+
+
       unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list at f_in
       rw [List.mem_toSet, List.mem_map] at f_in
       rcases f_in with ⟨a, ahl, ahr⟩
-      rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ (rep_hom_hom.left)] at ahr
+      rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ (rep_hom_hom'.left)] at ahr
       rw [← ahr]
       simp only [Function.comp_apply]
-      apply rep_hom_hom.right
+      --apply rep_hom_hom.right
       unfold GroundTermMapping.applyFactSet GroundTermMapping.applyFact
       apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-      have e : trg.mapped_head[↑i].toSet = cn.core := by sorry -- ⇐ stimmt nicht ?
-      rw [← e]
-      have := PreTrigger.apply_subs_for_mapped_head_eq trg.toPreTrigger ⟨↑i, lt⟩
-      simp at this
-      have f : ((trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_atom a ∈ trg.mapped_head[i].toSet) = ((trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_atom a ∈ (trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_conj trg.rule.head[↑i]) := congrFun (congrArg Membership.mem (congrArg List.toSet (id (Eq.symm this)))) ((trg.subs_for_mapped_head ⟨↑i, lt⟩).apply_function_free_atom a)
-      rw [f]
-      apply List.mem_map_of_mem
-      exact ahl
+
+
+      --have e : trg.mapped_head[↑i].toSet = cn.core := by sorry -- ⇐ stimmt nicht, maybe ⊆ ?
+      --rw [← e]
+      apply h2
+      rw [List.mem_toSet]
+      unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list
+      rw [List.mem_map]
+      exists a
 
 
   @[grind]
@@ -1700,6 +1734,8 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         rw [List.mem_toSet] at *
         exact f_in
 
+
+  -- stimmt nicht
   theorem trgNotLoadedInSuccIfNotLoaded (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n : Nat) (trg : Trigger obs.toLaxObsoletenessCondition)
     (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + 1) = some cn_succ) :
       ¬ trg.toPreTrigger.loaded cn.core → ¬ trg.toPreTrigger.loaded cn_succ.core := by
@@ -1747,7 +1783,9 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             have ih : ¬(cn.origin.get cn_origin_some).fst.val.loaded cn'.core ∨ (obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn'.core ∧ (cn.origin.get cn_origin_some).fst.val.loaded cn'.core) := by grind
             rcases ih with trg_not_loaded | ⟨trg_obs, trg_loaded⟩
             left
-            exact trgNotLoadedInSuccIfNotLoaded cb cn' cn_next (n + k) (cn.origin.get cn_origin_some).fst.val cn'_eq cn_next_eq trg_not_loaded
+            --trigger der benutzt wurde und dann nicht loaded ist bleibt nicht loaded
+            sorry
+            --exact trgNotLoadedInSuccIfNotLoaded cb cn' cn_next (n + k) (cn.origin.get cn_origin_some).fst.val cn'_eq cn_next_eq trg_not_loaded
             right
             have := trgObsInSuccIfObs cb cn' cn_next (n + k) (cn.origin.get cn_origin_some).fst.val cn'_eq cn_next_eq
               ((trg_obs_in_fs_iff_obs_in_core cb cn' (n + k) cn'_eq (cn.origin.get cn_origin_some).fst.val).mp trg_obs)
