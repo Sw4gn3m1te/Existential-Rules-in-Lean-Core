@@ -376,15 +376,14 @@ namespace CoreChaseBranch
     contradiction
 
   @[grind]
-  theorem prev_eq_is_some_if_is_some (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
-    grind
-
-  @[grind]
-  theorem prev_is_some_if_is_some' (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : (cb.branch.infinite_list n).isSome) : ∀ m, m < n → (cb.branch.infinite_list m).isSome := by
+  theorem prev_is_some_if_is_some'' (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : (cb.branch.infinite_list n).isSome) : ∀ m, m < n → (cb.branch.infinite_list m).isSome := by
     intro m lt
     have := prev_is_some_if_is_some cb n ((Option.isSomeIffNeqNone (cb.branch.infinite_list n)).mp is_some_at) m lt
     exact (Option.isSomeIffNeqNone (cb.branch.infinite_list m)).mpr this
 
+  @[grind]
+  theorem prev_eq_is_some_if_is_some (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
+    grind
 
   @[grind]
   theorem succ_is_none_if_is_none (cb : CoreChaseBranch kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
@@ -2534,7 +2533,69 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
   theorem exChaseBranchIfExCoreChaseBranch (ccb : CoreChaseBranch kb) : ∃ scb : ChaseBranch obs kb, True := by sorry
 
-  theorem wop (S : Set Nat) (S_non_empty : S ≠ ∅) : ∃ (m : Nat), m ∈ S ∧ ∀ (n : Nat), n ∈ S → m ≤ n := by sorry
+  /-
+  theorem wop (S : Set Nat) (S_non_empty : ∃ (n : Nat), n ∈ S) : ∃ (m : Nat), m ∈ S ∧ ∀ (n : Nat), n ∈ S → m ≤ n := by
+
+    rcases S_non_empty with ⟨n, n_in⟩
+
+    by_cases c : 0 ∈ S
+    exists 0, c
+    intro n n_in
+    exact Nat.zero_le n
+
+    let S' : Set Nat := fun n => S (n + 1)
+    have S'_non_empty : ∃ (n : Nat), n ∈ S' := by
+      cases n with
+      | zero =>
+          contradiction
+      | succ n =>
+          exact ⟨n, n_in⟩
+
+    rcases (wop S' S'_non_empty) with ⟨m, m_in, mh⟩
+    exists m+1, m_in
+    intro n n_in
+    cases n with
+      | zero =>
+        contradiction
+      | succ n =>
+        exact Nat.add_le_add_right (mh n n_in) 1
+
+
+-/
+
+  theorem min_le_of_mem_set (x : Nat) (S : Set Nat) (x_in : x ∈ S) : ∃ m : Nat, m ∈ S ∧ ∀ n : Nat, n ∈ S → m ≤ n := by
+
+    let S' := (fun n => S (n + 1))
+
+    induction x generalizing S with
+    | zero =>
+        exists 0, x_in
+        intro n n_in
+        exact Nat.zero_le n
+
+    | succ x ih =>
+        by_cases c : 0 ∈ S
+
+        exists 0, c
+        intro n n_in
+        exact Nat.zero_le n
+
+        have x_in' : S' x := by exact x_in
+
+        rcases ih S' x_in' with ⟨m, hm, hmin⟩
+        exists (m+1), hm
+        intro n n_in
+        cases n with
+        | zero =>
+            contradiction
+        | succ n =>
+            exact Nat.add_le_add_right (hmin n n_in) 1
+
+
+  theorem wop (S : Set Nat) (S_non_empty : ∃ (n : Nat), n ∈ S) : ∃ (m : Nat), m ∈ S ∧ ∀ (n : Nat), n ∈ S → m ≤ n := by
+    rcases S_non_empty with ⟨n, h⟩
+    exact min_le_of_mem_set n S h
+
 
   -- ∃ (ccb : CoreChaseBranch kb), ccb.terminates' := by oder cbb im header also assumption
   theorem exTerminatingCoreChaseBranchIfExTerminatingChaseBranch (scb : ChaseBranch obs kb) (kb_det : kb.isDeterministic) (scb_term : scb.terminates) :
@@ -2615,32 +2676,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       specialize R_umod_r U U_umod.left
       exact R_umod_r
 
-    -- 7.
-    have f_first_somewhere : ∀ (f : Fact sig), f ∈ R → ∃ (n_min : Nat), f ∈ ((scb.branch.infinite_list (n_min)).get (scb_all_some (n_min))).facts.val ∧
-      ∀ (m : Nat), m < n_min → ¬ f ∈ ((scb.branch.infinite_list (m)).get (scb_all_some (m))).facts.val := by
-
-        intro f f_in_R
-        simp only [R] at f_in_R
-        unfold ChaseBranch.result at f_in_R
-        simp only [Option.is_some_and_iff] at f_in_R
-        rcases f_in_R with ⟨n, ⟨cn, cn_eq, f_in⟩⟩
-        unfold PossiblyInfiniteList.get? at cn_eq
-        let Ix := fun (n : Nat) => f ∈ ((scb.branch.infinite_list n).get (scb_all_some n)).facts.val
-        have Ix_non_empty : Ix ≠ (fun _ => False) := by
-          -- weil f exists (f_in)
-          sorry
-        -- wohlordnungssatz
-        have hmin := wop Ix Ix_non_empty
-        rcases hmin with ⟨n_min, h1, h2⟩
-        have t1 : f ∈ ((scb.branch.infinite_list n_min).get (scb_all_some n_min)).facts.val := h1
-        have t2 : ∀ n, f ∈ ((scb.branch.infinite_list n).get (scb_all_some n)).facts.val → n_min ≤ n := h2
-
-        have nin_before : ∀ (n : Nat), n < n_min → ¬ f ∈ ((scb.branch.infinite_list (n)).get (scb_all_some (n))).facts.val := by
-          intro n lt contra
-          have := h2 n contra
-          grind
-
-        exists n_min
 
     /-
 
@@ -2656,52 +2691,143 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     -/
 
 
+    -- 7.
+    have f_first_somewhere : ∀ (f : Fact sig), f ∈ R → ∃ (n_min : Nat), f ∈ ((scb.branch.infinite_list (n_min)).get (scb_all_some (n_min))).facts.val ∧
+      ∀ (m : Nat), m < n_min → ¬ f ∈ ((scb.branch.infinite_list (m)).get (scb_all_some (m))).facts.val := by
+
+        intro f f_in_R
+        simp only [R] at f_in_R
+        unfold ChaseBranch.result at f_in_R
+        simp only [Option.is_some_and_iff] at f_in_R
+        rcases f_in_R with ⟨n, ⟨cn, cn_eq, f_in⟩⟩
+        unfold PossiblyInfiniteList.get? at cn_eq
+        let Ix := fun (n : Nat) => f ∈ ((scb.branch.infinite_list n).get (scb_all_some n)).facts.val
+        have Ix_non_empty : ∃ (n : Nat), Ix n := by
+          -- weil f exists (f_in)
+          sorry
+        -- well ordering principle
+        have hmin := wop Ix Ix_non_empty
+        rcases hmin with ⟨n_min, h1, h2⟩
+        have t1 : f ∈ ((scb.branch.infinite_list n_min).get (scb_all_some n_min)).facts.val := h1
+        have t2 : ∀ n, f ∈ ((scb.branch.infinite_list n).get (scb_all_some n)).facts.val → n_min ≤ n := h2
+
+        have nin_before : ∀ (n : Nat), n < n_min → ¬ f ∈ ((scb.branch.infinite_list (n)).get (scb_all_some (n))).facts.val := by
+          intro n lt contra
+          have := h2 n contra
+          grind
+
+        exists n_min
 
 
-
-    unfold terminates at contra
-    simp only [not_exists] at contra
-    have core_cb_all_some : ∀ (n : Nat), (cb.branch.infinite_list n).isSome := fun n => (fun {α} o => (Option.isSomeIffNeqNone o).mpr) (cb.branch.infinite_list n) (contra n)
-    have ex_inf_sc : ∀ (std_cb : ChaseBranch obs kb), ¬ std_cb.terminates := by sorry -- contraposition of ∃ finite SC → ∃ finite CC
-    let std_cb : ChaseBranch obs kb := sorry
-    specialize ex_inf_sc std_cb
-    have std_cb_all_some : ∀ (n : Nat), (std_cb.branch.infinite_list n).isSome := by
-      unfold ChaseBranch.terminates at ex_inf_sc
+    -- 8.
+    -- warum is monotonicity so komisch def dass @n ⊆ @ n + (n + 1)
+    have monotonicity : ∀ (n : Nat), ((scb.branch.infinite_list (n)).get (scb_all_some (n))).facts.val ⊆ ((scb.branch.infinite_list (n+1)).get (scb_all_some (n+1))).facts.val := by
+      intro n f f_in
+      have ex_scn : ∃ (scn : ChaseNode obs kb.rules), scb.branch.infinite_list n = some scn := Option.isSome_iff_exists.mp (scb_all_some n)
+      have ex_scn_succ : ∃ (scn : ChaseNode obs kb.rules), scb.branch.infinite_list (n + (n + 1)) = some scn := Option.isSome_iff_exists.mp (scb_all_some (n + (n + 1)))
+      rcases ex_scn with ⟨scn, scn_eq⟩
+      rcases ex_scn_succ with ⟨scn_succ, scn_succ_eq⟩
+      have subsetAllFollowing := ChaseBranch.stepIsSubsetOfAllFollowing scb n scn scn_eq (n+1)
+      rw [Option.is_none_or_iff] at subsetAllFollowing
+      specialize subsetAllFollowing scn_succ scn_succ_eq
+      have : ((scb.branch.infinite_list n).get (scb_all_some n)) = scn := Option.get_of_eq_some (scb_all_some n) scn_eq
+      rw [← this] at subsetAllFollowing
+      specialize subsetAllFollowing f f_in
       sorry
-    let R := std_cb.result
-    have R_umod : R.universallyModelsKb kb := by
+
+    have ex_hom_U_An : ∃ (n : Nat) (gtm : GroundTermMapping sig), gtm.isHomomorphism U ((scb.branch.infinite_list n).get (scb_all_some n)).facts.val := by
+
+      --1
+      rcases hom_U_R with ⟨gtm_U_R, gtm_U_R_hom⟩
+
+      --2
+      have t1 : ∀ (f : Fact sig), f ∈ U → (gtm_U_R.applyFact f) ∈ R := by sorry
+
+      have t2 : ∀ (f : Fact sig), f ∈ U → ∃ (n : Nat), (gtm_U_R.applyFact f) ∈ ((scb.branch.infinite_list n).get (scb_all_some n)).facts.val := by sorry
+      sorry
+
+
+    -- 9.
+    rcases ex_hom_U_An with ⟨n_max, ⟨gtm_U_An, gtm_U_An_hom⟩⟩
+
+    let An := ((scb.branch.infinite_list n_max).get (scb_all_some n_max)).facts.val
+
+    have ex_hom_An_U : ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism An U := by
+
+      have sub : An ⊆ R := by
+        have := ChaseBranch.stepIsSubsetOfResult scb n_max
+        rw [Option.is_none_or_iff] at this
+        exact this ((scb.branch.infinite_list n_max).get (scb_all_some n_max)) (Option.eq_some_of_isSome (scb_all_some n_max))
+
+      have ex_gtm_An_R := exHomSubToSet An R sub
+      rcases ex_gtm_An_R with ⟨gtm_An_R, gtm_An_R_hom⟩
+      rcases hom_R_U with ⟨gtm_R_U, gtm_R_U_hom⟩
+      exists (gtm_R_U ∘ gtm_An_R)
+      apply GroundTermMapping.isHomomorphism_compose gtm_An_R gtm_R_U An R U gtm_An_R_hom gtm_R_U_hom
+
+
+    -- 10. --> how even ?
+    have ex_ccb_with_An_core : ∃ (ccb_with_An_core : CoreChaseBranch kb) (m : Nat), ((ccb_with_An_core.branch.infinite_list m).get sorry).core.homSubset An := by sorry
+
+    -- 11.
+    -- core calc only necc after fin steps
+
+    -- für jeden step in der scb kann man einen core berechen
+    have ex_core_of_scn_step (scb : ChaseBranch obs kb) (n : Nat) (scn : ChaseNode obs kb.rules) (scn_eq : scb.branch.infinite_list n = some scn) :
+      ∃ (c : FactSet sig), c.isWeakCore ∧ c.homSubset scn.facts.val := by
+        have scn_fs_fin : scn.facts.val.finite := by sorry
+        rcases scn_fs_fin with ⟨scn_fsl, scn_fsl_nodup, scn_fsl_eq⟩
+        have ex_wc_sub := FactSet.exists_weak_core_for_finite_set scn_fsl.length scn_fsl rfl
+        rcases ex_wc_sub with ⟨c, wc, sub, ⟨gtm, gtm_hom⟩⟩
+        exists c
+        constructor
+        exact wc
+        have eq : scn_fsl.toSet = scn.facts.val := Set.ext scn_fsl.toSet scn.facts.val scn_fsl_eq
+        rw [← eq]
+        exact ⟨sub, Exists.intro gtm gtm_hom⟩
+
+
+    -- nehme den core den man aus der stelle n im scn berechnet hat
+    rcases (ex_core_of_scn_step scb n_max ((scb.branch.infinite_list n_max).get (scb_all_some n_max)) (Option.eq_some_of_isSome (scb_all_some n_max))) with ⟨An_core, An_core_wc, An_core_homsub⟩
+
+    -- es gibt eine stelle im ccb wo der core gleich (nur isomorph ?) zum scn_core (aus der zeile drüber) ist
+    have : ∃ (n : Nat), ((ccb.branch.infinite_list n).get sorry).core = An_core := by sorry
+
+    -- variante mit iso, ist iso def correct ?
+    have scn_core_iso_some_ccb_core : ∃ (n : Nat) (iso : GroundTermMapping sig), iso.isIsomorphism An_core ((ccb.branch.infinite_list n).get sorry).core := by sorry
+
+
+    -- 12.
+
+    have ex_U_core : ∃ (c : FactSet sig), c.isWeakCore ∧ c.homSubset U := by
+      rcases U_fin with ⟨Ul, Ul_nodup, Ul_eq⟩
+      have ex_wc_sub := FactSet.exists_weak_core_for_finite_set Ul.length Ul rfl
+      rcases ex_wc_sub with ⟨c, wc, sub, ⟨gtm, gtm_hom⟩⟩
+      exists c
       constructor
-      exact ChaseBranch.result_models_kb std_cb
-      sorry -- deterministicChaseBranchResultUniversallyModelsKb
+      exact wc
+      have eq : Ul.toSet = U := Set.ext Ul.toSet U Ul_eq
+      rw [← eq]
+      exact ⟨sub, Exists.intro gtm gtm_hom⟩
 
-    have hom_U_R : ∃ (h : GroundTermMapping sig), h.isHomomorphism U R := by sorry -- by universality
-    have hom_R_U : ∃ (h : GroundTermMapping sig), h.isHomomorphism R U := by sorry -- by universality
+    rcases ex_U_core with ⟨U_core, U_core_wc, U_core_homsub⟩
 
-    have f_first_somewhere : ∀ (f : Fact sig), f ∈ U → ∃ (n : Nat), f ∈ ((std_cb.branch.infinite_list (n + 1)).get (std_cb_all_some (n + 1))).facts.val ∧
-      ¬ f ∈ ((std_cb.branch.infinite_list (n)).get (std_cb_all_some (n))).facts.val := sorry
+    have core_An_iso_core_U : ∃ (iso : GroundTermMapping sig), iso.isIsomorphism An_core U_core ∧ U_core.homSubset U := by sorry
 
-    have hom_U_some_An : ∃ (n : Nat) (h : GroundTermMapping sig), h.isHomomorphism U ((std_cb.branch.infinite_list n).get (std_cb_all_some n)).facts.val := by sorry
+    have An_umod : An_core.universallyModelsKb kb := by sorry
 
-    rcases hom_U_some_An with ⟨n_An, hom_U_An, hom_U_An_hom⟩
+    rcases ex_ccb_with_An_core with ⟨constructed_ccb, location_of_homsub_of_An_in_constructed_ccb, is_homsub⟩
 
-    let An := ((std_cb.branch.infinite_list n_An).get (std_cb_all_some n_An)).facts.val
+    have mod_term : ∀ (n : Nat), (((constructed_ccb.branch.infinite_list n).get sorry).core.universallyModelsKb kb) → constructed_ccb.terminates_at_step n := by sorry
 
-    have hom_An_U : ∃ (h : GroundTermMapping sig), h.isHomomorphism An U := by sorry -- by subset
 
-    have ex_cc_with_an_core : ∃ (cb_with_an_core : CoreChaseBranch kb) (m : Nat), ((cb.branch.infinite_list m).get (core_cb_all_some m)).core.homSubset An := by sorry
+    rcases An_umod with ⟨An_mod, An_univ⟩
 
-    rcases ex_cc_with_an_core with ⟨cc_with_an_core, an_core_index, is_an_core⟩
+    --specialize An_univ U U_umod.left
 
-    let An_core := ((cc_with_an_core.branch.infinite_list an_core_index).get (by sorry)).core
+    specialize mod_term location_of_homsub_of_An_in_constructed_ccb sorry
 
-    have ex_isom_U_core : ∃ (U_core : FactSet sig) (h : GroundTermMapping sig), h.isIsomorphism (U_core) An_core ∧ U_core.homSubset U := by sorry
-
-    have an_umod : An_core.universallyModelsKb kb := by sorry
-
-    have : ∀ (n : Nat), (((cc_with_an_core.branch.infinite_list n).get (by sorry)).core.universallyModelsKb kb) → cc_with_an_core.terminates_at_step n := by sorry
-
-    specialize this an_core_index an_umod
-
+    sorry
 
     -- contradiction
 
