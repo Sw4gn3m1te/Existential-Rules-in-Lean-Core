@@ -1828,7 +1828,23 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             rcases ih' with trg_not_loaded | ⟨trg_obs_k_core, trg_loaded_k_core⟩
 
             intro ⟨trg_loaded_succ, trg_non_obs_succ⟩
-            have t_mem : ∃ (t : GroundTerm sig), t ∈ cn.core.terms ∧ ¬ t ∈ cn_k.core.terms ∧ t ∈ cn_succ.core.terms := by sorry
+            have t_mem : ∃ (t : GroundTerm sig), t ∈ cn.core.terms ∧ ¬ t ∈ cn_k.core.terms ∧ t ∈ cn_succ.core.terms := by
+              have gt : n > 0 := by sorry
+              have trg_active_cn : (cn.origin.get cn_origin_some).fst.val.active cn.core := by
+                have ex_cn_1 : ∃ (cn_1 : CoreChaseNode kb.rules), cb.branch.infinite_list (n + 1) = some cn_1 := by
+                  have := prev_is_some_if_is_some' cb (n + (k + 1)) cn_succ cn_succ_eq (n + 1) (by grind)
+                  exact Option.ne_none_iff_exists'.mp this
+                rcases ex_cn_1 with ⟨cn_1, cn_1_eq⟩
+                have := origin_trg_is_active_core cb (n-1) sorry sorry
+                unfold prev_node at this
+
+
+
+
+
+
+              sorry
+
             rcases t_mem with ⟨t, t_in_cn, t_in_cn_k, t_in_cn_succ⟩
             cases eq : t with
               | const c =>
