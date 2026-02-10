@@ -1525,6 +1525,17 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
   -- jeder surjektive endomorphisms auf endlichen mengen ist auch ein isomorphismus
 
+  @[grind]
+  theorem FactGeneralizedAtomEq (f : Fact sig) (ga : GeneralizedAtom sig (GroundTerm sig)) : f = ga ↔ f.predicate = ga.predicate ∧ f.terms = ga.terms := by
+      constructor
+      intro eq
+      rw [eq]
+      exact ⟨rfl, rfl⟩
+      intro ⟨eq_p, eq_t⟩
+      rw [GeneralizedAtom.mk.injEq]
+      exact ⟨eq_p, eq_t⟩
+
+  @[grind]
   theorem applyFactSetIdEq (fs : FactSet sig) : fs = GroundTermMapping.applyFactSet id fs := by
     unfold GroundTermMapping.applyFactSet TermMapping.apply_generalized_atom_set
     apply Set.ext
@@ -1543,18 +1554,21 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     apply Classical.byContradiction
     intro contra
     have neq : ga ≠ f := ne_of_mem_of_not_mem ga_in contra
-    have := GeneralizedAtom.mk.injEq f.predicate f.terms sorry ga.predicate ga.terms sorry
+    have := FactGeneralizedAtomEq f ga
+    rw [← this] at ga_eq
+    exact neq (id (Eq.symm ga_eq))
 
-    -- ga = f thus contra
 
-    sorry
-
-  theorem prevNodeEqDbIfOriginNone (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (cn_origin_some : cn.origin.isNone) :
+  theorem prevNodeEqDbIfOriginNone (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (cn_origin_none : cn.origin.isNone) :
     cn.fs = kb.db.toFactSet ∧ cn.core = kb.db.toFactSet := by
-      apply Classical.byContradiction
-      intro contra
-      rw [Classical.not_and_iff_not_or_not] at contra
-      sorry
+      by_cases c : n = 0
+      have := cb.database_first
+      subst c
+      grind
+      have gt : n > 0 := Nat.zero_lt_of_ne_zero c
+      have eq : n - 1 + 1 = n := Nat.sub_add_cancel gt
+      have := @origin_isSome _ _ _ _ _ cb (n - 1) cn (by rw [eq]; exact cn_eq)
+      grind
 
   @[grind]
   theorem exPrevCoreChaseNodeIfOriginIsSome (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (cn_origin_some : cn.origin.isSome) :
@@ -1771,30 +1785,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       exact trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn n cn_eq trg ⟨trg_obs, trg_loaded_core⟩
 
 
-  theorem trgObsInSuccIfObs (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n : Nat) (trg : Trigger obs.toLaxObsoletenessCondition)
-    (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + 1) = some cn_succ) :
-      obs.cond trg.toPreTrigger cn.fs → obs.cond trg.toPreTrigger cn_succ.fs := by
-
-        simp only [obs, RestrictedObsoleteness]
-        unfold PreTrigger.satisfied
-        intro ⟨i, gs, h1, h2⟩
-        have s := (cn_succ.origin.get (by exact origin_isSome cb n cn_succ_eq)).fst.val.subs
-        rcases (exHomFsCore cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
-        have len_eq : trg.mapped_head.length = trg.rule.head.length := by exact PreTrigger.length_mapped_head trg.toPreTrigger
-        have lt : ↑i < trg.mapped_head.length := by grind
-        exists i, gs
-        constructor
-        intro v v_in
-        exact h1 v v_in
-        intro f f_in
-        have sub1 : cn.core ⊆ cn_succ.fs := prevCoreSubsetOfFactset cb n cn_succ cn_eq cn_succ_eq
-        specialize h2 f
-        apply sub1
-        sorry
-        --apply h2
-        --rw [List.mem_toSet] at *
-        --exact f_in
-
   theorem triggerInactiveAfterApplication (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
     (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + k) = some cn_succ) (cn_origin_some : cn.origin.isSome) :
       ¬ (cn.origin.get cn_origin_some).fst.val.active cn_succ.core := by
@@ -1825,7 +1815,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
             unfold Trigger.active at ih
             have ih' : ¬(cn.origin.get cn_origin_some).fst.val.loaded cn_k.core ∨ (obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn_k.core ∧ (cn.origin.get cn_origin_some).fst.val.loaded cn_k.core) := by grind
-            rcases ih' with trg_not_loaded | ⟨trg_obs_k_core, trg_loaded_k_core⟩
+            rcases ih' with trg_not_loaded_k | ⟨trg_obs_k_core, trg_loaded_k_core⟩
 
             intro ⟨trg_loaded_succ, trg_non_obs_succ⟩
             have t_mem : ∃ (t : GroundTerm sig), t ∈ cn.core.terms ∧ ¬ t ∈ cn_k.core.terms ∧ t ∈ cn_succ.core.terms := by
@@ -1835,14 +1825,20 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                   have := prev_is_some_if_is_some' cb (n + (k + 1)) cn_succ cn_succ_eq (n + 1) (by grind)
                   exact Option.ne_none_iff_exists'.mp this
                 rcases ex_cn_1 with ⟨cn_1, cn_1_eq⟩
-                have := origin_trg_is_active_core cb (n-1) sorry sorry
-                unfold prev_node at this
+                have := cb.origin_trg_is_active_core n cn sorry -- ← Def is giga sus ඞ
+                sorry
 
+              have l1 := trg_active_cn.left
+              have l2 := trg_not_loaded_k
+              have l3 := trg_loaded_succ
 
+              unfold PreTrigger.loaded at l1 l2 l3
+              have s1 := FactSet.terms_subset_of_subset cn.core_sse.left
+              have s2 := FactSet.terms_subset_of_subset cn_k.core_sse.left
+              have s3 := FactSet.terms_subset_of_subset cn_succ.core_sse.left
 
-
-
-
+              have ex_f_nin : ∃ (f : Fact sig), f ∈ (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ∧ ¬ f ∈ cn_k.core := by sorry -- usually with → but ∧ if premise non empty
+              rcases ex_f_nin with ⟨f, f_in, f_nin⟩
               sorry
 
             rcases t_mem with ⟨t, t_in_cn, t_in_cn_k, t_in_cn_succ⟩
@@ -1865,7 +1861,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 have f_nin_cn_k_fs : ¬ f ∈ cn_k.fs := by
                   -- f enthält t von welchem wir wissen, dass es nicht in cn_k.fs ist daher kann t nicht in cn_k.fs.terms sein
                   sorry
-
                 contradiction
 
               | func func ts arity_ok =>
@@ -1875,12 +1870,21 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 have lt' : m < n + k + 1 := Nat.lt_add_right (k + 1) lt
                 have lt'' : m + k < n + k + 1 := Nat.lt_succ_of_lt (Nat.add_lt_add_right lt k)
 
-                have m_origin_some : ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')).origin.isSome := by grind
+                cases Decidable.em (m > 0) with
+                  | inl gt =>
+                    have m_origin_some : ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')).origin.isSome := by
+                      have := prev_is_some_if_is_some'' cb (n + k + 1) (Option.castisSomeIfEqSome (cb.branch.infinite_list (n + k + 1)) cn_succ cn_succ_eq) m lt'
+                      have := @origin_isSome _ _ _ _ _ cb n ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')) sorry
+                      exact this
+                    apply triggerInactiveAfterApplication cb ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')) ((cb.branch.infinite_list (m + k)).get (some_prev_nk1 (m + k) lt''))
+                       m k (Option.eq_some_of_isSome (some_prev_nk1 m lt')) (Option.eq_some_of_isSome (some_prev_nk1 (m + k) lt'')) m_origin_some ?_
+                    sorry
+                  | inr eq =>
+                    have eq : m = 0 := Nat.eq_zero_of_not_pos eq
 
-                apply triggerInactiveAfterApplication cb ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')) ((cb.branch.infinite_list (m + k)).get (some_prev_nk1 (m + k) lt''))
-                   m k (Option.eq_some_of_isSome (some_prev_nk1 m lt')) (Option.eq_some_of_isSome (some_prev_nk1 (m + k) lt'')) m_origin_some ?_
+                    -- m_origin_some not given, thus theorem not recurively applicable :c
 
-                sorry
+                    sorry
 
             ---------
             intro contra
