@@ -440,7 +440,4 @@ namespace CoreChaseBranch
           rw [init_eq'] at f_in
           exact db_funfree f f_in
 
-
-
-
 end CoreChaseBranch

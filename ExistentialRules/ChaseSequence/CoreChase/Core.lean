@@ -533,6 +533,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       exact trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn n cn_eq trg ⟨trg_obs, trg_loaded_core⟩
 
 
+
   theorem triggerInactiveAfterApplication (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
     (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + k) = some cn_succ) (cn_origin_some : cn.origin.isSome) :
       ¬ (cn.origin.get cn_origin_some).fst.val.active cn_succ.core := by
@@ -585,8 +586,85 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               have s2 := FactSet.terms_subset_of_subset cn_k.core_sse.left
               have s3 := FactSet.terms_subset_of_subset cn_succ.core_sse.left
 
-              have ex_f_nin : ∃ (f : Fact sig), f ∈ (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ∧ ¬ f ∈ cn_k.core := by sorry -- usually with → but ∧ if premise non empty
+              have ex_f_nin : ∃ (f : Fact sig), f ∈ (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ∧ ¬ f ∈ cn_k.core := by
+                unfold Subset instHasSubsetSet at l2
+                simp at l2
+                exact l2
+
+
+
               rcases ex_f_nin with ⟨f, f_in, f_nin⟩
+
+              have all_terms_sub : ∀ (t : GroundTerm sig), t ∈ FactSet.terms (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet → t ∈ cn_k.core.terms := by sorry
+              --apply Classical.byContradiction
+
+
+
+
+              --intro contra
+              --simp only [not_exists, Classical.not_and_iff_not_or_not, Classical.not_not] at contra
+
+              /-
+              Was wir zeigen wollen ist: `∃ t, t ∈ cn.core.terms ∧ ¬t ∈ cn_k.core.terms ∧ t ∈ cn_succ.core.terms`
+
+              gleiche (oder mehr) terme aber weniger fakten (⊈)
+              -> es gibt einen Fakt in A der nicht in B ist (∃ f, f ∈ A ∧ f ∉ B)
+                -> der neu entstehende fakt mit einer neuen null muss mandatory keep sein und einen alten ersetzen
+
+              -> B enthält alle Terme aus A (A.terms ⊆ B.terms)
+
+
+              σ_1 : P(x,y) → ∃z, Q(y,z)
+              σ_2 : Q(x,y) → P(y,x)
+              σ_3 : P(x,y), Q(y,z), P(z,y) → ∃w, R(y,w), Q(w,w)
+
+              σ_3'​ : P(x,y), Q(y,z), P(z,y) → ∃(w v), R(y,w), Q(z,z), T(v,v)
+
+              σ_3'' : P(x,y), Q(y,z), P(z,y), T(v,v) → ∃w, R(y,w), Q(z,z), T(z,z), G(v)
+
+
+              σ_4 : P(x,y), Q(y, z), P(z, y) → ∃w, G(x,y,z,w) 
+
+
+              I_0 = {P(a,b), T(c,c)}
+              I_1 = {P(a,b), T(c,c), Q(b,n_1)} (σ_1)
+              I_2 = {P(a,b), T(c,c), Q(b, n_1), P(n_1, b)} (σ_2)
+
+
+              mit σ_1
+              I_3 = {P(a,b), Q(b, n_1), P(n_1, b), `Q(b, n_2)`} -> n_1 ↦ n_2 -> core(I_3) = {P(a,b), Q(b, n_1), P(n_1, b)}
+              I_2.terms = {a,b,n_1} = core(I_3).terms = {a,b,n_1}
+
+              mit σ_3
+              I_3 = {P(a,b), Q(b, n_1), P(n_1, b), R(b, n_2), Q(n_2, n_2)} = core(I_3)
+              I_2.terms = {a,b,n_1} ≠ I_3.terms = {a,b,n_1,n_2} -> I_2.terms ⊆ I_3.terms
+
+              mit σ_3'
+              I_3 ​ = {P(a,b), T(c,c), Q(b,n_1​), P(n_1​,b), R(b,n_2​), Q(n_2​,n_2​), T(n_3,n_3)}  mit core(I_3) = {P(a,b), T(c,c) Q(b,n_1​), P(n_1​,b), R(b,n_2​)}
+              Fact removed: T(n_3, n_3) (T(c, c) muss bleiben da orginal)
+
+              mit σ_3''
+              I_3 ​ = {P(a,b), T(c,c), Q(b,n_1​), P(n_1​,b), R(b,n_2​), Q(n_2​,n_2​), T(n_2,n_2), G(c)}  mit core(I_3) = {P(a,b), Q(b,n_1), P(n_1,b), R(b,n_2), Q(n_2,n_2), T(c,c), G(c)}
+              Fact removed: T(c, c)
+
+
+
+
+
+
+
+
+
+              I_0 = {All(a,b,c,...), P(a,b), P(b,a)} -> I_0.terms = {a,b,c...} (alle Terme) [kann es so ein All() Fakt geben ?]
+
+              I_1 = {All(), R(n)}
+
+
+
+              -/
+
+              have : ∃ (cm : CoreChaseNode kb.rules) (m : Nat), (m ≤ k) → f ∈ ((cb.branch.infinite_list (n+m)).get sorry).fs ∧ ¬ f ∈ ((cb.branch.infinite_list (n+m)).get (by sorry)).core := by sorry
+
               sorry
 
             rcases t_mem with ⟨t, t_in_cn, t_in_cn_k, t_in_cn_succ⟩
