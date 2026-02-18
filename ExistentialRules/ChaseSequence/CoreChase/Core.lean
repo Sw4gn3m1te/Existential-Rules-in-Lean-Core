@@ -561,6 +561,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               rcases ex_cnm with ⟨cnm, cnm_eq⟩
               have f_in_cnm : f ∈ cnm.core := by -- else the other cases wouldve been applied
                 have : (f ∈ cn.fs ∧ ¬ f ∈ cn.core) ∨ (f ∈ cn_succ.fs ∧ ¬ f ∈ cn_succ.core) := by
+                  
                   sorry
                 rcases this with ⟨lhs1, lhs2⟩ | ⟨rhs1, rhs2⟩
                 contradiction
@@ -702,7 +703,11 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
 
               -/
-              have ex_cm := exIntermeadiateCoreChaseNodeIfFactMissing cb cn cn_k n k cn_eq cn_k_eq f sorry f_nin
+              have f_in' : f ∈ cn.core := by
+                have : (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ⊆ cn.core := by grind
+                exact l1 f f_in
+
+              have ex_cm := exIntermeadiateCoreChaseNodeIfFactMissing cb cn cn_k n k cn_eq cn_k_eq f f_in' f_nin
 
 
               rcases ex_cm with ⟨cm, f_in_cm, f_nin_cm⟩
@@ -1055,7 +1060,10 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
                         rcases ex_gtm with ⟨gtm, gtm_hom, gtm_endo, gtm_surj⟩
 
-                        have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = prev_node.core.terms := by sorry
+                        have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = prev_node.core.terms := by
+                          have := Set.exListOfSetIfFin prev_node.core.terms sorry
+                          sorry
+
                         rcases ex_eq_list with ⟨tl, tl_eq⟩
                         have gtm_surj_list : Function.surjective_for_domain_and_image_list gtm tl tl := by sorry
                         have ex_reps := gtm.exists_repetition_that_is_inverse_of_surj tl gtm_surj_list
@@ -1518,7 +1526,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     rcases S_non_empty with ⟨n, h⟩
     exact min_le_of_mem_set n S h
 
-
   -- ∃ (ccb : CoreChaseBranch kb), ccb.terminates' := by oder cbb im header also assumption
   theorem exTerminatingCoreChaseBranchIfExTerminatingChaseBranch (scb : ChaseBranch obs kb) (kb_det : kb.isDeterministic) (scb_term : scb.terminates) :
     ∃ (ccb : CoreChaseBranch kb), ccb.terminates' := by
@@ -1534,7 +1541,24 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         unfold FactSet.universallyModelsKb at this
         exact this.right
 
-      have final_scn_eq : final_scn.facts = R := by sorry
+      have final_scn_eq : final_scn.facts = R := by
+        subst R
+        unfold ChaseBranch.result
+        apply Set.ext
+        intro f
+        constructor
+        intro f_in
+        exists n_ter
+        rw [Option.is_some_and_iff]
+        exists final_scn
+        intro ⟨n, h⟩
+        rw [Option.is_some_and_iff] at h
+        rcases h with ⟨h1, h2, h3⟩
+        sorry
+
+
+
+
 
       have final_scn_umod : final_scn.facts.val.universallyModelsKb kb := by grind
 
