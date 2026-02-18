@@ -385,11 +385,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     specialize this t
     exact id (Eq.symm this)
 
-  @[grind]
-  theorem exListOfSetIfFin (S : Set α) (fin : S.finite) : ∃ (l : List α), ∀ e, e ∈ l ↔ e ∈ S := by
-    rcases fin with ⟨l, l_nodup, l_eq⟩
-    exact Exists.intro l l_eq
-
   theorem trg_obs_in_core_if_obs_in_fs_and_loaded_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
       (obs.cond trg.toPreTrigger cn.fs) ∧ (trg.loaded cn.core) → obs.cond trg.toPreTrigger cn.core := by
         simp only [obs, RestrictedObsoleteness]
@@ -433,29 +428,25 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         specialize h (gs v) (by
           rw [← Set.ext_iff] at tl_eq
           specialize tl_eq (gs v)
-          rcases tl_eq with ⟨tl_eq_l, tl_eq_r⟩
-
-          apply tl_eq_r
+          rw [← List.mem_toSet, tl_eq]
           rw [h1]
-          unfold PreTrigger.loaded at trg_loaded
-          have ex_cnl : ∃ (cnl : List (Fact sig)), ∀ e, (e ∈ cnl ↔ e ∈ cn.core) := exListOfSetIfFin cn.core (all_core_finite cn)
-          rcases ex_cnl with ⟨cn_core_l, cn_core_l_eq⟩
-          rename_i a b c
           have terms_sub := FactSet.terms_subset_of_subset cn.core_sse.left
-          have t1 := @FactSet.mem_terms_toSet sig a b c cn_core_l (trg.subs v)
+          have ex_cnl : ∃ (cnl : List (Fact sig)), ∀ e, (e ∈ cnl ↔ e ∈ cn.core) := Set.exListOfSetIfFin cn.core (all_core_finite cn)
+          rcases ex_cnl with ⟨cn_core_l, cn_core_l_eq⟩
           have eq : cn_core_l.toSet = cn.core := Set.ext cn_core_l.toSet cn.core cn_core_l_eq
+          have t1 := @FactSet.mem_terms_toSet _ _ _ _ cn_core_l (trg.subs v)
           rw [eq] at t1
           rw [t1]
           have t2 := PreTrigger.mem_terms_mapped_body_iff trg.toPreTrigger (trg.subs v)
-          have eq2 : cn_core_l = trg.mapped_body := by sorry
+          have eq2 : cn_core_l = trg.mapped_body := by
+            sorry
           rw [eq2, t2]
+          have := @Rule.frontier_subset_vars_body _ _ _ _ trg.rule
           right
           exists v
           constructor
-          sorry
+          exact this v_in
           rfl
-          -- trg obs in fs nicht auf core obs falls nicht loaded auf core
-          -- there is some v in frontier, thus there must be some fact containing fs s.t. trg.subs v in core ?
           )
         exact h
 
@@ -500,15 +491,13 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         rw [List.mem_map]
         exists a
 
-
-  -- ← gilt nur falls loaded auf core
   theorem trg_obs_in_fs_if_obs_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
     obs.cond trg.toPreTrigger cn.core → obs.cond trg.toPreTrigger cn.fs := by
       simp only [obs, RestrictedObsoleteness]
       unfold PreTrigger.satisfied
       rcases (exHomFsCore cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
       intro ⟨i, gs, h1, h2⟩
-      exists i, gs -- ⇐ maybe (gtm ∘ gs) ?
+      exists i, gs
       constructor
       intro v v_in
       exact h1 v v_in
@@ -531,6 +520,57 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       exact cn.core_sse.left e contra
       right
       exact trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn n cn_eq trg ⟨trg_obs, trg_loaded_core⟩
+
+  theorem exIntermeadiateCoreChaseNodeIfFactMissing (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + k) = some cn_succ)
+    (f : Fact sig) (f_in : f ∈ cn.core) (f_nin : ¬ f ∈ cn_succ.core) :
+      ∃ (cm : CoreChaseNode kb.rules), f ∈ cm.fs ∧ ¬ f ∈ cm.core := by
+
+      cases Decidable.em (k = 0) with
+        | inl zero =>
+          have eq : cn = cn_succ := by grind
+          subst eq
+          contradiction
+
+        | inr neq1 =>
+          cases Decidable.em (k = 1) with
+            | inl one =>
+              apply Classical.byContradiction
+              intro contra
+              simp only [not_exists, not_and, Classical.not_not] at contra
+              apply f_nin
+              by_cases c : f ∈ cn_succ.fs
+              specialize contra cn_succ c
+              exact contra
+              have sub : cn.core ⊆ cn_succ.fs := by
+                exact prevCoreSubsetOfFactset cb n cn cn_succ cn_eq (by rw [one] at cn_succ_eq; exact cn_succ_eq)
+              exact contra cn_succ (sub f f_in)
+
+            | inr neq2 =>
+              by_cases c : (f ∈ cn_succ.fs)
+              exists cn_succ
+              have : ∃ (m : Nat), k = m + 1 := by
+                exists (k - 1)
+                grind
+
+              rcases this with ⟨m, m_eq⟩
+              have ex_cnm : ∃ (cm : CoreChaseNode kb.rules), (cb.branch.infinite_list (n + 1)) = some cm := by
+                have lt : n + 1 < n + k := by grind
+                have := prev_is_some_if_is_some'' cb (n + k) (Option.isSome_of_mem cn_succ_eq) (n+1) lt
+                exact Option.isSome_iff_exists.mp this
+
+              rcases ex_cnm with ⟨cnm, cnm_eq⟩
+              have f_in_cnm : f ∈ cnm.core := by -- else the other cases wouldve been applied
+                have : (f ∈ cn.fs ∧ ¬ f ∈ cn.core) ∨ (f ∈ cn_succ.fs ∧ ¬ f ∈ cn_succ.core) := by
+                  sorry
+                rcases this with ⟨lhs1, lhs2⟩ | ⟨rhs1, rhs2⟩
+                contradiction
+                contradiction
+
+              rw [m_eq] at cn_succ_eq
+              have := exIntermeadiateCoreChaseNodeIfFactMissing cb cnm cn_succ (n + 1) m cnm_eq (by grind) f f_in_cnm f_nin
+              exact this
+
+
 
 
 
@@ -623,7 +663,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               σ_3'' : P(x,y), Q(y,z), P(z,y), T(v,v) → ∃w, R(y,w), Q(z,z), T(z,z), G(v)
 
 
-              σ_4 : P(x,y), Q(y, z), P(z, y) → ∃w, G(x,y,z,w) 
+              σ_4 : P(x,y), Q(y, z), P(z, y) → ∃w, G(x,y,z,w)
 
 
               I_0 = {P(a,b), T(c,c)}
@@ -662,8 +702,11 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
 
               -/
+              have ex_cm := exIntermeadiateCoreChaseNodeIfFactMissing cb cn cn_k n k cn_eq cn_k_eq f sorry f_nin
 
-              have : ∃ (cm : CoreChaseNode kb.rules) (m : Nat), (m ≤ k) → f ∈ ((cb.branch.infinite_list (n+m)).get sorry).fs ∧ ¬ f ∈ ((cb.branch.infinite_list (n+m)).get (by sorry)).core := by sorry
+
+              rcases ex_cm with ⟨cm, f_in_cm, f_nin_cm⟩
+
 
               sorry
 
@@ -718,7 +761,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             have trg_loaded_cn_succ_core := contra.left
 
             have trg_obs_succ_fs : obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn_succ.fs := by
-              have := @prevCoreSubsetOfFactset _ _ _ _ _ cn_k cb (n + k) cn_succ cn_k_eq cn_succ_eq
+              have := prevCoreSubsetOfFactset cb (n + k) cn_k cn_succ cn_k_eq cn_succ_eq
               exact obs.monotone (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn_k.core cn_succ.fs this trg_obs_k_core
 
             have := trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn_succ (n + (k + 1)) cn_succ_eq ((cn.origin.get cn_origin_some).fst.val) ⟨trg_obs_succ_fs, trg_loaded_cn_succ_core⟩
@@ -1748,12 +1791,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
     --have every_trig : ∀ (n : Nat), exists_trigger_opt_fs_core obs kb.rules ((cb.branch.infinite_list n).get sorry) (cb.branch.infinite_list (n+1)) := by sorry
 
-
-  theorem main_rhs (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : (cb.result ter').universallyModelsKb kb := by
-    constructor
-    exact cbResultModelsKb cb ter'
-    apply coreChaseResultIsUniversal cb ter'
-    sorry
 
 end CoreChaseBranch
 

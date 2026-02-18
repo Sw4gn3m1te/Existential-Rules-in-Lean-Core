@@ -112,4 +112,9 @@ namespace Set
     intro e
     grind
 
+  @[grind]
+  theorem exListOfSetIfFin (S : Set α) (fin : S.finite) : ∃ (l : List α), ∀ e, e ∈ l ↔ e ∈ S := by
+    rcases fin with ⟨l, l_nodup, l_eq⟩
+    exact Exists.intro l l_eq
+
 end Set

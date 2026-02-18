@@ -174,7 +174,7 @@ namespace CoreChaseBranch
   -/
 
   @[grind]
-  theorem prevCoreSubsetOfFactset {x} (cb : CoreChaseBranch kb) (n : Nat) (y : CoreChaseNode kb.rules) (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
+  theorem prevCoreSubsetOfFactset (cb : CoreChaseBranch kb) (n : Nat) (x y : CoreChaseNode kb.rules) (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
     x.core ⊆ y.fs := by
       have trg_ex := cb.triggers_exist n
       rw [prev_node_eq _ _ (Option.isSome_of_mem y_eq), Option.is_none_or] at trg_ex
@@ -370,7 +370,7 @@ namespace CoreChaseBranch
       rw [cn_succ_eq, Option.is_some_and] at h2
       rcases h2 with ⟨lhs, rhs⟩
       have f_in_core : f ∈ x.core := ff_in_core_if_ff_in_fs cb n x_eq f f_in f_is_ff
-      have x_core_sse : x.core ⊆ cn_succ.fs := prevCoreSubsetOfFactset cb n cn_succ x_eq cn_succ_eq
+      have x_core_sse : x.core ⊆ cn_succ.fs := prevCoreSubsetOfFactset cb n x cn_succ x_eq cn_succ_eq
       exact x_core_sse f f_in_core
       rcases trg_nex with ⟨trg_nex, succ_eq⟩
       grind

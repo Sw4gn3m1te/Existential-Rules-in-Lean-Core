@@ -32,7 +32,7 @@ namespace CoreChaseBranch
   theorem exHomPrevCoreToFactSet (cb : CoreChaseBranch kb) (n : Nat) (x y : CoreChaseNode kb.rules)
     (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.fs := by
       have trg_ex := cb.triggers_exist n
-      have sub : _ := prevCoreSubsetOfFactset cb n y x_eq y_eq
+      have sub : _ := prevCoreSubsetOfFactset cb n x y x_eq y_eq
       have := GroundTermMapping.exHomSubToSet x.core y.fs sub
       exact this
 
