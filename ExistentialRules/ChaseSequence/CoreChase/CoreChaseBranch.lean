@@ -440,4 +440,25 @@ namespace CoreChaseBranch
           rw [init_eq'] at f_in
           exact db_funfree f f_in
 
+ theorem exIntermeadiateCoreChaseNodeIfFactMissing (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
+    (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + k) = some cn_succ)
+    (f : Fact sig) (f_in : f ∈ cn.core) (f_nin : ¬ f ∈ cn_succ.core) :
+      ∃ (cm : CoreChaseNode kb.rules), f ∈ cm.fs ∧ ¬ f ∈ cm.core := by
+      induction k generalizing cn_succ with
+        | zero =>
+          grind
+        | succ k ih =>
+          have ex_cm : ∃ cm, cb.branch.infinite_list (n + k) = some cm := by
+            have := prev_is_some_if_is_some'' cb (n + k + 1) (Option.isSome_of_mem cn_succ_eq) (n + k) (Nat.lt_add_one (n + k))
+            exact Option.isSome_iff_exists.mp this
+          rcases ex_cm with ⟨cm, cm_eq⟩
+          by_cases c : (f ∈ cm.core)
+          exists cn_succ
+          constructor
+          have := prevCoreSubsetOfFactset cb (n + k) cm cn_succ cm_eq cn_succ_eq
+          exact this f c
+          exact f_nin
+          specialize ih cm cm_eq c
+          exact ih
+
 end CoreChaseBranch

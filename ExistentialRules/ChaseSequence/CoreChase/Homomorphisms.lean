@@ -162,4 +162,25 @@ namespace CoreChaseBranch
             contradiction
       next => contradiction
 
+
+  @[grind]
+  theorem homFsToFsAlsoHomCoreToFs (fs : FactSet sig) (cn : CoreChaseNode kb.rules) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism cn.fs fs) : h.isHomomorphism cn.core fs := by
+    rcases h_hom with ⟨h_c, h_af⟩
+    constructor
+    exact h_c
+    intro f f_in
+    specialize h_af f
+    apply h_af
+    exact GroundTermMapping.memApplyFactSetIfMemApplyFactSetSubSet h cn.core cn.fs f f_in (cn.core_sse.left)
+
+  @[grind]
+  theorem gtmFsCoreIsEndo (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism cn.fs cn.core):
+     (gtm.surjective_for_domain_and_image_set cn.core.terms cn.core.terms) := by
+      have sc := FactSet.isStrongCore_of_isWeakCore_of_finite cn.core cn.is_core (all_core_finite cn)
+      specialize sc gtm (homFsToFsAlsoHomCoreToFs cn.core cn gtm gtm_hom)
+      rcases sc with ⟨s1, s2, s3⟩
+      exact s3
+
+
+
 end CoreChaseBranch

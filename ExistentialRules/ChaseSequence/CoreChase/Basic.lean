@@ -178,4 +178,32 @@ namespace GroundTermMapping
     exact g_in_a
 
 
+  @[grind]
+  theorem memApplyFactSetIfMemApplyFactSetSubSet (h : GroundTermMapping sig) (fs1 fs2 : FactSet sig) (f : Fact sig) (f_af_in_f1 : f ∈ h.applyFactSet fs1) (sub : fs1 ⊆ fs2) :  f ∈ h.applyFactSet fs2 := by
+    unfold GroundTermMapping.applyFactSet
+    rcases f_af_in_f1 with ⟨f', f'_in, f'_af_eq⟩
+    exists f'
+    exact ⟨sub f' f'_in, f'_af_eq⟩
+
+
+  theorem isHomIfEq (gtm1 gtm2 : GroundTermMapping sig) (A B : FactSet sig) : gtm1 = gtm2 → (gtm1.isHomomorphism A B ↔ gtm2.isHomomorphism A B) := fun a => Eq.to_iff (congrFun (congrFun (congrArg GroundTermMapping.isHomomorphism a) A) B)
+
+  theorem gtm_rep_swap (gtm : GroundTermMapping sig) (rep : Nat) (A B : FactSet sig) : (gtm.repeat_hom (rep + 1)).isHomomorphism A B ↔ GroundTermMapping.isHomomorphism (gtm.repeat_hom rep ∘ gtm) A B := by
+    have := isHomIfEq (gtm.repeat_hom rep ∘ gtm) (gtm.repeat_hom (rep + 1)) A B
+    rw [this]
+    have := GroundTermMapping.repeat_hom_add gtm rep 1
+    funext t
+    specialize this t
+    exact id (Eq.symm this)
+
+ @[grind]
+  theorem subPreservesHom (A B C : FactSet sig) (sub : C ⊆ A) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism  A B) : h.isHomomorphism C B := by
+    rcases h_hom with ⟨idc, af⟩
+    constructor
+    exact idc
+    intro f f_in_afc
+    have f_in_afb := memApplyFactSetIfMemApplyFactSetSubSet h C A
+    specialize f_in_afb f f_in_afc sub
+    exact af f f_in_afb
+
 end GroundTermMapping
