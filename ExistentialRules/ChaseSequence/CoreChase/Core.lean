@@ -1185,6 +1185,14 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     have := prev_is_some_if_is_some_std cb n ((Option.isSomeIffNeqNone (cb.branch.infinite_list n)).mp is_some_at) m lt
     exact (Option.isSomeIffNeqNone (cb.branch.infinite_list m)).mpr this
 
+  @[grind]
+  theorem prev_eq_is_some_if_is_some_std (scb : ChaseBranch obs kb) (n : Nat) (is_some_at : scb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → scb.branch.infinite_list m ≠ none := by
+    grind
+
+   @[grind]
+  theorem prev_eq_is_some_if_is_some'_std (scb : ChaseBranch obs kb) (n : Nat) (is_some_at : (scb.branch.infinite_list n).isSome) : ∀ m, m ≤ n → scb.branch.infinite_list m ≠ none := by
+    grind
+
 
   @[grind]
   theorem allFfInNextFsIfSome_std (scb : ChaseBranch obs kb) (n : Nat) (x : ChaseNode obs kb.rules) (x_eq : scb.branch.infinite_list n = some x) :
@@ -1387,14 +1395,46 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       rcases cn.core_sse.right with ⟨gtm2, gtm2_hom⟩
       sorry
 
-  def get_used_trigger_list (scb : ChaseBranch obs kb) (n : Nat) (term : (scb.branch.infinite_list n).isSome ∧ (scb.branch.infinite_list n).isNone) : (List (RTrigger obs.toLaxObsoletenessCondition kb.rules)) :=
-    (List.range' 1 n).map (fun n => (((scb.branch.infinite_list n).get (by grind)).origin.get (by grind)).fst)
+
+  -- List.range' 1 4 = [1, 2, 3] → ∀ n, n ≥ 1 ∧ n ≤ 4-1
+  theorem List.range'_allElementsInRange (a b : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' a (b+1))) : ∀ n, n ∈ idx_l → n ≥ a ∧ n ≤ b := by
+    intro n h
+    have := @List.mem_range'_1 a (b+1) n
+    subst idx_l
+    rw [this] at h
+    rcases h with ⟨hl, hr⟩
+    constructor
+    exact hl
+    sorry
+
+  def get_used_trigger_list (scb : ChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 (n+1))) (term : (scb.branch.infinite_list n).isSome) : (List (RTrigger obs.toLaxObsoletenessCondition kb.rules)) :=
+    idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
+        have m_in : m ∈ idx_l := hm
+        have := List.range'_allElementsInRange 1 n idx_l idx_l_eq m m_in
+        rcases this with ⟨geq, leq⟩
+        subst idx_l
+        have := prev_eq_is_some_if_is_some'_std scb n term m leq
+        exact Option.isSome_iff_ne_none.mpr this
+      )).origin.get (by
+        have m_in : m ∈ idx_l := hm
+        have := List.range'_allElementsInRange 1 n idx_l idx_l_eq m m_in
+        rcases this with ⟨geq, leq⟩
+        subst idx_l
+        have := prev_eq_is_some_if_is_some'_std scb n term m leq
+        have := @ChaseBranch.origin_isSome _ _ _ _ _ _ scb (m - 1)
+        unfold PossiblyInfiniteList.drop InfiniteList.drop PossiblyInfiniteList.tail PossiblyInfiniteList.head InfiniteList.head InfiniteList.get InfiniteList.tail InfiniteList.get at this
+        grind
+      )).fst) (by
+        intro m m_in
+        exact m_in
+      )
 
 
   theorem exTerminatingCoreChaseBranchIfExistsTerminatingChaseBranch (scb : ChaseBranch obs kb) (scb_term: scb.terminates) : (∃ (ccb : CoreChaseBranch kb), ccb.terminates) := by
 
     rcases scb_term with ⟨n_ter, n⟩
-    let used_trigger_list : List (RTrigger obs.toLaxObsoletenessCondition kb.rules) := get_used_trigger_list scb n_ter ⟨sorry, sorry⟩
+    let used_trigger_list : List (RTrigger obs.toLaxObsoletenessCondition kb.rules) := get_used_trigger_list scb n_ter (List.range' 1 (n_ter+1)) rfl (by sorry) -- some at n_ter
+    sorry
 
 
   def PossiblyInfiniteList.singleton (a : α) : PossiblyInfiniteList α :=
@@ -1408,6 +1448,11 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         rfl
     }
 
+  @[grind]
+  theorem PossiblyInfiniteList.singleton_none_at_gt_zero (n : Nat) (gt : n > 0) : ((PossiblyInfiniteList.singleton α).infinite_list n).isNone := by
+    unfold singleton
+    simp only [Option.isNone_iff_eq_none]
+    grind
 
   def PossiblyInfiniteList.append (l : PossiblyInfiniteList α) (n : Nat) (a : α) : PossiblyInfiniteList α := sorry
 
@@ -1425,14 +1470,42 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
   theorem finFactSetHasCore (fs : FactSet sig) (fin : fs.finite) : ∃ (c : FactSet sig), c.isWeakCore ∧ c.homSubset fs := by
     sorry
 
-  noncomputable def buildCoreChaseBranchFromChaseBranch_rec (trg_list : List (RTrigger obs.toLaxObsoletenessCondition kb.rules)) (n : Nat) (new_ccb : CoreChaseBranch kb) : CoreChaseBranch kb :=
-    match trg_list with
+  -- maybe we dont want to use the list of triggers but only the list of used rules
+
+
+  /-
+    I need an example with the following characteristics:
+
+      Given: A set Σ of rules and an initial instance I_0
+      Goal: Construct a std. chase sequence (SCB) and a core chase sequence (CCB) on Σ and I_0 s.t.:
+
+        - both terminate
+        - the scb is longer than the ccb
+        - some trigger (not the last one) used in the scb must become inapplicable in the ccb due to core computation
+
+
+          I_0: A(c)
+
+          σ_1: A(x) -> ∃z. R(x,z), R(x,x)
+          σ_2: R(x,y) -> B(y)
+
+          SC : {A(c)} + {R(c,n), R(c,c)} + {B(n)} + {B(c)}
+          CC : {A(c)} + {R(c,c)} + {B(c)}
+
+  -/
+
+
+  noncomputable def buildCoreChaseBranchFromChaseBranch_rec (trg_list : List (RTrigger obs.toLaxObsoletenessCondition kb.rules)) (n : Nat) (new_ccb_branch : PossiblyInfiniteList (CoreChaseNode kb.rules)) : PossiblyInfiniteList (CoreChaseNode kb.rules) :=
+    match c : trg_list with
       -- there are no more triggers left to build into the new ccb
-      | .nil => new_ccb
+      | .nil => new_ccb_branch
       | .cons hd tl =>
 
         -- hd is the next trigger we will try to use to build the next node for new_ccb
-        let prev_ccn : CoreChaseNode kb.rules := ((new_ccb.branch.infinite_list n).get (by sorry))
+
+        -- we need this to show new_ccb.isSome at n
+        have new_ccb_fin : (new_ccb_branch.infinite_list n).isSome ∧ (new_ccb_branch.infinite_list (n+1)).isNone := by sorry
+        let prev_ccn : CoreChaseNode kb.rules := (new_ccb_branch.infinite_list n).get (by grind)
 
         let trg_act_in_prev_core := Classical.propDecidable (hd.val.active prev_ccn.core)
 
@@ -1443,8 +1516,16 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
           | Decidable.isTrue _ =>
 
-            let trg_result : FactSet sig := sorry -- (trg.val.mapped_head[i.val]'(i.isLt)).toSet
-            let trg_result_fin : trg_result.finite := by sorry
+            -- ist das die richtige idee an den index zu kommen ?
+            have trg_sat_on_prev_core : hd.val.satisfied prev_ccn.core := by sorry
+            let i := Classical.choose trg_sat_on_prev_core
+            let ip := Classical.choose_spec trg_sat_on_prev_core
+
+            let fin_i : Fin hd.val.mapped_head.length := ⟨i.val, by unfold PreTrigger.mapped_head; simp only [List.length_map, List.length_zipIdx, Fin.is_lt]⟩
+
+            let trg_result : FactSet sig := (hd.val.mapped_head[fin_i]).toSet
+
+            let trg_result_fin : trg_result.finite := List.finite_toSet hd.val.mapped_head[fin_i]
 
             let new_fs := prev_ccn.core ∪ trg_result
 
@@ -1470,7 +1551,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 {
                   fst := hd
                   snd := ⟨hd.val.mapped_head.length - 1, by
-                    have : hd.val.mapped_head.length > 0 := sorry
+                    have : hd.val.mapped_head.length > 0 := Fin.pos fin_i
                     exact Nat.sub_one_lt_of_lt this⟩
                 }
               fs_contains_origin_result := by
@@ -1478,20 +1559,29 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 sorry
             }
 
-            let new_branch : PossiblyInfiniteList (CoreChaseNode kb.rules) := PossiblyInfiniteList.append new_ccb.branch (n + 1) next_ccn
+            let new_ccb_branch : PossiblyInfiniteList (CoreChaseNode kb.rules) := PossiblyInfiniteList.append new_ccb_branch (n + 1) next_ccn
 
-            let new_ccb' : CoreChaseBranch kb :=
-            {
-              branch := new_branch
-              database_first := sorry
-              triggers_exist := sorry
-              fairness := sorry
-            }
-
-            buildCoreChaseBranchFromChaseBranch_rec tl (n+1) new_ccb'
+            buildCoreChaseBranchFromChaseBranch_rec tl (n+1) new_ccb_branch
 
           | Decidable.isFalse _ =>
-            buildCoreChaseBranchFromChaseBranch_rec tl n new_ccb
+            buildCoreChaseBranchFromChaseBranch_rec tl n new_ccb_branch
+
+
+  theorem buildCoreChaseBranchFromChaseBranch_rec_first_eq (branch : PossiblyInfiniteList (CoreChaseNode kb.rules)) :
+    buildCoreChaseBranchFromChaseBranch_rec l 0 (PossiblyInfiniteList.singleton a) = branch → branch.infinite_list 0 = some a := by
+      intro h
+      unfold buildCoreChaseBranchFromChaseBranch_rec at h
+      simp at h
+      split at h
+      next =>
+        rw [← h]
+        unfold PossiblyInfiniteList.singleton
+        rfl
+      next trg l=>
+        rw [← h]
+        unfold PossiblyInfiniteList.singleton
+        sorry
+
 
   noncomputable def buildCoreChaseBranchFromChaseBranch (scb : ChaseBranch obs kb) (scb_term : scb.terminates) : CoreChaseBranch kb :=
 
@@ -1512,21 +1602,24 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         apply FactSet.id_is_hom
       origin := none,
       fs_contains_origin_result := by simp [Option.is_none_or]
-  }
-
-    let init_ccb : CoreChaseBranch kb :=
-    {
-      branch := PossiblyInfiniteList.singleton init_ccn
-      database_first := by sorry -- show that PossibleInfiniteList.singleton works
-      triggers_exist := sorry
-      fairness := sorry
     }
 
     let scb_term_n := Classical.choose scb_term
 
-    let scb_trg_list := get_used_trigger_list scb scb_term_n ⟨sorry, sorry⟩
+    let scb_trg_list := get_used_trigger_list scb scb_term_n (List.range' 1 (scb_term_n+1)) rfl (by sorry) -- some at n_ter
 
-    buildCoreChaseBranchFromChaseBranch_rec scb_trg_list 0 init_ccb
+    let new_ccb_branch := buildCoreChaseBranchFromChaseBranch_rec scb_trg_list 0 (PossiblyInfiniteList.singleton init_ccn)
+
+    let new_ccb : CoreChaseBranch kb :=
+    {
+      branch := new_ccb_branch
+      database_first := buildCoreChaseBranchFromChaseBranch_rec_first_eq new_ccb_branch rfl
+      triggers_exist := sorry
+      fairness := sorry
+    }
+
+    new_ccb
+
 
 
   theorem notExistsTerminatingChaseBranchIfNotExistsTerminatingCoreChaseBranch (ccb : CoreChaseBranch kb) (ccb_non_term : ¬ ccb.terminates) (scb : ChaseBranch obs kb) : ¬ scb.terminates := by
