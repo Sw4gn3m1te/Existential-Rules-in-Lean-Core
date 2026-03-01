@@ -1446,7 +1446,37 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     simp only [Option.isNone_iff_eq_none]
     grind
 
-  def PossiblyInfiniteList.append (l : PossiblyInfiniteList α) (n : Nat) (a : α) : PossiblyInfiniteList α := sorry
+  def InfiniteList.insert_at (l : InfiniteList α) (n : Nat) (a : α) : InfiniteList α :=
+    fun m =>
+      if m < n then
+        l m
+      else if m = n then
+        a
+      else
+        l (m - 1)
+
+  def PossiblyInfiniteList.append (l : PossiblyInfiniteList α) (n : Nat) (a : α) (creates_no_holes : ∀ m < n, l.infinite_list m ≠ none)  : PossiblyInfiniteList α :=
+    {
+      infinite_list := InfiniteList.insert_at l.infinite_list n a
+
+      no_holes := by
+        unfold InfiniteList.insert_at InfiniteList.no_holes InfiniteList.get
+        have nh := l.no_holes
+        intro m hm
+        by_cases c : m < n
+        simp_all
+        have geq : m = n ∨ m > n := Nat.eq_or_lt_of_not_lt c
+        rcases geq with eq | gt
+        subst eq
+        simp_all
+        have : m + 1 > n := by grind
+        simp_all
+        specialize creates_no_holes m gt
+
+
+        sorry
+
+    }
 
   /-
     - trg_list: contains in order all the triggers used in the standard chase
@@ -1551,7 +1581,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 sorry
             }
 
-            let new_ccb_branch : PossiblyInfiniteList (CoreChaseNode kb.rules) := PossiblyInfiniteList.append new_ccb_branch (n + 1) next_ccn
+            let new_ccb_branch : PossiblyInfiniteList (CoreChaseNode kb.rules) := PossiblyInfiniteList.append new_ccb_branch (n + 1) next_ccn sorry
 
             buildCoreChaseBranchFromChaseBranch_rec tl (n+1) new_ccb_branch
 
@@ -1564,32 +1594,32 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       intro h
       unfold buildCoreChaseBranchFromChaseBranch_rec at h
       simp at h
-      split at h
-      next =>
-        rw [← h]
-        unfold PossiblyInfiniteList.singleton
-        rfl
-      next trg l=>
-        rw [← h]
-        unfold PossiblyInfiniteList.singleton
-        sorry
+      cases l with
+        | nil =>
+          unfold PossiblyInfiniteList.singleton at h
+          rw [← h]
+        | cons hd tl =>
+          rw [← h]
+          simp_all
+          cases c : (Classical.propDecidable (hd.val.active (((PossiblyInfiniteList.singleton a).infinite_list 0).get sorry).core)) with
+            | isTrue h' =>
+              unfold PossiblyInfiniteList.singleton at h
+              simp_all
+              cases c2 : (Classical.propDecidable (hd.val.active a.core)) with
+                | isTrue h'' =>
+                  --unfold PossiblyInfiniteList.append InfiniteList.insert_at at h
+                  simp_all
+                  -- from PossibleList.append's no_create_hole condition
+                  have : ∀ m, m < 1 → (branch.infinite_list m).isSome := sorry
+                  specialize this 0 Nat.one_pos
+                  sorry
 
+                | isFalse _ =>
+                  sorry
 
-  theorem scbTermDefEq (scb : ChaseBranch obs kb) (term : scb.terminates) : ∃ (n_ter : Nat), (scb.branch.infinite_list n_ter).isSome ∧ (scb.branch.infinite_list (n_ter+1)).isNone := by
-    rcases term with ⟨m, mh⟩
-    unfold PossiblyInfiniteList.get? at mh
-    induction c : m with
-      | zero =>
-        have := scb.database_first
-        unfold PossiblyInfiniteList.head InfiniteList.head at this
-        grind
-      | succ ms ih =>
-        exists (m - 1)
-        constructor
-        sorry
-        have gt : m > 0 := by grind
-        rw [Nat.sub_add_cancel gt]
-        exact Option.isNone_iff_eq_none.mpr mh
+            | isFalse =>
+              sorry
+
 
 
   noncomputable def buildCoreChaseBranchFromChaseBranch (scb : ChaseBranch obs kb) (scb_term : scb.terminates) : CoreChaseBranch kb :=
@@ -1613,20 +1643,20 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       fs_contains_origin_result := by simp [Option.is_none_or]
     }
 
-    let scb_term_n := Classical.choose scb_term
+    have : ∃ (n : Nat), (scb.branch.infinite_list n).isSome ∧ (scb.branch.infinite_list (n+1)).isNone := by
+      rw [scb.terminating_has_last_index] at scb_term
+      rcases scb_term with ⟨n_ter, n_ter_some, gt_none⟩
+      exists n_ter
+      specialize gt_none (n_ter + 1)
+      rw [PossiblyInfiniteList.get?, InfiniteList.get] at n_ter_some gt_none
+      specialize gt_none (Nat.lt_add_one n_ter)
+      exact ⟨n_ter_some, (Option.isNone_iff_eq_none.mpr gt_none)⟩
 
-    -- das ist anders def als bei mir
-    have (n : Nat) (gt : n > 0) : ∃ (n_ter : Nat), (scb.branch.infinite_list n).isSome ∧ (scb.branch.infinite_list (n+1)).isNone := by
-      rcases scb_term with ⟨n_ter, nh⟩
 
+    let scb_term_n := Classical.choose this
+    let scb_term_h := Classical.choose_spec this
 
-
-    let scb_term_some := Classical.choose_spec scb_term
-
-    let scb_trg_list := get_used_trigger_list scb scb_term_n (List.range' 1 scb_term_n) rfl (by
-      unfold PossiblyInfiniteList.get? at scb_term_some
-      simp at scb_term_some
-      ) -- some at n_ter
+    let scb_trg_list := get_used_trigger_list scb scb_term_n (List.range' 1 scb_term_n) rfl scb_term_h.left
 
     let new_ccb_branch := buildCoreChaseBranchFromChaseBranch_rec scb_trg_list 0 (PossiblyInfiniteList.singleton init_ccn)
 

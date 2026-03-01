@@ -36,9 +36,9 @@ namespace Option
 
   @[simp, grind]
   def castToMemIfNotNone (o : Option α) (not_none : o ≠ none) : α :=
-      match o with
-        | some o => o
-        | none => by contradiction
+    match o with
+      | some o => o
+      | none => by contradiction
 
   @[simp, grind]
   def castToMemIfIsSome (o : Option α) (is_some : o.isSome) : α :=
@@ -50,8 +50,8 @@ namespace Option
   def castisSomeIfEqSome (o : Option α) (a : α) : (o = some a) → o.isSome := by apply Option.isSome_of_mem
 
   @[simp, grind]
-    theorem isNone_and_isSome_False (o : Option α) : o.isNone ∧ o.isSome → False := by
-      simp_all
+  theorem isNone_and_isSome_False (o : Option α) : o.isNone ∧ o.isSome → False := by
+    simp_all
 
 end Option
 
