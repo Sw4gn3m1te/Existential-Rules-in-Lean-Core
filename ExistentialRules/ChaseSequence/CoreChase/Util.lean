@@ -118,3 +118,37 @@ namespace Set
     exact Exists.intro l l_eq
 
 end Set
+
+namespace PossiblyInfiniteList
+
+  def singleton (a : α) : PossiblyInfiniteList α :=
+    {
+      infinite_list := fun n =>
+      match n with
+        | .zero     => some a
+        | .succ _   => none
+      no_holes := by
+        intro n h
+        rfl
+    }
+
+  @[grind]
+  theorem singleton_none_at_gt_zero (n : Nat) (gt : n > 0) : ((PossiblyInfiniteList.singleton α).infinite_list n).isNone := by
+    unfold singleton
+    simp only [Option.isNone_iff_eq_none]
+    grind
+
+end PossiblyInfiniteList
+
+namespace InfiniteList
+
+  def insert_at (l : InfiniteList α) (n : Nat) (a : α) : InfiniteList α :=
+    fun m =>
+      if m < n then
+        l m
+      else if m = n then
+        a
+      else
+        l (m - 1)
+
+end InfiniteList
