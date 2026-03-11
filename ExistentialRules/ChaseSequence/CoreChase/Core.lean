@@ -1754,23 +1754,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                   --have := buildCoreChaseBranchFromChaseBranch_rec_head_eq tl a [sorry]
                   unfold PossiblyInfiniteList.from_list PossiblyInfiniteList.infinite_list
                   simp_all
-                  let ch : ∃ fs, (fun (wc : FactSet sig) => wc.isWeakCore ∧ wc.homSubset (a.core ∪ hd.fst.val.mapped_head[hd.snd].toSet)) fs :=
-                  (id (Eq.refl fun (x : FactSet sig) => x.isWeakCore ∧ x.homSubset (a.core ∪ hd.fst.val.mapped_head[↑hd.snd].toSet)) ▸
-                    finFactSetHasCore (([a].getLast (buildCoreChaseBranchFromChaseBranch_rec._proof_12 [a])).core ∪ hd.fst.val.mapped_head[hd.snd].toSet) (buildCoreChaseBranchFromChaseBranch_rec._proof_13 [a] hd) :
-                     ∃ x, (fun (x : FactSet sig) => x.isWeakCore ∧ x.homSubset (a.core ∪ hd.fst.val.mapped_head[↑hd.snd].toSet)) x)
-                  let b : CoreChaseNode kb.rules :=  {
-                    fs := a.core ∪ hd.fst.val.mapped_head[hd.snd].toSet,
-                    fs_fin := Set.union_finite_of_both_finite (all_core_finite a) (List.finite_toSet hd.fst.val.mapped_head[hd.snd])
-                    core := Classical.choose ch,
-                    is_core := (buildCoreChaseBranchFromChaseBranch_rec._proof_16 [a] hd : (Classical.choose ch).isWeakCore),
-                    core_sse := sorry,
-                    origin := some ⟨hd.fst, hd.snd⟩,
-                    fs_contains_origin_result := sorry
-                    }
-                  have := buildCoreChaseBranchFromChaseBranch_rec_head' tl a [b]
-                  subst b
-                  exact this
-
+                  rw [buildCoreChaseBranchFromChaseBranch_rec_head']
                 | isFalse _ => contradiction
             | isFalse h' =>
               simp
