@@ -1716,26 +1716,37 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         | cons hd tl =>
           sorry
 
+  set_option pp.proofs true
   theorem buildCoreChaseBranchFromChaseBranch_rec_head' (origin_list : List ((trg : RTrigger obs.toLaxObsoletenessCondition kb.rules) × Fin trg.val.mapped_head.length))
     (hd : CoreChaseNode kb.rules) (tl : List (CoreChaseNode kb.rules)) :
       (buildCoreChaseBranchFromChaseBranch_rec origin_list (hd :: tl))[0]? = hd := by
-      rw [@List.getElem?_eq_some_iff]
-      have : 0 < (buildCoreChaseBranchFromChaseBranch_rec origin_list (hd :: tl)).length := by
-        have len_gt : (hd :: tl).length > 0 := Nat.zero_lt_succ tl.length
-        unfold buildCoreChaseBranchFromChaseBranch_rec
-        simp_all
-        cases c : origin_list with
-          | nil => simp only [List.length_cons, Nat.zero_lt_succ]
-          | cons o_hd o_tl =>
-            simp
-            cases c2 : Classical.propDecidable (o_hd.fst.val.active ((hd :: tl).getLast sorry).core) with
-              | isTrue t =>
-                sorry
-              | isFalse f =>
-                sorry
 
-      exists this
-      sorry
+      unfold buildCoreChaseBranchFromChaseBranch_rec
+      simp only [Fin.getElem_fin, List.append_eq, List.cons_append]
+      cases c : origin_list with
+          | nil => rfl
+          | cons hd_o tl_o =>
+            simp
+            let ch := Classical.choose (id (Eq.refl fun (x : FactSet sig) =>
+              x.isWeakCore ∧ x.homSubset (((hd :: tl).getLast (buildCoreChaseBranchFromChaseBranch_rec._proof_12 (hd :: tl))).core ∪ hd_o.fst.val.mapped_head[↑hd_o.snd].toSet)) ▸
+                finFactSetHasCore (((hd :: tl).getLast (buildCoreChaseBranchFromChaseBranch_rec._proof_12 (hd :: tl))).core ∪ hd_o.fst.val.mapped_head[hd_o.snd].toSet) (buildCoreChaseBranchFromChaseBranch_rec._proof_13 (hd :: tl) hd_o))
+            cases c2 : Classical.propDecidable (hd_o.fst.val.active ((hd :: tl).getLast (List.cons_ne_nil hd tl)).core) with
+              | isTrue t =>
+                simp
+                have : CoreChaseNode kb.rules := {
+                  fs := ((hd :: tl).getLast (List.cons_ne_nil hd tl)).core ∪ hd_o.fst.val.mapped_head[↑hd_o.snd].toSet,
+                  fs_fin := Set.union_finite_of_both_finite (all_core_finite ((hd :: tl).getLast (List.cons_ne_nil hd tl))) (List.finite_toSet (hd_o.fst.val.mapped_head[↑hd_o.snd]))
+                  core := ch,
+                  is_core := buildCoreChaseBranchFromChaseBranch_rec._proof_16 (hd :: tl) hd_o,
+                  core_sse := sorry
+                  origin := some ⟨hd_o.fst, hd_o.snd⟩,
+                  fs_contains_origin_result := sorry
+                  }
+                exact buildCoreChaseBranchFromChaseBranch_rec_head' tl_o hd (tl ++ [this])
+
+              | isFalse f =>
+                simp
+                exact buildCoreChaseBranchFromChaseBranch_rec_head' tl_o hd tl
 
 
   theorem buildCoreChaseBranchFromChaseBranch_rec_first_eq (l : List ((trg : RTrigger obs.toLaxObsoletenessCondition kb.rules) × Fin trg.val.mapped_head.length)) (a : CoreChaseNode kb.rules) :
@@ -1751,7 +1762,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               cases c2 : (Classical.propDecidable (hd.fst.val.active a.core)) with
                 | isTrue h'' =>
                   simp
-                  --have := buildCoreChaseBranchFromChaseBranch_rec_head_eq tl a [sorry]
                   unfold PossiblyInfiniteList.from_list PossiblyInfiniteList.infinite_list
                   simp_all
                   rw [buildCoreChaseBranchFromChaseBranch_rec_head']
