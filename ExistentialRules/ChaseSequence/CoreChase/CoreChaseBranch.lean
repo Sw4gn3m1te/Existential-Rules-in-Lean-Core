@@ -264,8 +264,8 @@ namespace CoreChaseBranch
         exact this
 
   @[grind]
-  theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules)
      (cn_eq : cb.branch.infinite_list n = some cn) (trg : RTrigger obs.toLaxObsoletenessCondition kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
+  theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules)
       ∃ (cn' : CoreChaseNode kb.rules), cb.branch.infinite_list (n+1) = some cn' := by
       cases h : cb.branch.infinite_list (n+1) with
         | none =>
