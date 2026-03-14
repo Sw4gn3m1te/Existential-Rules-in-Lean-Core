@@ -1911,6 +1911,14 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             specialize scb_trg_ex init_scn init_scn_eq
 
             -- does an active trigger ex at pos 0 in the scb ?
+
+
+            -- zwei Falluntershceidung4n, gibt es den trigger aktiv in der SC und gibt es den trigger aktiv in der CC
+            -- in beiden fällen falls ja, nehmen wir uns den index heraus wo der trigger vorkommt, exact dieser trigger ist dann jender der an der stelle n existiert
+            -- in den beiden nein fällen muss man zeigen das die origin_list kleiner wird und dann termt der gen algo für CC auf leerer origin list und fügt nichts mehr in die infinite list ein thus alles none danach
+            -- was ist mit ja nein fällen ?
+
+            
             cases scb_trg_ex with
               | inl trg_ex =>
                 rcases trg_ex with ⟨trg, trg_act, i, eq1⟩
@@ -1969,7 +1977,10 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 simp only [List.length_cons, List.length_nil, Nat.zero_add, Nat.lt_irrefl, not_false_eq_true, getElem?_neg]
 
           | succ n ih =>
-            
+            right
+            constructor
+
+
             sorry
 
         /-
