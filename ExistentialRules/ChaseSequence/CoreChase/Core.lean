@@ -483,10 +483,39 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       have dbf := cb.database_first
       grind
 
-  theorem origin_trg_inactive_in_core
+  @[grind]
+  theorem origin_trg_obs_and_loaded_in_fs (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cb.branch.infinite_list n = some cn) (cn_origin_some : cn.origin.isSome) :
+    (cn.origin.get cn_origin_some).fst.val.loaded cn.fs ∧ obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn.fs := by
+
+      have n_gt : n > 0 := not_first_if_origin_some cb cn cn_origin_some n cn_eq
+      have trg_active_origin := origin_trg_is_active_core cb (n-1) cn (by rw [Nat.sub_add_cancel n_gt]; exact cn_eq)
+      rcases trg_active_origin with ⟨trg_loaded, trg_non_obs⟩
+      have ex_prev_node := exPrevCoreChaseNodeIfOriginIsSome cb cn n cn_eq cn_origin_some
+      rcases ex_prev_node with ⟨prev_cn, prev_cn_eq⟩
+      have fs_eq := cbNextFsEq cb (n-1) prev_cn cn prev_cn_eq (by rw [Nat.sub_add_cancel n_gt]; exact cn_eq)
+      have trg_loaded_cn_fs : (cn.origin.get cn_origin_some).fst.val.loaded cn.fs := by
+        intro f f_in
+        specialize trg_loaded f f_in
+        grind
+      constructor
+      exact trg_loaded_cn_fs
+      have := origin_trg_inactive_in_fs cb cn n cn_eq cn_origin_some
+      unfold Trigger.active at this
+      simp only [Classical.not_and_iff_not_or_not, Classical.not_not] at this
+      rcases this with not_loaded | is_obs
+      contradiction
+      exact is_obs
+
+
+  theorem triggerInactiveAfterApplication' (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
+    (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + k) = some cn_succ)
+    (trg : RTrigger obs.toLaxObsoletenessCondition kb.rules) (trg_act_cn : trg.val.active cn.core) :
+      ¬ trg.val.active cn_succ.core := by sorry
+
 
   theorem triggerInactiveAfterApplication (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
     (cn_eq : cb.branch.infinite_list n = some cn) (cn_succ_eq : cb.branch.infinite_list (n + k) = some cn_succ) (cn_origin_some : cn.origin.isSome) :
+
       ¬ (cn.origin.get cn_origin_some).fst.val.active cn_succ.core := by
 
         have ex_prev_node := exPrevCoreChaseNodeIfOriginIsSome cb cn n cn_eq cn_origin_some
@@ -507,19 +536,33 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
           | succ k ih =>
 
+            have n_gt : n > 0 := not_first_if_origin_some cb cn cn_origin_some n cn_eq
 
+            have trg_active_prev_cn_core : (cn.origin.get cn_origin_some).fst.val.active prev_cn.core := by
+              have := origin_trg_is_active_core cb (n-1) cn (by rw [Nat.sub_add_cancel n_gt]; exact cn_eq)
+              grind
 
-            have ex_cn : ∃ (cn_k : CoreChaseNode kb.rules), cb.branch.infinite_list (n + k) = some cn_k := by
+            have trg_inactive_cn_core : ¬(cn.origin.get cn_origin_some).fst.val.active cn.core := by
+                have trg_inactive_fs := origin_trg_inactive_in_fs cb cn n cn_eq cn_origin_some
+                by_cases c : (cn.origin.get cn_origin_some).fst.val.loaded cn.core
+                have trg_inactive_core := trg_inactive_in_core_if_inactive_in_fs_and_loaded_in_core cb cn n cn_eq (cn.origin.get cn_origin_some).fst.val ⟨trg_inactive_fs, c⟩
+                exact trg_inactive_core
+                unfold Trigger.active
+                rw [Classical.not_and_iff_not_or_not, Classical.not_not]
+                left
+                exact c
+
+            have ex_cn_k : ∃ (cn_k : CoreChaseNode kb.rules), cb.branch.infinite_list (n + k) = some cn_k := by
               have := prev_is_some_if_is_some' cb (n + (k + 1)) cn_succ cn_succ_eq (n + k) (Nat.le_succ (n + k))
               exact Option.ne_none_iff_exists'.mp this
-            rcases ex_cn with ⟨cn_k, cn_k_eq⟩
+            rcases ex_cn_k with ⟨cn_k, cn_k_eq⟩
             specialize ih cn_k cn_k_eq
 
             unfold Trigger.active at ih
             have ih' : ¬(cn.origin.get cn_origin_some).fst.val.loaded cn_k.core ∨ (obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn_k.core ∧ (cn.origin.get cn_origin_some).fst.val.loaded cn_k.core) := by grind
             cases ih' with
               | inl trg_not_loaded_k =>
-                --intro ⟨trg_loaded_succ, trg_non_obs_succ⟩
+                intro ⟨trg_loaded_succ, trg_non_obs_succ⟩
 
                 /-
                   A(c)
@@ -529,141 +572,75 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                   --------
                   SC : {A(c); R(c, n), R(c, c); B(n); B(c)}
                   CC : {A(c); R(c,c); B(c)}
+
+                  prev_cn →     cn →                 cn_k →              cn_succ
+                  (trg active)  trg in origin       (trg not loaded)    (show inactive here)
+                  .             thus inactive in fs
+                  .             loaded in fs
+                  .             maybe unloaded in core
+
                 -/
 
-                have k_geq : k = 0 ∨ k > 0 := Nat.eq_zero_or_pos k
-                cases k_geq with
-                  | inl eq =>
-                    simp_all
-                    subst cn_k
-                    intro ⟨x, y⟩
+                have trg_prev_cn_loaded := trg_active_prev_cn_core.left
+                have trg_prev_cn_non_obs := trg_active_prev_cn_core.right
 
-                    sorry
+                have := origin_trg_obs_and_loaded_in_fs cb n cn cn_eq cn_origin_some
+                have trg_obs_cn_fs := this.right
+                have trg_loaded_cn_fs := this.left
 
-                  | inr gt =>
-                    sorry
+                have l1 := trg_active_prev_cn_core.left
+                have l2 := trg_inactive_cn_core
+                have l3 := trg_not_loaded_k
+                have l4 := trg_loaded_succ
+                unfold PreTrigger.loaded at l1 l2 l3
 
+                have ex_f_nin : ∃ (f : Fact sig), f ∈ (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ∧ ¬ f ∈ cn_k.core := by
+                  unfold Subset instHasSubsetSet at l3
+                  simp at l3
+                  exact l3
 
+                rcases ex_f_nin with ⟨f, f_in, f_nin⟩
 
+                have eq : n - 1 + (k + 1) = n + k := by grind
+                have ex_cm := exIntermeadiateCoreChaseNodeIfFactMissing cb prev_cn cn_k (n-1) (k+1) prev_cn_eq (by rw [eq]; exact cn_k_eq) f (trg_prev_cn_loaded f f_in) f_nin
 
-                have t_mem : ∃ (t : GroundTerm sig), t ∈ cn.core.terms ∧ ¬ t ∈ cn_k.core.terms ∧ t ∈ cn_succ.core.terms := by
+                -- terms can only be removed during core calculation
 
-                  have gt : n > 0 := not_first_if_origin_some cb cn cn_origin_some n cn_eq
+                -- we know that as trg loaded in prev_cn but not in cn_k that some term either got removed in cn.fs → cn.core or in cn_k.fs → cn_k.core
+                -- this term then got reintroduced as trg is loaded again in cn_succ
 
-                  have trg_active_cn' : (cn.origin.get cn_origin_some).fst.val.active prev_cn.core := by
-                    have := cb.origin_trg_is_active_core (n-1) cn
-                    simp [Nat.sub_add_cancel gt] at this
-                    specialize this cn_eq
-                    grind
+                -- loaded in cn.fs → unloaded between cn.core and cn_k.core
 
-                  have trg_active_cn : (cn.origin.get cn_origin_some).fst.val.active cn.core := by
-                    have ex_cn_1 : ∃ (cn_1 : CoreChaseNode kb.rules), cb.branch.infinite_list (n + 1) = some cn_1 := by
-                      have := prev_is_some_if_is_some' cb (n + (k + 1)) cn_succ cn_succ_eq (n + 1) (by grind)
-                      exact Option.ne_none_iff_exists'.mp this
-                    rcases ex_cn_1 with ⟨cn_1, cn_1_eq⟩
-                    have := cb.origin_trg_is_active_core n cn sorry -- ← Def is giga sus ඞ
+                rcases ex_cm with ⟨cm, cm_eq⟩
+                -- cm can be (both including) between cn and cn_k
 
+                have t_mem : ∃ (t : GroundTerm sig), t ∈ prev_cn.core.terms ∧ ¬ t ∈ cm.core.terms ∧ t ∈ cn_succ.core.terms := by
 
-                    sorry
-
-                  --have l1 := trg_active_cn.left
-                  have l1 := trg_active_cn'.left
-                  have l2 := trg_not_loaded_k
-                  have l3 := trg_loaded_succ
-
-
-                  unfold PreTrigger.loaded at l1 l2 l3
                   have s1 := FactSet.terms_subset_of_subset cn.core_sse.left
                   have s2 := FactSet.terms_subset_of_subset cn_k.core_sse.left
                   have s3 := FactSet.terms_subset_of_subset cn_succ.core_sse.left
-
-                  have ex_f_nin : ∃ (f : Fact sig), f ∈ (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ∧ ¬ f ∈ cn_k.core := by
-                    unfold Subset instHasSubsetSet at l2
-                    simp at l2
-                    exact l2
-
-
-                  rcases ex_f_nin with ⟨f, f_in, f_nin⟩
-
-                  have all_terms_sub : ∀ (t : GroundTerm sig), t ∈ FactSet.terms (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet → t ∈ cn_k.core.terms := by sorry
-                  --apply Classical.byContradiction
-
-                  --intro contra
-                  --simp only [not_exists, Classical.not_and_iff_not_or_not, Classical.not_not] at contra
-
-                  /-
-                  Was wir zeigen wollen ist: `∃ t, t ∈ cn.core.terms ∧ ¬t ∈ cn_k.core.terms ∧ t ∈ cn_succ.core.terms`
-
-                  gleiche (oder mehr) terme aber weniger fakten (⊈)
-                  -> es gibt einen Fakt in A der nicht in B ist (∃ f, f ∈ A ∧ f ∉ B)
-                    -> der neu entstehende fakt mit einer neuen null muss mandatory keep sein und einen alten ersetzen
-
-                  -> B enthält alle Terme aus A (A.terms ⊆ B.terms)
-
-
-                  σ_1 : P(x,y) → ∃z, Q(y,z)
-                  σ_2 : Q(x,y) → P(y,x)
-                  σ_3 : P(x,y), Q(y,z), P(z,y) → ∃w, R(y,w), Q(w,w)
-
-                  σ_3'​ : P(x,y), Q(y,z), P(z,y) → ∃(w v), R(y,w), Q(z,z), T(v,v)
-
-                  σ_3'' : P(x,y), Q(y,z), P(z,y), T(v,v) → ∃w, R(y,w), Q(z,z), T(z,z), G(v)
-
-
-                  σ_4 : P(x,y), Q(y, z), P(z, y) → ∃w, G(x,y,z,w)
-
-
-                  I_0 = {P(a,b), T(c,c)}
-                  I_1 = {P(a,b), T(c,c), Q(b,n_1)} (σ_1)
-                  I_2 = {P(a,b), T(c,c), Q(b, n_1), P(n_1, b)} (σ_2)
-
-
-                  mit σ_1
-                  I_3 = {P(a,b), Q(b, n_1), P(n_1, b), `Q(b, n_2)`} -> n_1 ↦ n_2 -> core(I_3) = {P(a,b), Q(b, n_1), P(n_1, b)}
-                  I_2.terms = {a,b,n_1} = core(I_3).terms = {a,b,n_1}
-
-                  mit σ_3
-                  I_3 = {P(a,b), Q(b, n_1), P(n_1, b), R(b, n_2), Q(n_2, n_2)} = core(I_3)
-                  I_2.terms = {a,b,n_1} ≠ I_3.terms = {a,b,n_1,n_2} -> I_2.terms ⊆ I_3.terms
-
-                  mit σ_3'
-                  I_3 ​ = {P(a,b), T(c,c), Q(b,n_1​), P(n_1​,b), R(b,n_2​), Q(n_2​,n_2​), T(n_3,n_3)}  mit core(I_3) = {P(a,b), T(c,c) Q(b,n_1​), P(n_1​,b), R(b,n_2​)}
-                  Fact removed: T(n_3, n_3) (T(c, c) muss bleiben da orginal)
-
-                  mit σ_3''
-                  I_3 ​ = {P(a,b), T(c,c), Q(b,n_1​), P(n_1​,b), R(b,n_2​), Q(n_2​,n_2​), T(n_2,n_2), G(c)}  mit core(I_3) = {P(a,b), Q(b,n_1), P(n_1,b), R(b,n_2), Q(n_2,n_2), T(c,c), G(c)}
-                  Fact removed: T(c, c)
-
-
-                  I_0 = {All(a,b,c,...), P(a,b), P(b,a)} -> I_0.terms = {a,b,c...} (alle Terme) [kann es so ein All() Fakt geben ?]
-
-                  I_1 = {All(), R(n)}
-
-
-
-                  -/
-                  have f_in' : f ∈ cn.core := by
-                    have : (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ⊆ cn.core := by grind
-                    exact l1 f f_in
-
-                  have ex_cm := exIntermeadiateCoreChaseNodeIfFactMissing cb cn cn_k n k cn_eq cn_k_eq f f_in' f_nin
-
-
-                  rcases ex_cm with ⟨cm, f_in_cm, f_nin_cm⟩
-
-
                   sorry
 
-                rcases t_mem with ⟨t, t_in_cn, t_in_cn_k, t_in_cn_succ⟩
+                rcases t_mem with ⟨t, t_in_prev_cn, t_nin_cm, t_in_cn_succ⟩
+                have t_in_cn_fs : t ∈ cn.fs.terms := by sorry -- weil cn.fs ⊆ prec_cn.core
                 cases eq : t with
                   | const c =>
+                    -- es gibt einen zugehörigen fakt für den term
+                    have ex_f : ∃ (f : Fact sig), f ∈ cn.fs ∧ t ∈ f.terms := t_in_cn_fs
+                    rcases ex_f with ⟨f, f_in_cn_fs, t_in_f⟩
+
                     have := allFfInNextFsIfSome cb (n + k) cn_k cn_k_eq
                     rw [Option.is_none_or_iff] at this
                     specialize this cn_succ cn_succ_eq
 
-                    have ex_f : ∃ (f : Fact sig), f ∈ cn.fs ∧ t ∈ f.terms ∧ f.isFunctionFree := by sorry
 
-                    rcases ex_f with ⟨f, f_in_cn_fs, t_in_f, f_is_ff⟩
+
+                    have f_is_ff : f.isFunctionFree := by
+                      unfold Fact.isFunctionFree
+                      intro gt gt_in
+                      exists c
+
+
                     specialize this f
                     have ff_in_all_succ := allFfInAllSuccIfSome cb n k cn cn_eq
                     rw [Option.is_none_or_iff] at ff_in_all_succ
