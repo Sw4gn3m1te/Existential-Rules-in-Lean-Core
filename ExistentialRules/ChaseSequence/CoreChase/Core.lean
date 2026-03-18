@@ -340,6 +340,9 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         grind
 
 
+  theorem list_ext_eq (l1 l2 : List α) : l1 = l2 ↔ ∀ e, e ∈ l1 ↔ e ∈ l2 := by sorry
+
+  -- muss fs loaded in core oder loaded in fs
   theorem trg_obs_in_core_if_obs_in_fs_and_loaded_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
       (obs.cond trg.toPreTrigger cn.fs) ∧ (trg.loaded cn.core) → obs.cond trg.toPreTrigger cn.core := by
         simp only [obs, RestrictedObsoleteness]
@@ -394,8 +397,19 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
           rw [t1]
           have t2 := PreTrigger.mem_terms_mapped_body_iff trg.toPreTrigger (trg.subs v)
           have eq2 : cn_core_l = trg.mapped_body := by
+            rw [list_ext_eq]
+            intro f
+            constructor
+            intro f_in
+
             sorry
+            intro f_in
+            specialize trg_loaded f f_in
+            grind
+
+
           rw [eq2, t2]
+
           have := @Rule.frontier_subset_vars_body _ _ _ _ trg.rule
           right
           exists v
@@ -426,20 +440,14 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
         apply rep_hom_hom'.right
 
-
         unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list at f_in
         rw [List.mem_toSet, List.mem_map] at f_in
         rcases f_in with ⟨a, ahl, ahr⟩
         rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ (rep_hom_hom'.left)] at ahr
         rw [← ahr]
         simp only [Function.comp_apply]
-        --apply rep_hom_hom.right
         unfold GroundTermMapping.applyFactSet GroundTermMapping.applyFact
         apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-
-
-        --have e : trg.mapped_head[↑i].toSet = cn.core := by sorry -- ⇐ stimmt nicht, maybe ⊆ ?
-        --rw [← e]
         apply h2
         rw [List.mem_toSet]
         unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list
@@ -552,6 +560,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 left
                 exact c
 
+
             have ex_cn_k : ∃ (cn_k : CoreChaseNode kb.rules), cb.branch.infinite_list (n + k) = some cn_k := by
               have := prev_is_some_if_is_some' cb (n + (k + 1)) cn_succ cn_succ_eq (n + k) (Nat.le_succ (n + k))
               exact Option.ne_none_iff_exists'.mp this
@@ -562,7 +571,9 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             have ih' : ¬(cn.origin.get cn_origin_some).fst.val.loaded cn_k.core ∨ (obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn_k.core ∧ (cn.origin.get cn_origin_some).fst.val.loaded cn_k.core) := by grind
             cases ih' with
               | inl trg_not_loaded_k =>
+
                 intro ⟨trg_loaded_succ, trg_non_obs_succ⟩
+                
 
                 /-
                   A(c)
@@ -579,6 +590,11 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                   .             loaded in fs
                   .             maybe unloaded in core
 
+
+
+                 wir wissen dass nur in der core computation unloaded werden kann
+                 zudem wissen wir, dass ein trg in core obsolete ist, falls er in in fs obs ist und loaded auf dem core ist
+
                 -/
 
                 have trg_prev_cn_loaded := trg_active_prev_cn_core.left
@@ -592,6 +608,9 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 have l2 := trg_inactive_cn_core
                 have l3 := trg_not_loaded_k
                 have l4 := trg_loaded_succ
+
+                have trg_obs_cn_core := trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn n cn_eq (cn.origin.get cn_origin_some).fst.val ⟨trg_obs_cn_fs, trg_loaded_cn_fs⟩
+
                 unfold PreTrigger.loaded at l1 l2 l3
 
                 have ex_f_nin : ∃ (f : Fact sig), f ∈ (cn.origin.get cn_origin_some).fst.val.mapped_body.toSet ∧ ¬ f ∈ cn_k.core := by
