@@ -401,7 +401,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             intro f
             constructor
             intro f_in
-
             sorry
             intro f_in
             specialize trg_loaded f f_in
@@ -573,17 +572,49 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               | inl trg_not_loaded_k =>
 
                 intro ⟨trg_loaded_succ, trg_non_obs_succ⟩
-                
 
                 /-
-                  A(c)
-                  --------
-                  A(x) -> ex z. R(x, z), R(x,x)
-                  R(x,y) -> B(y)
-                  --------
-                  SC : {A(c); R(c, n), R(c, c); B(n); B(c)}
-                  CC : {A(c); R(c,c); B(c)}
+                Hi, ich habe mich nochmal an das Theorem "ein angewendeter Trigger kann nie wieder aktiv werden" gesetzt.
+                Dort machen wir eine Induktion über k. Induktionsanfang war schon fertig.
+                Im Induktionsschritt wollen wir zeigen, dass der Trigger an der Stelle (n+k+1) nicht active ist.
 
+                Die Situation ist also folgendermaßen:
+                `prev_cn (n-1)` → `cn (n)` → `cn_k (n+k)` → `cn_succ (n+k+1)`
+
+                Wir machen nun einen Wiederspruchsbeweis und nehemen an, dass der Trigger loaded auf cn_succ wäre
+
+                und wir wissen damit:
+                  - trg active in prev_cn
+                  - trg loaded und obs in cn.fs
+                  - trg not loaded in cn_k.core
+                  - trg loaded auf cn_succ.fs
+                  - trg active auf cn_succ.core
+
+                  Des Weiteren wissen wir, dass es einen Fakt `f` geben muss, der im Trigger result (und damit auch in cn.fs) vorkommt aber nicht in cn_k.core
+                  Somit wissen wir auch, dass es eine weitere Node `cm` zwischen `prev_cn` und `cn_succ` geben muss s.d. f in `cm.fs` ist aber nicht in `cm.core`.
+
+                  Hier bin ich mir jetzt nicht sicher, ob ich eine Fallunterscheidung machen muss ob `cm=cn` und ob `cm=cn_k` ist?
+
+                  Hier bin ich mir dann auch nicht sicher wie genau es weiter geht.
+                  Ich glaube wir hatten mal gesagt, dass sich jetzt zeigen lassen sollte, dass es einen Term geben muss, s.d. `t ∈ prev_cn.core.terms ∧ ¬ t ∈ cm.core.terms ∧ t ∈ cn_succ.core.terms` gilt.
+                  Ist das richtig ?
+                  Das würde dann bedeuten, dass es auch einen Fakt gibt s.d. `f ∈ prev_cn.core ∧ ¬ f ∈ cm.core ∧ f ∈ cn_succ.core` richtig ?
+
+                  Jetzt weiß ich aber nicht mehr weiter, was wäre der Ansatz um hier weiter zu machen ?
+                  Wir hatten in der Vergangenheit mal eine Fallunterscheidung gemacht ob `t` eine Konstante ist oder nicht.
+                  Ich weiß aber nicht genau wie mich das hier weiter bringt.
+
+                  Hast du vlt. noch ein Paar Ratschläge wie ich hier weiter komme ?
+
+                  Danke im Voraus :)
+
+
+
+
+                -/
+
+
+                /-
                   prev_cn →     cn →                 cn_k →              cn_succ
                   (trg active)  trg in origin       (trg not loaded)    (show inactive here)
                   .             thus inactive in fs
@@ -594,7 +625,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
                  wir wissen dass nur in der core computation unloaded werden kann
                  zudem wissen wir, dass ein trg in core obsolete ist, falls er in in fs obs ist und loaded auf dem core ist
-
                 -/
 
                 have trg_prev_cn_loaded := trg_active_prev_cn_core.left
@@ -997,8 +1027,13 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                         rcases ex_gtm with ⟨gtm, gtm_hom, gtm_endo, gtm_surj⟩
 
                         have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = prev_node.core.terms := by
-                          have := Set.exListOfSetIfFin prev_node.core.terms sorry
-                          sorry
+                          have := Set.exListOfSetIfFin prev_node.core.terms (by
+                            have := all_core_finite prev_node
+                            exact FactSet.terms_finite_of_finite prev_node.core this
+                            )
+                          rcases this with ⟨l, l_eq⟩
+                          exists l
+                          exact Set.ext l.toSet prev_node.core.terms l_eq
 
                         rcases ex_eq_list with ⟨tl, tl_eq⟩
                         have gtm_surj_list : Function.surjective_for_domain_and_image_list gtm tl tl := by sorry
@@ -1067,9 +1102,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
 
                         -/
-                        have eq : trg.val.subs_for_mapped_head result_index_for_trg v2 = trg.val.subs v2 := by --gleich auf frontier vars, auf ex. nicht by def
-                          sorry
-
+                        have eq : trg.val.subs_for_mapped_head result_index_for_trg v2 = trg.val.subs v2 := trg.val.apply_to_var_or_const_frontier_var result_index_for_trg _ v2_in
 
 
                         sorry
@@ -1916,6 +1949,14 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
           SC : 0 → 1 → ... → k → ... → n → (n+1)=none (maybe k = n)
           CC : 0 → 1 →
+
+                            A(c)
+                  --------
+                  A(x) -> ex z. R(x, z), R(x,x)
+                  R(x,y) -> B(y)
+                  --------
+                  SC : {A(c); R(c, n), R(c, c); B(n); B(c)}
+                  CC : {A(c); R(c,c); B(c)}
         -/
 
         --Each trigger (lets say at postion p1) in the SC is either active in the CC at some postion (p2 ≤ p1) or never
