@@ -396,6 +396,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
           rw [eq] at t1
           rw [t1]
           have t2 := PreTrigger.mem_terms_mapped_body_iff trg.toPreTrigger (trg.subs v)
+          
           have eq2 : cn_core_l = trg.mapped_body := by
             rw [list_ext_eq]
             intro f
