@@ -339,9 +339,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         rcases trg_nex with ⟨next_eq, _⟩
         grind
 
-
-  theorem list_ext_eq (l1 l2 : List α) : l1 = l2 ↔ ∀ e, e ∈ l1 ↔ e ∈ l2 := by sorry
-
   -- muss fs loaded in core oder loaded in fs
   theorem trg_obs_in_core_if_obs_in_fs_and_loaded_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsoletenessCondition) :
       (obs.cond trg.toPreTrigger cn.fs) ∧ (trg.loaded cn.core) → obs.cond trg.toPreTrigger cn.core := by
@@ -396,26 +393,13 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
           rw [eq] at t1
           rw [t1]
           have t2 := PreTrigger.mem_terms_mapped_body_iff trg.toPreTrigger (trg.subs v)
-          
-          have eq2 : cn_core_l = trg.mapped_body := by
-            rw [list_ext_eq]
-            intro f
-            constructor
-            intro f_in
-            sorry
-            intro f_in
-            specialize trg_loaded f f_in
-            grind
-
-
-          rw [eq2, t2]
-
+          have sub : trg.mapped_body ⊆ cn_core_l := by
+            intro e e_in
+            specialize cn_core_l_eq e
+            rw [cn_core_l_eq]
+            exact trg_loaded e e_in
           have := @Rule.frontier_subset_vars_body _ _ _ _ trg.rule
-          right
-          exists v
-          constructor
-          exact this v_in
-          rfl
+          grind
           )
         exact h
 
@@ -640,7 +624,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 have l3 := trg_not_loaded_k
                 have l4 := trg_loaded_succ
 
-                have trg_obs_cn_core := trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn n cn_eq (cn.origin.get cn_origin_some).fst.val ⟨trg_obs_cn_fs, trg_loaded_cn_fs⟩
+                have trg_obs_cn_core := trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn n cn_eq (cn.origin.get cn_origin_some).fst.val ⟨trg_obs_cn_fs, sorry⟩
 
                 unfold PreTrigger.loaded at l1 l2 l3
 
@@ -689,6 +673,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                       unfold Fact.isFunctionFree
                       intro gt gt_in
                       exists c
+                      sorry
 
 
                     specialize this f
