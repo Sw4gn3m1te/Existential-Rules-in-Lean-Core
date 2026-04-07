@@ -95,7 +95,7 @@ namespace GroundTermMapping
       h.isHomomorphism A B ∧ Function.injective_for_domain_set h A.terms ∧ Function.surjective_for_domain_and_image_set h A.terms B.terms ∧ h.strong A.terms A B
 
 
-    @[simp, grind]
+  @[simp, grind]
   theorem homApplyFactFunctionFreeId (fs1 fs2 : FactSet sig) (f : Fact sig) (f_is_ff : f.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFact f = f := by
       rw [GeneralizedAtom.mk.injEq]
       constructor
@@ -207,5 +207,3 @@ namespace GroundTermMapping
     exact af f f_in_afb
 
 end GroundTermMapping
-
-

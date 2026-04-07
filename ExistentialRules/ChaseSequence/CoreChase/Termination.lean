@@ -136,11 +136,16 @@ namespace CoreChaseBranch
     exact term_at_n.left
 
   def last_node (cb : CoreChaseBranch kb) (ter' : cb.terminates') : CoreChaseNode kb.rules :=
-    (Option.castToMemIfNotNone (cb.branch.infinite_list (last_element_index cb ter')) (by exact last_index_is_some cb ter'))
+    (cb.branch.infinite_list (last_element_index cb ter')).get (by
+      have := last_index_is_some cb ter'
+      exact Option.isSome_iff_ne_none.mpr this
+      )
 
   def result (cb : CoreChaseBranch kb) (ter' : cb.terminates') : FactSet sig :=
-    (Option.castToMemIfNotNone (cb.branch.infinite_list (last_element_index cb ter')) (by
-      exact last_index_is_some cb ter')).core
+    ((cb.branch.infinite_list (last_element_index cb ter')).get (by
+      have := last_index_is_some cb ter'
+      exact Option.isSome_iff_ne_none.mpr this
+      )).core
 
   @[grind]
   theorem terminating_eq_index (cb : CoreChaseBranch kb) (m n : Nat) : ((cb.branch.infinite_list n) ≠ none ∧ (cb.branch.infinite_list (n+1) = none) ∧ (cb.branch.infinite_list m) ≠ none ∧ (cb.branch.infinite_list (m+1) = none)) → m = n := by
@@ -242,10 +247,10 @@ namespace CoreChaseBranch
   theorem exLastNodeWithLastIndexIfTerminates' (cb : CoreChaseBranch kb) (ter' : cb.terminates') : ∃ last_cn, cb.branch.infinite_list (cb.last_element_index ter') = some last_cn := by
     exists cb.last_node ter'
     unfold last_node
-    simp only [Option.castToMemIfNotNone, ne_eq]
-    split
-    next => trivial
-    next => trivial
+    exact Option.eq_some_of_isSome (by
+      have := last_index_is_some cb ter'
+      exact Option.isSome_iff_ne_none.mpr this
+      )
 
   theorem neqTerminates'IfCbAllSome (cb : CoreChaseBranch kb) : (∀ (n : Nat), (cb.branch.infinite_list n).isSome) → ¬ cb.terminates' := by
     intro all_some ⟨n, ⟨n_some, n_succ_none⟩⟩
@@ -276,44 +281,25 @@ namespace CoreChaseBranch
     rcases ter' with ⟨n, term_at_n⟩
     have := CoreChaseBranch.all_core_finite cn
     unfold result
-    simp only [Option.castToMemIfNotNone, ne_eq]
-    split
-    next a b c d e f => exact all_core_finite c
-    next => contradiction
+    exact all_core_finite ((cb.branch.infinite_list (cb.last_element_index (Exists.intro n term_at_n))).get (by
+      have := last_index_is_some cb (Exists.intro n term_at_n)
+      exact Option.isSome_iff_ne_none.mpr this
+      ))
 
   @[grind]
   theorem result_finite_if_cb_terminates (cb : CoreChaseBranch kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
     rcases this with ⟨cn, cn_eq⟩
     unfold last_node at cn_eq
-    simp only [Option.castToMemIfNotNone, ne_eq] at cn_eq
-    have := last_index_is_some cb ter'
-    rcases ter' with ⟨n, term_at_n⟩
-    have ter'_eq : cb.last_element_index (Exists.intro n term_at_n : ∃ n, cb.terminates_at_step n) = n := last_element_index_eq_termintes'_index cb n term_at_n
-    induction n with
-      | zero =>
-        unfold result
-        have := cb.database_first
-        simp only [Option.castToMemIfNotNone, ne_eq]
-        split
-        next a b c d e f =>
-          simp_all only [ne_eq, reduceCtorEq, not_false_eq_true, Option.some.injEq, heq_eq_eq]
-          grind
-        next => contradiction
-      | succ n ih =>
-        unfold result
-        simp only [Option.castToMemIfNotNone, ne_eq]
-        split
-        next => grind
-        next => contradiction
+    exact result_finite_if_cb_terminates2 cb ter'
 
   @[grind]
   theorem resultIsSome (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.branch.infinite_list (cb.last_element_index ter') = some (cb.last_node ter') := by
     unfold last_element_index last_node
-    simp only [Option.castToMemIfNotNone, ne_eq]
-    split
-    next => trivial
-    next => trivial
+    exact Option.eq_some_of_isSome (by
+      have := last_index_is_some cb ter'
+      exact Option.isSome_iff_ne_none.mpr this
+      )
 
   --have c : CoreChaseNode kb.rules := {fs := sorry, fs_fin:=sorry,core:=sorry,is_core:=sorry,core_sse:=sorry,origin:=sorry,fs_contains_origin_result:=sorry}
 
@@ -338,26 +324,15 @@ namespace CoreChaseBranch
     have eq : init_node.fs = kb.db.toFactSet.val := by simp_all only [Option.get_some, init_node]
     specialize t last_node_eq f (by grind)
     rw [result]
-    simp only [Option.castToMemIfNotNone, ne_eq]
-    split
-    next => grind
-    next => grind
+    grind
 
-  theorem cbResultModelsKb (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
+  theorem coreChaseResultModelsKb (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
     intro f f_in
     unfold result
-    simp only [Option.castToMemIfNotNone, ne_eq]
-    split
-    next a b c d e g =>
-      have := CoreChaseBranch.cbDbSubsetResult cb ter'
-      specialize this f f_in
-      unfold result at this
-      simp only [Option.castToMemIfNotNone, ne_eq] at this
-      split at this
-      next => simp_all only [ne_eq, Option.some.injEq, not_false_eq_true, heq_eq_eq]
-      next => simp_all only [ne_eq, reduceCtorEq]
-    next => contradiction
+    have last_index := (cb.last_element_index ter')
+    have := CoreChaseBranch.cbDbSubsetResult cb ter'
+    exact this f f_in
 
     intro r r_in gs sub
     apply Classical.byContradiction
