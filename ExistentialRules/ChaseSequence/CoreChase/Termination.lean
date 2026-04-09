@@ -318,20 +318,20 @@ namespace CoreChaseBranch
   theorem cbDbSubsetResult (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
     let init_node := (cb.branch.infinite_list 0).get (Option.isSome_of_mem cb.database_first)
     rcases (exLastNodeWithLastIndexIfTerminates' cb ter') with ⟨last_node, last_node_eq⟩
-    have t := CoreChaseBranch.cbDbInAllSucc cb (cb.last_element_index ter') init_node last_node (by grind)
+    have t := cb.cbDbInAllSucc (cb.last_element_index ter') init_node last_node (by grind)
     intro f f_in
     let := cb.database_first
     have eq : init_node.fs = kb.db.toFactSet.val := by simp_all only [Option.get_some, init_node]
-    specialize t last_node_eq f (by grind)
+    specialize t last_node_eq f (by simp_all)
     rw [result]
-    grind
+    simp_all
 
   theorem coreChaseResultModelsKb (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
     intro f f_in
     unfold result
     have last_index := (cb.last_element_index ter')
-    have := CoreChaseBranch.cbDbSubsetResult cb ter'
+    have := cb.cbDbSubsetResult ter'
     exact this f f_in
 
     intro r r_in gs sub

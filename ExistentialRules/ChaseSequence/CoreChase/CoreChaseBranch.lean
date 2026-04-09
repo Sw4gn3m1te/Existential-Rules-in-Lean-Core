@@ -412,12 +412,10 @@ namespace CoreChaseBranch
       induction n generalizing cn with
         | zero =>
           intro f f_in
-          refine ff_in_core_if_ff_in_fs cb 0 cn_eq f ?_ ?_
-          have eq : cn = init := by grind
-          rw [eq]
-          exact f_in
-          rw [init_eq'] at f_in
-          exact db_funfree f f_in
+          have eq : cn = init := by simp_all
+          exact ff_in_core_if_ff_in_fs cb 0 cn_eq f
+            (by rw [eq]; exact f_in)
+            (by rw [init_eq'] at f_in; exact db_funfree f f_in)
         | succ n ih =>
           have prev_cn_ex : ∃ prev_cn, cb.branch.infinite_list n = some prev_cn:= by
             have := prev_is_some_if_is_some cb (n + 1) (Option.NeqNoneIfIsSome (cb.branch.infinite_list (n + 1)) cn cn_eq) n (Nat.lt_add_one n)
