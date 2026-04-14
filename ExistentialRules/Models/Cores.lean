@@ -1,11 +1,58 @@
-import ExistentialRules.Models.Basic
-import ExistentialRules.ChaseSequence.Basic
+/-
+Copyright 2026 Lukas Gerlach
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
+module
+
+public import BasicLeanDatastructures.List.EraseDupsKeepRight
+public import ExistentialRules.Models.Basic
+
+/-!
+# Cores
+
+In this file, we define cores of fact sets. Namely, we define `FactSet.isWeakCore` and `FactSet.isStrongCore`.
+`FactSet`s that are models and cores are interesting since there are (intuitively speaking) the smallest possible models.
+Under certain condition, the chase is able to produce a core directly, which is very desirable since the result of the chase is also always a universal model.
+But this is discussed in other files. Here, we are only concerned with the definition of cores on `FactSet`s and some of their properties.
+-/
+
+/-!
+## Some Auxiliary Definitions and Theorems on Lists and Functions
+
+Before we can go into the actual definitions, we need a lot of machinery, mainly about functions to be able to state properties like injectivity and surjectivity possibly only about a list of set of elements and not the whole domain of the function.
+-/
 
 namespace List
 
-  theorem length_le_of_nodup_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : as.length ≤ bs.length := by
-    induction as generalizing bs with
-    | nil => simp
+/-!
+### Auxiliary Theorems on Lists
+-/
+
+/-- If a list is duplicate free and the sublist of another list, then the second list is at least as long as the first. -/
+theorem length_le_of_nodup_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : as.length ≤ bs.length := by
+  induction as generalizing bs with
+  | nil => simp
+  | cons a as ih =>
+    let bs_without_a := bs.erase a
+    simp only [nodup_cons] at nodup
+    specialize ih
+      bs_without_a
+      nodup.right
+      (by intro c c_mem; rw [List.mem_erase_of_ne]; apply all_mem; simp [c_mem]; intro contra; rw [contra] at c_mem; apply nodup.left; exact c_mem)
+    rw [List.length_erase_of_mem (by apply all_mem; simp)] at ih
+    rw [Nat.le_sub_one_iff_lt (by apply List.length_pos_of_mem; apply all_mem a; simp)] at ih
+    apply Nat.succ_le_of_lt
+    exact ih
+
+/-- If a list is duplicate free and the sublist of another list that has the same length, then both lists have exactly the same elements. -/
+theorem equiv_of_nodup_of_length_eq_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (eq_length : as.length = bs.length) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : ∀ e, e ∈ as ↔ e ∈ bs := by
+  intro e
+  constructor
+  . apply all_mem
+  . intro mem_bs
+    induction as generalizing bs e with
+    | nil => cases bs; simp at mem_bs; simp at eq_length
     | cons a as ih =>
       let bs_without_a := bs.erase a
       simp only [nodup_cons] at nodup
@@ -23,142 +70,9 @@ namespace List
         exact mem_bs
         exact neq
 
-  theorem equiv_of_nodup_of_length_eq_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (eq_length : as.length = bs.length) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : ∀ e, e ∈ as ↔ e ∈ bs := by
-    intro e
-    constructor
-    . apply all_mem
-    . intro mem_bs
-      induction as generalizing bs e with
-      | nil => cases bs; simp at mem_bs; simp at eq_length
-      | cons a as ih =>
-        let bs_without_a := bs.erase a
-        simp at nodup
-        specialize ih
-          bs_without_a
-          nodup.right
-          (by rw [List.length_erase_of_mem, ← eq_length]; simp; apply all_mem; simp)
-          (by intro c c_mem; rw [List.mem_erase_of_ne]; apply all_mem; simp [c_mem]; intro contra; rw [contra] at c_mem; apply nodup.left; exact c_mem)
-        cases Decidable.em (e = a) with
-        | inl eq => simp [eq]
-        | inr neq =>
-          simp; apply Or.inr
-          apply ih
-          rw [List.mem_erase_of_ne]
-          exact mem_bs
-          exact neq
-
-
-  theorem len_gt_one_not_empty (l : List α) : l.length ≥ 1 → ¬ l.isEmpty := by
-    intro len_geq_1
-    unfold List.length at len_geq_1
-    cases l with
-      | nil =>
-        contradiction
-      | cons hd tl =>
-        simp
-
-  theorem ex_elem_outside_prop_subset (l : List α) (subset_l : sub ⊆ l) (neq_l : ¬sub.toSet = l.toSet) : ∃ (e : α), e ∈ l ∧ ¬ e ∈ sub := by
-    apply Classical.byContradiction
-    intro contra
-    simp only [not_exists, not_and, Classical.not_not] at contra
-    apply neq_l
-    funext a
-    ext
-    change a ∈ sub.toSet ↔ a ∈ l.toSet
-    simp only [List.mem_toSet]
-    exact ⟨fun h' => subset_l h', contra a⟩
-
-  theorem subset_mono [DecidableEq α] (l tl : List α) (hd : α) (subset : (hd :: tl) ⊆ l) : tl ⊆ l := by
-    induction (hd :: tl) with
-      | nil =>
-        exact List.subset_of_cons_subset subset
-      | cons hd2 tl2 ih =>
-        exact ih
-
-  theorem subset_if_sublist (l sub : List α) : sub ⊆ l → sub.toSet ⊆ l.toSet := by
-    intro subset
-    repeat rw [List.toSet_iff_toSet']
-    apply subset
-
-  theorem to_set_eq_if_eq (l1 l2 : List α) : l1 = l2 → l1.toSet = l2.toSet := by
-    exact fun a => congrArg toSet a
-
-  theorem length_lt_of_proper_subset [DecidableEq α] (l sub : List α) (sub_nodup : sub.Nodup) (subset : sub ⊆ l) (neq : sub.toSet ≠ l.toSet) : sub.length < l.length := by
-    induction sub generalizing l with
-      | nil =>
-        exact List.length_lt_of_drop_ne_nil fun a => neq (congrArg List.toSet (id (Eq.symm a)))
-      | cons hd tl ih =>
-        have hd_in_l : hd ∈ l := by
-          apply subset
-          left
-        have subset' : (hd :: tl).toSet ⊆ l.toSet := by
-          exact subset_if_sublist l (hd :: tl) subset
-        have hd_nin_tl : ¬ hd ∈ tl := by
-          rw [List.nodup_cons] at sub_nodup
-          exact sub_nodup.1
-        have tl_nodup : tl.Nodup := by
-          unfold List.Nodup
-          exact List.Pairwise.of_cons sub_nodup
-        have tl_sub_lerase : tl ⊆ (l.erase hd) := by
-          intro e e_in_tl
-          refine (List.mem_erase_of_ne ?_).mpr ?_
-          have e_in_hdtl : e ∈ (hd :: tl) := by exact List.mem_cons_of_mem hd e_in_tl
-          by_cases c : (e = hd)
-          unfold List.Nodup at sub_nodup
-          exact ne_of_mem_of_not_mem e_in_tl hd_nin_tl
-          exact c
-          have : e ∈ (hd :: tl) := by exact List.mem_cons_of_mem hd e_in_tl
-          apply subset
-          exact this
-
-        have lerase_len_lt : (l.erase hd).length = l.length - 1 := by
-          exact List.length_erase_of_mem hd_in_l
-        have tl_neq_lerase : tl.toSet ≠ (l.erase hd).toSet := by
-          intro contra
-          apply neq
-          apply Set.ext
-          intro e
-          rw [List.mem_toSet]
-          rw [List.mem_toSet]
-          rw [← Set.ext_iff] at contra
-          specialize contra e
-          rw [List.mem_toSet] at contra
-          rw [List.mem_toSet] at contra
-          rw [List.mem_cons]
-          constructor
-          . intro e_mem
-            cases e_mem with
-            | inl e_mem => rw [e_mem]; exact hd_in_l
-            | inr e_mem =>
-              rw [← List.mem_erase_of_ne]
-              . rw [← contra]; exact e_mem
-              . intro contra
-                apply hd_nin_tl
-                rw [← contra]
-                exact e_mem
-          . intro e_mem
-            cases Decidable.em (e = hd) with
-            | inl e_eq_hd => apply Or.inl; exact e_eq_hd
-            | inr e_neq_hd =>
-              apply Or.inr
-              rw [contra]
-              rw [List.mem_erase_of_ne]
-              . exact e_mem
-              . exact e_neq_hd
-
-        specialize ih (l.erase hd) tl_nodup tl_sub_lerase tl_neq_lerase
-        have tl_len_eq_hdtl_len_lt : tl.length = (hd::tl).length -1 := by rfl
-        rw [lerase_len_lt, tl_len_eq_hdtl_len_lt] at ih
-        exact Nat.succ_lt_of_lt_pred ih
-
-  theorem mem_map_iff_mem_map_eraseDupsKeepRight (l : List α) (h : α → β) (e : β) [DecidableEq α] : e ∈ List.map h l ↔ e ∈ List.map h l.eraseDupsKeepRight := by
-    repeat rw [List.mem_map]
-    apply exists_congr
-    intro f
-    rw [List.mem_eraseDupsKeepRight]
-
 end List
 
+public section
 
 namespace Function
 
@@ -394,13 +308,6 @@ theorem closed_of_injective_of_surjective_of_nodup [DecidableEq α] (f : α -> �
   . apply mapping_mem_image_of_mem; exact e_mem
   . rw [(injective_iff_length_image_eq_of_nodup f l nodup).mp inj]
   . exact (surjective_on_target_iff_all_in_image f l l).mp surj
-
-  theorem image_eq_eraseDupsKeepRight_map [DecidableEq β] {f : α -> β} {l : List α} : image f l = (l.map f).eraseDupsKeepRight := by
-    induction l with
-    | nil => simp [image, List.eraseDupsKeepRight]
-    | cons hd tl ih =>
-      simp only [image, List.eraseDupsKeepRight, List.map_cons]
-      simp only [ih, List.mem_eraseDupsKeepRight]
 
 end Function
 
@@ -679,14 +586,37 @@ def isWeakCore (fs : FactSet sig) : Prop :=
 def isStrongCore (fs : FactSet sig) : Prop :=
   ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injective_for_domain_set fs.terms ∧ h.surjective_for_domain_and_image_set fs.terms fs.terms
 
-    let terms_list := (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
-    have nodup_terms_list : terms_list.Nodup := by apply List.nodup_eraseDupsKeepRight
-    have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ fs.terms := by
-      simp only [terms_list]
-      intro e
-      rw [List.mem_eraseDupsKeepRight]
-      unfold FactSet.terms
-      simp only [List.mem_flatten, List.mem_map]
+/-- We say that a fact set $C$ is a homomorphic subset of another fact set $F$ if $C$ is a subset of $F$ and there is a homomorphism from $F$ to $C$. -/
+@[expose]
+def homSubset (c fs : FactSet sig) : Prop := c ⊆ fs ∧ (∃ (h : GroundTermMapping sig), h.isHomomorphism fs c)
+
+/-- For a homomorphism on a finite fact set, injectivity implies surjectivity. -/
+@[grind ->]
+theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) :
+    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms ->
+    h.surjective_for_domain_and_image_set fs.terms fs.terms := by
+  rcases finite with ⟨l, finite⟩
+  intro h isHom inj
+
+  let terms_list := (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
+  have nodup_terms_list : terms_list.Nodup := by apply List.nodup_eraseDupsKeepRight
+  have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ fs.terms := by
+    simp only [terms_list]
+    intro e
+    rw [List.mem_eraseDupsKeepRight]
+    unfold FactSet.terms
+    simp only [List.mem_flatten, List.mem_map]
+    constructor
+    . intro h
+      rcases h with ⟨ts, h, ts_mem⟩
+      rcases h with ⟨f, f_mem, eq⟩
+      exists f
+      rw [eq]
+      rw [← finite.right f]
+      constructor <;> assumption
+    . intro h
+      rcases h with ⟨f, f_mem, e_mem⟩
+      exists f.terms
       constructor
       . exists f; rw [finite.right f]; constructor; exact f_mem; rfl
       . exact e_mem
@@ -1009,135 +939,23 @@ theorem strong_core_of_model_is_model
         . unfold GroundSubstitution.apply_function_free_atom
           unfold TermMapping.apply_generalized_atom
           rw [List.mem_map]
-          exists arg
-
-  theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
-      (fs : FactSet sig)
-      (sc : FactSet sig) (sub_sc : sc.homSubset fs) (sc_strong : sc.isStrongCore)
-      (wc : FactSet sig) (sub_wc : wc.homSubset fs) (wc_weak : wc.isWeakCore) :
-      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
-
-    rcases sub_sc with ⟨sub_sc, h_fs_sc, h_fs_sc_hom⟩
-    rcases sub_wc with ⟨sub_wc, h_fs_wc, h_fs_wc_hom⟩
-
-    have h_sc_wc_hom : h_fs_wc.isHomomorphism sc wc := by
-      constructor
-      . exact h_fs_wc_hom.left
-      . apply Set.subset_trans (b := h_fs_wc.applyFactSet fs)
-        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
-          exact sub_sc
-        . exact h_fs_wc_hom.right
-
-    have h_wc_sc_hom : h_fs_sc.isHomomorphism wc sc := by
-      constructor
-      . exact h_fs_sc_hom.left
-      . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
-        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
-          exact sub_wc
-        . exact h_fs_sc_hom.right
-
-    exact every_weakCore_isomorphic_to_strongCore_of_hom_both_ways sc sc_strong wc wc_weak h_fs_wc h_fs_sc h_sc_wc_hom h_wc_sc_hom
-
-  theorem every_universal_weakCore_isomorphic_to_universal_strongCore
-      {kb : KnowledgeBase sig}
-      (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
-      (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
-      ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injective_for_domain_set wc.terms ∧ iso.surjective_for_domain_and_image_set wc.terms sc.terms := by
-
-    rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
-    rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
-
-    exact every_weakCore_isomorphic_to_strongCore_of_hom_both_ways sc sc_strong wc wc_weak h_sc_wc h_wc_sc h_sc_wc_hom h_wc_sc_hom
-
-  theorem strong_core_of_model_is_model
-      {kb : KnowledgeBase sig}
-      (fs : FactSet sig) (fs_model : fs.modelsKb kb)
-      (sc : FactSet sig) (sc_sub : sc.homSubset fs) (sc_strong : sc.isStrongCore) :
-      sc.modelsKb kb := by
-
-    rcases sc_sub with ⟨sc_sub, h_fs_sc, h_fs_sc_hom⟩
-
-    have h_fs_sc_endo_sc : h_fs_sc.isHomomorphism sc sc := by
-      constructor
-      . exact h_fs_sc_hom.left
-      . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
-        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
-          exact sc_sub
-        . exact h_fs_sc_hom.right
-
-    specialize sc_strong h_fs_sc h_fs_sc_endo_sc
-
-    -- TODO: extract this into a general result; check which properties we really need and want here
-    have ex_inv : ∃ (inv : GroundTermMapping sig), (∀ t, t ∈ sc.terms -> (h_fs_sc (inv t)) = t) ∧ inv.isHomomorphism sc sc := by
-      let inv : GroundTermMapping sig := fun t =>
-        have dev := Classical.propDecidable (t ∈ sc.terms)
-        if t_mem : t ∈ sc.terms
-        then
-          Classical.choose (sc_strong.right.right t t_mem)
-        else
-          t
-
-      have inv_id : (∀ t, t ∈ sc.terms -> (h_fs_sc (inv t)) = t) := by
-        intro t t_mem
-        unfold inv
-        simp only [t_mem, ↓reduceDIte]
-        have spec := Classical.choose_spec (sc_strong.right.right t t_mem)
-        exact spec.right
-      exists inv
-
-      constructor
-      . exact inv_id
-      . constructor
-        . intro t
-          cases eq : t with
-          | func _ _ => simp [GroundTerm.func]
-          | const c =>
-            simp only [GroundTerm.const]
-            unfold inv
-            cases Classical.em (GroundTerm.const c ∈ sc.terms) with
-            | inr n_mem => unfold GroundTerm.const at n_mem; simp [n_mem]
-            | inl mem =>
-              unfold GroundTerm.const at mem
-              simp [mem]
-              have spec := Classical.choose_spec (sc_strong.right.right (GroundTerm.const c) mem)
-              apply sc_strong.right.left
-              . exact spec.left
-              . exact mem
-              . rw [spec.right]
-                have := h_fs_sc_hom.left (GroundTerm.const c)
-                simp only [GroundTerm.const] at this
-                rw [this]
-                simp [GroundTerm.const]
-        . intro f f_mem
-          rcases f_mem with ⟨f', f'_mem, f_eq⟩
-          have strong := sc_strong.left
-          unfold GroundTermMapping.strong at strong
-          apply Classical.byContradiction
-          intro contra
-          apply strong f
-          . intro t t_mem
-            rw [f_eq] at t_mem
-            unfold TermMapping.apply_generalized_atom at t_mem
-            rw [List.mem_map] at t_mem
-            rcases t_mem with ⟨t', t'_mem, t_eq⟩
-            have t'_mem : t' ∈ sc.terms := by exists f'
-            have spec := Classical.choose_spec (sc_strong.right.right t' t'_mem)
-            rw [← t_eq]
-            unfold inv
-            simp [t'_mem]
-            exact spec.left
-          . exact contra
-          . rw [f_eq]
-            unfold GroundTermMapping.applyFact
-            rw [← TermMapping.apply_generalized_atom_compose']
-            have : TermMapping.apply_generalized_atom (h_fs_sc ∘ inv) f' = f' := by
-              apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
-              intro t t_mem
-              rw [Function.comp_apply, inv_id]
-              exists f'
-            rw [this]
-            exact f'_mem
-    rcases ex_inv with ⟨inv, inv_id, inv_hom⟩
+          exists VarOrConst.var v
+      )]
+    . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
+      . intro f f_mem
+        unfold GroundSubstitution.apply_function_free_conj at f_mem
+        unfold TermMapping.apply_generalized_atom_list at f_mem
+        rw [List.mem_toSet, List.mem_map] at f_mem
+        rcases f_mem with ⟨a, a_mem, f_eq⟩
+        rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_fs_sc_hom.left] at f_eq
+        rw [← f_eq]
+        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
+        apply sub_mapping
+        unfold GroundSubstitution.apply_function_free_conj
+        unfold TermMapping.apply_generalized_atom_list
+        rw [List.mem_toSet, List.mem_map]
+        exists a
+      . exact h_fs_sc_hom.right
 
 /-- Building on top of the previous theorem, a strong core of a universal model is not only a model but also universal. -/
 theorem strong_core_of_universal_model_is_universal_model
@@ -1157,276 +975,5 @@ theorem strong_core_of_universal_model_is_universal_model
         exact sc_sub.left
       . exact h_hom.right
 
-  theorem every_stong_core_is_weak_core (fs : FactSet sig) : fs.isStrongCore → fs.isWeakCore := by
-    unfold isStrongCore isWeakCore
-    intro h1 h2 h3
-    specialize h1 h2 h3
-    exact ⟨h1.1, h1.2.1⟩
-
-  theorem empty_set_is_weak_core : (∅ : FactSet sig).isWeakCore := by
-    intro gtm ghom
-    constructor
-    intro _ _ contra _
-    contradiction
-    intro h1 h2 h3 h4 h5
-    unfold FactSet.terms at h3
-    rcases h3 with ⟨_, contra, _⟩
-    contradiction
-
-  theorem apply_fact_set_to_empty_is_empty (gtm : GroundTermMapping sig) (fs : FactSet sig) (fs_emtpy : fs = ∅) : gtm.applyFactSet fs ⊆ fs := by
-    rw [fs_emtpy]
-    intro f fu
-    have c : f ∈ gtm.applyFactSet ∅ → false := by
-      intro ⟨f2, ⟨contra, g⟩⟩
-      contradiction
-    specialize c fu
-    contradiction
-
-  theorem id_is_hom {fs : FactSet sig} : GroundTermMapping.isHomomorphism id fs fs := by
-    constructor
-    . unfold GroundTermMapping.isIdOnConstants; intro t; split <;> simp
-    . rintro _ ⟨e, mem, eq⟩
-      rw [eq]
-      rw [TermMapping.apply_generalized_atom_eq_self_of_id_on_terms]
-      . exact mem
-      . simp
-
-  theorem homSubset_refl (fs : FactSet sig) : fs.homSubset fs := by
-    constructor
-    . apply Set.subset_refl
-    . exists id
-      exact id_is_hom
-
-  theorem every_set_has_subset_weakcore : ∀ (fs : FactSet sig), fs ≠ ∅ → ∃ (wc : FactSet sig), wc ⊆ fs ∧ wc.isWeakCore := by
-    intro fs fs_nempty
-    exists ∅
-    constructor
-    intro f f_in_empty
-    contradiction
-    apply empty_set_is_weak_core
-
-  theorem apply_fact_set_monotone (f : GroundTermMapping sig) (A B : FactSet sig) (subset : A ⊆ B):
-    f.applyFactSet B ⊆ A → f.applyFactSet B ⊆ B := by
-      intro h
-      intro e e_in_af_B
-      specialize h e e_in_af_B
-      specialize subset e h
-      exact subset
-
-  theorem weak_core_of_neq_subset (l : List (Fact sig)):
-    ¬ (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) -> (isWeakCore l.toSet) := by
-      intro h
-      simp only [not_exists] at h
-      intro gtm gtm_hom
-      simp only [not_and, ne_eq] at h
-      have l_set_fin : l.toSet.finite := by exact List.finite_toSet l
-      have inj_str := hom_strong_of_finite_of_injective l.toSet l_set_fin gtm gtm_hom
-
-      specialize h (l.map gtm.applyFact)
-
-      have af_sub_l : List.map gtm.applyFact l ⊆ l := by
-        rw [List.subset_def]
-        intro f f_in_l
-        rw [List.mem_map] at f_in_l
-        rcases f_in_l with ⟨f', f'_in_l, f'_eq⟩
-        rcases gtm_hom with ⟨gtm_c, gtm_af⟩
-
-        specialize gtm_af f
-        rw [← List.mem_toSet]
-        apply gtm_af
-        unfold GroundTermMapping.applyFactSet
-        exists f'
-        constructor
-        . rw [List.mem_toSet]
-          exact f'_in_l
-        . rw [← f'_eq]
-
-      specialize h af_sub_l
-
-      have hom_subset : homSubset (l.map gtm.applyFact).toSet l.toSet := by
-        rcases gtm_hom with ⟨gtm_c, gtm_af⟩
-        unfold homSubset
-        have : gtm.applyFactSet l.toSet = (List.map gtm.applyFact l).toSet := by
-          apply Set.ext
-          intro e
-          rw [List.mem_toSet, List.mem_map]
-          unfold GroundTermMapping.applyFactSet
-          constructor
-          . intro h2
-            rcases h2 with ⟨f, f_in, f_eq⟩
-            exists f
-            constructor
-            . rw [← List.mem_toSet]
-              exact f_in
-            . rw [f_eq]
-          . intro h2
-            rcases h2 with ⟨f, f_in, f_eq⟩
-            exists f
-            constructor
-            . rw [List.mem_toSet]
-              exact f_in
-            . rw [← f_eq]
-
-        constructor
-        rw [← this]
-        exact gtm_af
-        exists gtm
-        constructor
-        . exact gtm_c
-        . rw [this]; apply Set.subset_refl
-
-      cases Decidable.em (l ⊆ l.map gtm.applyFact) with
-      | inl l_sub_mapped =>
-        have eq : (l.map gtm.applyFact).toSet = l.toSet := by
-          simp_all only [not_true_eq_false, imp_false, Classical.not_not]
-
-        rw [propext (and_iff_right_of_imp inj_str)]
-        let terms_list := (l.flatMap GeneralizedAtom.terms).eraseDupsKeepRight
-        have nodup_terms_list : terms_list.Nodup := by
-          apply List.nodup_eraseDupsKeepRight
-        have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ (terms l.toSet) := by
-          simp only [terms_list]
-          intro e
-          rw [List.mem_eraseDupsKeepRight]
-          unfold FactSet.terms
-          simp only [List.mem_flatMap]
-          constructor
-          . intro h
-            rcases h with ⟨f, f_in_l, e_in_ft⟩
-            exists f
-          . intro h
-            rcases h with ⟨f, f_in_l, e_in_ft⟩
-            exists f
-
-
-        rw [Function.injective_set_list_equiv gtm (terms l.toSet) terms_list mem_terms_list]
-        rw [Function.injective_iff_length_image_eq_of_nodup]
-        rw [Function.image_eq_eraseDupsKeepRight_map]
-        apply List.length_eraseDupsKeepRight_eq_of_same_elements
-        intro gt
-        specialize mem_terms_list gt
-
-        unfold terms_list at mem_terms_list
-        rw [List.mem_eraseDupsKeepRight] at mem_terms_list
-        rw [mem_terms_list, ← eq]
-
-        have eq2 : gt ∈ List.flatMap GeneralizedAtom.terms (List.map gtm.applyFact l) ↔ gt ∈ terms (List.map gtm.applyFact l).toSet := by
-          simp only [List.mem_flatMap, List.mem_map]
-          constructor
-          intro ⟨f, ⟨f', f'_in_l, f'_eq_f⟩, gt_in_f_t⟩
-          unfold terms
-          exists f
-          constructor
-          rw [List.mem_toSet, List.mem_map]
-          exists f'
-          exact gt_in_f_t
-          intro ⟨f, f_in_l, gt_in⟩
-          rw [List.mem_toSet, List.mem_map] at f_in_l
-          rcases f_in_l with ⟨f', f'_in_l, f'_eq⟩
-          exists f
-          constructor
-          exists f'
-          exact gt_in
-
-        rw [← eq2]
-        unfold terms_list
-        rw [← List.mem_map_iff_mem_map_eraseDupsKeepRight]
-        -- can also use grind here
-        rw [List.map_flatMap, List.flatMap_map]
-
-        constructor
-        intro h2
-        rw [List.mem_flatMap] at h2
-        rcases h2 with ⟨f, f_in, f_eq⟩
-        rw [List.mem_flatMap]
-        exists f
-        intro h2
-        rw [List.mem_flatMap]
-        rw [List.mem_flatMap] at h2
-        rcases h2 with ⟨f, f_in, f_eq⟩
-        exists f
-        exact nodup_terms_list
-
-      | inr l_not_sub_mapped =>
-        have neq : (l.map gtm.applyFact).toSet ≠ l.toSet := by
-          intro contra
-          apply l_not_sub_mapped
-          intro f f_in_l
-          rw [← Set.ext_iff] at contra
-          specialize contra f
-          rw [← List.mem_toSet]
-          rw [contra]
-          rw [List.mem_toSet]
-          exact f_in_l
-
-        specialize h neq
-        contradiction
-
-  theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
-    ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
-      induction length using Nat.strongRecOn generalizing l with
-        | ind n ih =>
-          by_cases h : (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet)
-          . rcases h with ⟨sub', h2, h3, h4⟩
-            let sub := sub'.eraseDupsKeepRight
-            have sub_eq_sub' : sub.toSet = sub'.toSet := by
-              apply funext
-              intro e
-              apply propext
-              change e ∈ sub.toSet ↔ e ∈ sub'.toSet
-              have := @List.mem_toSet _ sub' e
-              rw [this]
-              have := @List.mem_toSet _ sub e
-              rw [this]
-              apply List.mem_eraseDupsKeepRight
-            specialize ih sub.length  -- m < n
-            by_cases n_zero : (n = 0)
-            . exists ∅
-              constructor
-              . apply empty_set_is_weak_core
-              . rw [n_zero] at length_l
-                have : l.toSet = ∅ := by
-                  rw [List.length_eq_zero_iff.mp length_l]
-                  apply Set.ext; intro e; rw [List.mem_toSet, List.mem_nil_iff]; simp [Membership.mem, EmptyCollection.emptyCollection]
-                rw [this]
-                apply homSubset_refl
-            . have x : _ := ih (by
-                rw [← length_l]
-                apply List.length_lt_of_proper_subset
-                . apply List.nodup_eraseDupsKeepRight
-                . intro e e_mem; apply h2; rw [List.mem_eraseDupsKeepRight] at e_mem; exact e_mem
-                . intro contra
-                  apply h3
-                  rw [← contra]
-                  rw [sub_eq_sub']
-              ) sub rfl
-              rcases x with ⟨fs, fs_wc, fs_hom_ss_tl⟩
-              exists fs
-              constructor
-              . exact fs_wc
-              . rw [sub_eq_sub'] at fs_hom_ss_tl
-                rcases fs_hom_ss_tl with ⟨fs_ss_tl, ⟨gtm ,ghom⟩⟩
-                rw [homSubset]
-                constructor
-                have h2' : sub'.toSet ⊆ l.toSet := by
-                  apply List.subset_if_sublist; exact h2
-                . apply Set.subset_trans fs_ss_tl h2'
-                . rcases h4 with ⟨h4_sub, h4_hom, h4_hom_hom⟩
-                  exists gtm ∘ h4_hom
-                  apply GroundTermMapping.isHomomorphism_compose
-                  . exact h4_hom_hom
-                  . exact ghom
-          -- l.toSet is wc
-          · have x : FactSet.isWeakCore l.toSet := by
-              apply weak_core_of_neq_subset
-              exact h
-            exists l.toSet
-            constructor
-            exact x
-            rw [homSubset]
-            constructor
-            apply Set.subset_refl
-            exists id
-            apply id_is_hom
-
 end FactSet
+
