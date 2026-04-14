@@ -1,5 +1,5 @@
 import ExistentialRules.Models.Cores
-
+import PossiblyInfiniteTrees.PossiblyInfiniteList.PossiblyInfiniteList
 
 theorem contrapose (A B : Prop) : A → B ↔ ¬ B → ¬ A := by grind
 
@@ -152,3 +152,79 @@ namespace InfiniteList
         l (m - 1)
 
 end InfiniteList
+
+
+namespace List
+
+  theorem mem_map_iff_mem_map_eraseDupsKeepRight (l : List α) (h : α → β) (e : β) [DecidableEq α] : e ∈ List.map h l ↔ e ∈ List.map h l.eraseDupsKeepRight := by
+    repeat rw [List.mem_map]
+    apply exists_congr
+    intro f
+    rw [List.mem_eraseDupsKeepRight]
+
+  theorem length_lt_of_proper_subset [DecidableEq α] (l sub : List α) (sub_nodup : sub.Nodup) (subset : sub ⊆ l) (neq : sub.toSet ≠ l.toSet) : sub.length < l.length := by
+    induction sub generalizing l with
+      | nil =>
+        exact List.length_lt_of_drop_ne_nil fun a => neq (congrArg List.toSet (id (Eq.symm a)))
+      | cons hd tl ih =>
+        have hd_in_l : hd ∈ l := by
+          apply subset
+          left
+        have subset' : (hd :: tl).toSet ⊆ l.toSet := Set.subset_trans subset fun e a => a
+        have hd_nin_tl : ¬ hd ∈ tl := by
+          rw [List.nodup_cons] at sub_nodup
+          exact sub_nodup.1
+        have tl_nodup : tl.Nodup := by
+          unfold List.Nodup
+          exact List.Pairwise.of_cons sub_nodup
+        have tl_sub_lerase : tl ⊆ (l.erase hd) := by
+          intro e e_in_tl
+          refine (List.mem_erase_of_ne ?_).mpr ?_
+          have e_in_hdtl : e ∈ (hd :: tl) := by exact List.mem_cons_of_mem hd e_in_tl
+          by_cases c : (e = hd)
+          unfold List.Nodup at sub_nodup
+          exact ne_of_mem_of_not_mem e_in_tl hd_nin_tl
+          exact c
+          have : e ∈ (hd :: tl) := by exact List.mem_cons_of_mem hd e_in_tl
+          apply subset
+          exact this
+
+        have lerase_len_lt : (l.erase hd).length = l.length - 1 := by
+          exact List.length_erase_of_mem hd_in_l
+        have tl_neq_lerase : tl.toSet ≠ (l.erase hd).toSet := by
+          intro contra
+          apply neq
+          apply Set.ext
+          intro e
+          repeat rw [List.mem_toSet]
+          rw [Set.ext_iff] at contra
+          specialize contra e
+          repeat rw [List.mem_toSet] at contra
+          rw [List.mem_cons]
+          constructor
+          . intro e_mem
+            cases e_mem with
+            | inl e_mem => rw [e_mem]; exact hd_in_l
+            | inr e_mem =>
+              rw [← List.mem_erase_of_ne]
+              . rw [← contra]; exact e_mem
+              . intro contra
+                apply hd_nin_tl
+                rw [← contra]
+                exact e_mem
+          . intro e_mem
+            cases Decidable.em (e = hd) with
+            | inl e_eq_hd => apply Or.inl; exact e_eq_hd
+            | inr e_neq_hd =>
+              apply Or.inr
+              rw [contra]
+              rw [List.mem_erase_of_ne]
+              . exact e_mem
+              . exact e_neq_hd
+
+        specialize ih (l.erase hd) tl_nodup tl_sub_lerase tl_neq_lerase
+        have tl_len_eq_hdtl_len_lt : tl.length = (hd::tl).length -1 := by rfl
+        rw [lerase_len_lt, tl_len_eq_hdtl_len_lt] at ih
+        exact Nat.succ_lt_of_lt_pred ih
+
+end List

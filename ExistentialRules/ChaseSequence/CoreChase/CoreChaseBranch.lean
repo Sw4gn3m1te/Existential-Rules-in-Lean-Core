@@ -1,4 +1,4 @@
-import ExistentialRules.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.ChaseBranch
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
 import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
@@ -22,18 +22,14 @@ import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
 
-
-def exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
-  ∃ trg : (RTrigger (obs.toLaxObsoletenessCondition) rules), trg.val.active before.core ∧ ∃ (c : FactSet sig) (i : _),
-    after.is_some_and (fun a => a.fs = before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet ∧ a.core = c ∧ a.origin = some ⟨trg, i⟩)
-
-def not_exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
-  ¬(∃ trg : (RTrigger (obs.toLaxObsoletenessCondition) rules), trg.val.active before.core) ∧ after = none
-
 theorem exFactIfExTerm (kb : KnowledgeBase sig) (t : GroundTerm sig) : t ∈ kb.db.toFactSet.val.terms → ∃ f, f ∈ kb.db.toFactSet.val := by
   intro ⟨f, f_in_fs, f_in_ter⟩
   exists f
 
+@[grind]
+theorem all_core_finite (node : CoreChaseNode kb.rules) : Set.finite (node.core) := by
+  apply CoreChaseNode.core_finite_if_fs_finite
+  exact node.fs_fin
 
 @[grind]
 theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeakCore := by
@@ -56,7 +52,7 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
     specialize db_funfree f2 f2_mem e e_mem
     rcases db_funfree with ⟨c, c_eq⟩
     rw [c_eq]
-    apply gtm_hom.left (.const c)
+    exact @gtm_hom.left c
   rw [eq] at contra
   contradiction
   -- id is injective
@@ -71,88 +67,84 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
   exact b_in
   exact a_in
 
+theorem finFactSetHasCore (fs : FactSet sig) (fin : fs.finite) : ∃ (c : FactSet sig), c.isWeakCore ∧ c.homSubset fs := by
+  
+
+def exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
+  have ex_wc : ∃ (wc: FactSet sig), wc.isWeakCore ∧ wc.homSubset before.fs := finFactSetHasCore before.fs before.fs_fin
+  ∀ node ∈ after,
+  ∃ trg : (RTrigger (obs.toLaxObsolescenceCondition) rules),
+  ∃ (c : FactSet sig),
+  ∃ (i : Fin trg.val.mapped_head.length),
+    node = {
+      fs := before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet
+      fs_fin := by
+        apply Set.union_finite_of_both_finite
+        exact CoreChaseNode.core_finite_if_fs_finite before before.fs_fin
+        exact List.finite_toSet trg.val.mapped_head[↑i]
+      core := c
+      is_core := sorry
+      core_sse := sorry
+      origin := sorry
+      fs_contains_origin_result := sorry
+    }
+
 structure CoreChaseBranch (kb: KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode kb.rules)
   database_first : branch.infinite_list 0 = some {
     fs := kb.db.toFactSet
-    fs_fin := by exact kb.db.toFactSet.property.left
+    fs_fin := kb.db.toFactSet.property.left
     core := kb.db.toFactSet
-    is_core := by exact eachKbDbIsWeakCore kb
+    is_core := eachKbDbIsWeakCore kb
     core_sse := by
       constructor
-      exact fun _ a => a
+      exact Set.subset_refl
       exists id
-      apply FactSet.id_is_hom
+      exact GroundTermMapping.id_is_hom
     origin := none,
-    fs_contains_origin_result := by simp [Option.is_none_or]
+    fs_contains_origin_result := by simp
   }
 
-  triggers_exist : ∀ (n : Nat), (branch.infinite_list n).is_none_or (fun before =>
-  let after := branch.infinite_list (n+1)
-  (exists_trigger_opt_fs_core kb.rules before after) ∨
-    (not_exists_trigger_opt_fs_core kb.rules before after))
-  fairness : ∀ trg : (RTrigger obs.toLaxObsoletenessCondition kb.rules), ∃ i : Nat, ((branch.infinite_list i).is_some_and (fun fs => ¬ trg.val.active fs.fs))
-    ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fs))
+  triggers_active : ∀ (n : Nat), ∀ before ∈ branch.get? n, ∀ after ∈ branch.get? (n+1), ∃ o ∈ after.origin, o.fst.val.active before.core
+
+  triggers_exist : ∀ n : Nat, ∀ before ∈ branch.get? n,
+    let after := branch.get? (n+1)
+    (exists_trigger_opt_fs_core kb.rules before after)
+
+  fairness : ∀ trg : (RTrigger obs.toLaxObsolescenceCondition kb.rules), ∃ (i : Nat), ∃ node ∈ branch.get? i, ¬ trg.val.active node.fs
+    ∧ (∀ (j : Nat), j > i → ∀ node2  ∈ branch.get? j, ¬ trg.val.active node2.fs)
 
 
 namespace CoreChaseBranch
-    @[grind]
-    theorem prev_is_some_if_is_some (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
-      intro m lt
-      intro contra
-      have := cb.branch.get?_eq_none_of_le_of_eq_none contra n (Nat.le_of_lt lt)
-      simp only [PossiblyInfiniteList.get?, InfiniteList.get] at this
-      rw [this] at is_some_at
-      simp at is_some_at
 
-    @[grind]
-    theorem prev_is_some_if_is_some' (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cb.branch.infinite_list n = some cn) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
-      intro m leq
-      intro contra
-      rcases (Nat.eq_or_lt_of_le leq) with eq | lt
-      rw [eq, cn_eq] at contra
-      contradiction
+  theorem all_prev_some_if_is_some (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → (cb.branch.get? m).isSome := by
+    intro m leq
+    grind
 
-      have := cb.branch.get?_eq_none_of_le_of_eq_none contra n leq
-      simp only [PossiblyInfiniteList.get?, InfiniteList.get] at this
-      have is_some_at : cb.branch.infinite_list n ≠ none := Option.NeqNoneIfIsSome (cb.branch.infinite_list n) cn cn_eq
-      simp at is_some_at
-      contradiction
+  theorem ex_prev_node_all (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → ∃ cn, (cb.branch.get? m) = cn := by apply?
 
-    @[grind]
-    theorem prev_is_some_if_is_some'' (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : (cb.branch.infinite_list n).isSome) : ∀ m, m < n → (cb.branch.infinite_list m).isSome := by
-      intro m lt
-      have := prev_is_some_if_is_some cb n ((Option.isSomeIffNeqNone (cb.branch.infinite_list n)).mp is_some_at) m lt
-      exact (Option.isSomeIffNeqNone (cb.branch.infinite_list m)).mpr this
+  theorem all_succ_none_if_none (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isNone) : ∀ m, m ≥ n → (cb.branch.get? m).isNone := by
+    intro m geq
+    grind
 
-    @[grind]
-    theorem prev_eq_is_some_if_is_some (cb : CoreChaseBranch kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → cb.branch.infinite_list m ≠ none := by
-      grind
-
-    @[grind]
-    theorem succ_is_none_if_is_none (cb : CoreChaseBranch kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m > n → cb.branch.infinite_list m = none := by
-      intro m gt
-      apply Classical.byContradiction
-      intro contra
-      have := cb.branch.get?_eq_none_of_le_of_eq_none is_none_at m (Nat.le_of_lt gt)
-      simp only [PossiblyInfiniteList.get?, InfiniteList.get] at this
-      rw [this] at contra
-      simp at contra
-
-    @[grind]
-    theorem succ_eq_is_none_if_is_none (cb : CoreChaseBranch kb) (n : Nat) (is_none_at : cb.branch.infinite_list n = none) : ∀ m, m ≥ n → cb.branch.infinite_list m = none := by
-      grind
-
-    def prev_node (cb : CoreChaseBranch kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) : CoreChaseNode kb.rules :=
-      (cb.branch.infinite_list i).get (by grind)
+  def prev_node (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) : CoreChaseNode kb.rules := by
+    exact (cb.branch.get? n).get (by grind)
 
     @[grind]
     theorem prev_node_eq (cb : CoreChaseBranch kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
         cb.branch.infinite_list i = some (cb.prev_node i isSome) := by
       simp [prev_node]
+      exact (Option.map_inj_right fun x y a => a).mp rfl
 
   @[grind]
-  theorem origin_isSome (cb : CoreChaseBranch kb) (i : Nat) {node : CoreChaseNode kb.rules} (eq : cb.branch.infinite_list (i + 1) = some node) : node.origin.isSome := by
+  theorem origin_isSome (cb : CoreChaseBranch kb) (n : Nat) {node : CoreChaseNode kb.rules} (eq : cb.branch.get? (n + 1) = node) : node.origin.isSome := by
+
+    have ex_before : ∃ before, cb.branch.get? n = before := by grind
+    rcases ex_before with ⟨before, before_eq⟩
+
+
+    have trg_act := cb.triggers_active
+
     have trg_ex := cb.triggers_exist i
     rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
     cases trg_ex with
@@ -265,7 +257,7 @@ namespace CoreChaseBranch
 
   @[grind]
   theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules)
-     (cn_eq : cb.branch.infinite_list n = some cn) (trg : RTrigger obs.toLaxObsoletenessCondition kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
+     (cn_eq : cb.branch.infinite_list n = some cn) (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
       ∃ (cn' : CoreChaseNode kb.rules), cb.branch.infinite_list (n+1) = some cn' := by
       cases h : cb.branch.infinite_list (n+1) with
         | none =>
@@ -317,11 +309,6 @@ namespace CoreChaseBranch
       exact origin_result_finite b (origin_isSome cb n eq_b)
       exact Set.finite_of_list_with_same_elements al al_eq
 
-
-  @[grind]
-  theorem all_core_finite (node : CoreChaseNode kb.rules) : Set.finite (node.core) := by
-    apply CoreChaseNode.core_finite_if_fs_finite
-    exact node.fs_fin
 
   @[grind]
   theorem allElemDbMappedId (cb : CoreChaseBranch kb) (init : CoreChaseNode kb.rules) (init_eq : cb.branch.infinite_list 0 = some init) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism init.fs fs2) :
