@@ -176,7 +176,6 @@ namespace FactSet
 
   @[grind]
   theorem exHomSubToSet (A B : FactSet sig) (sub : A ⊆ B) : ∃ (h : GroundTermMapping sig), h.isHomomorphism A B := by
-
     exists id
     constructor
     · intro gt

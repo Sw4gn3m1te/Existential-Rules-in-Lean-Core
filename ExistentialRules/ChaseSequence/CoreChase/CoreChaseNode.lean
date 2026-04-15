@@ -37,6 +37,11 @@ namespace CoreChaseNode
     rcases node.core_sse with ⟨sub, ⟨gtm, gtm_hom⟩⟩
     exact Set.finite_of_subset_finite fs_fin sub
 
+  @[grind .]
+  theorem all_core_finite (node : CoreChaseNode kb.rules) : Set.finite (node.core) := by
+    apply CoreChaseNode.core_finite_if_fs_finite
+    exact node.fs_fin
+
 
 
 end CoreChaseNode
