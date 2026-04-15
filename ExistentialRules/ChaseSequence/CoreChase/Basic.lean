@@ -331,9 +331,9 @@ namespace FactSet
         specialize h neq
         contradiction
 
-  theorem exists_weak_core_for_finite_set (length : Nat) (l : List (Fact sig)) (length_l : l.length = length):
+  theorem exists_weak_core_for_list (l : List (Fact sig)) :
     ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset l.toSet := by
-      induction length using Nat.strongRecOn generalizing l with
+      induction d : l.length using Nat.strongRecOn generalizing l with
         | ind n ih =>
           by_cases h : (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet)
           . rcases h with ⟨sub', h2, h3, h4⟩
@@ -353,21 +353,11 @@ namespace FactSet
             . exists ∅
               constructor
               . apply empty_set_is_weak_core
-              . rw [n_zero] at length_l
-                have : l.toSet = ∅ := by
-                  rw [List.length_eq_zero_iff.mp length_l]
-                  apply Set.ext; intro e; rw [List.mem_toSet, List.mem_nil_iff]; simp [Membership.mem, EmptyCollection.emptyCollection]
-                rw [this]
-                apply homSubset_refl
+              . grind
             . have x : _ := ih (by
-                rw [← length_l]
-                apply List.length_lt_of_proper_subset
-                . apply List.nodup_eraseDupsKeepRight
-                . intro e e_mem; apply h2; rw [List.mem_eraseDupsKeepRight] at e_mem; exact e_mem
-                . intro contra
-                  apply h3
-                  rw [← contra]
-                  rw [sub_eq_sub']
+                have := List.length_lt_of_proper_subset l sub (List.nodup_eraseDupsKeepRight sub') (by grind) (by grind)
+                exact Nat.lt_of_lt_of_eq this d
+
               ) sub rfl
               rcases x with ⟨fs, fs_wc, fs_hom_ss_tl⟩
               exists fs
@@ -397,6 +387,17 @@ namespace FactSet
             exists id
             exact GroundTermMapping.id_is_hom
 
+  theorem exists_weak_core_for_finite_set (fs : FactSet sig) (fs_fin : fs.finite):
+    ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by
+      rcases fs_fin with ⟨l, nd, eq⟩
+      have := exists_weak_core_for_list l
+      rcases this with ⟨wc, wc_core, wc_sub⟩
+      exists wc
+      constructor
+      · exact wc_core
+      · have eq' : l.toSet = fs := by exact Set.ext l.toSet fs eq
+        rw [eq'] at wc_sub
+        exact wc_sub
 
 end FactSet
 
