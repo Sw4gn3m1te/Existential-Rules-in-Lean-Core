@@ -99,6 +99,7 @@ namespace CoreChaseBranch
         exact GroundTermMapping.isHomomorphism_compose gtm_x_z gtm_z_y x.core z.core y.core gtm_x_z_hom gtm_z_y_hom
 
   @[grind .]
+  -- exHomStepToAllFollowing
   theorem exHomFsAllFollowingFs (cb : CoreChaseBranch kb) (n : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
         ∀ m, ∀ y, y ∈ cb.branch.get? (n + m) → ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fs y.fs := by
       intro m
