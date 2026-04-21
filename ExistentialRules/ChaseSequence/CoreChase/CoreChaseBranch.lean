@@ -83,7 +83,7 @@ def exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode rul
       fs_contains_origin_result := by intro _ eq; rw [Option.mem_def, Option.some_inj] at eq; rw [← eq]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
     }
 
-structure CoreChaseBranch (kb: KnowledgeBase sig) where
+structure CoreChaseBranch (kb : KnowledgeBase sig) where
   branch : PossiblyInfiniteList (CoreChaseNode kb.rules)
   database_first : branch.get? 0 = some {
     fs := kb.db.toFactSet
@@ -109,6 +109,9 @@ structure CoreChaseBranch (kb: KnowledgeBase sig) where
     ∧ (∀ (j : Nat), j > i → ∀ node2  ∈ branch.get? j, ¬ trg.val.active node2.fs)
 
 
+
+
+
 namespace CoreChaseBranch
 
   instance : Membership (CoreChaseNode kb.rules) (CoreChaseBranch kb) where
@@ -132,7 +135,7 @@ namespace CoreChaseBranch
   @[grind <-]
   theorem head_mem {cb : CoreChaseBranch kb} : cb.head ∈ cb := by exists 0; simp [head, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?]
 
-  @[grind ->]
+  --@[grind ->]
   theorem isSome_origin_next {cb : CoreChaseBranch kb} {next : CoreChaseNode kb.rules} (eq : cb.next = some next) : next.origin.isSome := by
     have trg_ex := cb.triggers_exist 0 cb.head (by simp [head]; exact Eq.symm PossiblyInfiniteList.head_eq)
     specialize trg_ex _ eq
@@ -198,7 +201,6 @@ namespace CoreChaseBranch
     have trg_ex := cb.triggers_exist n before before_eq node eq
     rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
     grind
-
 
   /-
     node1 (n) ----> node2 (n + 1)

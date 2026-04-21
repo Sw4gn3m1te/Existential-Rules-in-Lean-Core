@@ -156,6 +156,10 @@ end InfiniteList
 
 namespace List
 
+  theorem range'_allElementsInRange (b : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 b)) : ∀ n, n ∈ idx_l → n ≥ 1 ∧ n ≤ b := by
+    intro n h
+    grind
+
   theorem mem_map_iff_mem_map_eraseDupsKeepRight (l : List α) (h : α → β) (e : β) [DecidableEq α] : e ∈ List.map h l ↔ e ∈ List.map h l.eraseDupsKeepRight := by
     repeat rw [List.mem_map]
     apply exists_congr
