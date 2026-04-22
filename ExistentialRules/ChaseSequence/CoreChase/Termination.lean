@@ -304,8 +304,6 @@ namespace CoreChaseBranch
       exact Option.isSome_iff_ne_none.mpr this
       )
 
-  --have c : CoreChaseNode kb.rules := {fs := sorry, fs_fin:=sorry,core:=sorry,is_core:=sorry,core_sse:=sorry,origin:=sorry,fs_contains_origin_result:=sorry}
-
   @[grind]
   theorem cbNoneAfterLastIndex (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.branch.infinite_list ((cb.last_element_index ter') + 1) = none := by
     apply Classical.byContradiction

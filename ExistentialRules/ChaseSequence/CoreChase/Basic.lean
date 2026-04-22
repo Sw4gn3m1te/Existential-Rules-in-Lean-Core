@@ -398,7 +398,8 @@ namespace FactSet
         rw [eq'] at wc_sub
         exact wc_sub
 
-
+  -- !ASK: gibt es schon so eine funktion ? -- strong_core_of_model_is_mode + finite = also weak core, universality wird auch erhalten
+  -- paper preserving constraints with the stable chase hat gegenbesipiele ggf. Example 14
   theorem core_preserves_model {obs : ObsolescenceCondition sig} (kb : KnowledgeBase sig) (m c : FactSet sig) (m_mod : m.modelsKb kb) (c_core : c.isWeakCore) (c_homsub : c.homSubset m) : c.modelsKb kb := by
     rcases m_mod with ⟨mod_db, mod_rs⟩
     rcases c_homsub with ⟨sub', gtm, gtm_hom⟩
@@ -553,7 +554,14 @@ namespace ChaseBranch
           apply this
           exact Option.mem_def.mpr succ_scn_eq
           constructor
+          have dbf := scb.database_first
+          rw [PossiblyInfiniteList.head_eq] at dbf
+          rw [dbf, Option.mem_def, Option.some_inj] at init_scn_eq
+          rw [← init_scn_eq] at f_in
+          simp only at f_in
           · exact Set.mem_of_subset_of_mem (fun e a => a) ih
+
+          -- !ASK: wenn ich weiß, dass init_scn ∈ scb.branch.get? 0 wie zeige ich die equivalenz der felder ?
           · have eq : init_scn.facts = kb.db.toFactSet.val := by sorry
             rw [eq] at f_in
             exact (db_funfree f ∘ fun a => f_in) sig
@@ -581,9 +589,9 @@ namespace ChaseBranch
   theorem prev_eq_is_some_if_is_some'_std (scb : ChaseBranch obs kb) (n : Nat) (is_some_at : (scb.branch.infinite_list n).isSome) : ∀ m, m ≤ n → scb.branch.infinite_list m ≠ none := by
     grind
 
-
+  -- ASK!: Wie verwende ich das neue result ?lastnode ⊆ result zeigen -- resultat gibts nocht nicht
   theorem ex_fact_set_eq_scb_result_if_term (scb : ChaseBranch obs kb) (last_index : Nat) (term_at_n : (scb.branch.infinite_list last_index).isSome ∧ (scb.branch.infinite_list (last_index+1)).isNone) :
-    ∃ (last_index : Nat) (last_node : ChaseNode obs kb.rules), last_node ∈ scb.branch.get? last_index → scb.result = last_node.facts := by
+    ∀ (last_node : ChaseNode obs kb.rules), last_node ∈ scb.branch.get? last_index → scb.result = last_node.facts := by
       have dbf := scb.database_first
       rcases term_at_n with ⟨is_some, is_none⟩
       let last_node := (scb.branch.get? last_index).get is_some
@@ -593,35 +601,35 @@ namespace ChaseBranch
       apply Set.ext
       sorry
 
+  -- ASK!: Idee für einfacher ?
+  def get_used_trigger_list (scb : ChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) : (List (RTrigger obs.toLaxObsolescenceCondition kb.rules)) :=
+  idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
+      have m_in : m ∈ idx_l := hm
+      have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
+      rcases this with ⟨geq, leq⟩
+      subst idx_l
+      have := prev_eq_is_some_if_is_some'_std scb n term m leq
+      exact Option.isSome_iff_ne_none.mpr this
+    )).origin.get (by
+      have m_in : m ∈ idx_l := hm
+      have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
+      rcases this with ⟨geq, leq⟩
+      subst idx_l
+      have := prev_eq_is_some_if_is_some'_std scb n term m leq
+      have := @origin_isSome_std _ _ _ _ _ _ scb (m - 1)
+      have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
+        ChaseBranch.ex_prev_node_at_each_leq_std scb n term m leq
+      rcases ex_cm with ⟨cm, cm_eq⟩
+      have eq : m - 1 + 1 = m := Nat.sub_add_cancel geq
+      rw [eq] at this
+      specialize this cm_eq
+      have : scb.branch.infinite_list m = some cm := Option.mem_def.mp cm_eq
+      grind
 
-    def get_used_trigger_list (scb : ChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) : (List (RTrigger obs.toLaxObsolescenceCondition kb.rules)) :=
-    idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
-        have m_in : m ∈ idx_l := hm
-        have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
-        rcases this with ⟨geq, leq⟩
-        subst idx_l
-        have := prev_eq_is_some_if_is_some'_std scb n term m leq
-        exact Option.isSome_iff_ne_none.mpr this
-      )).origin.get (by
-        have m_in : m ∈ idx_l := hm
-        have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
-        rcases this with ⟨geq, leq⟩
-        subst idx_l
-        have := prev_eq_is_some_if_is_some'_std scb n term m leq
-        have := @origin_isSome_std _ _ _ _ _ _ scb (m - 1)
-        have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
-          ChaseBranch.ex_prev_node_at_each_leq_std scb n term m leq
-        rcases ex_cm with ⟨cm, cm_eq⟩
-        have eq : m - 1 + 1 = m := Nat.sub_add_cancel geq
-        rw [eq] at this
-        specialize this cm_eq
-        have : scb.branch.infinite_list m = some cm := Option.mem_def.mp cm_eq
-        grind
-
-      )).fst) (by
-        intro m m_in
-        exact m_in
-      )
+    )).fst) (by
+      intro m m_in
+      exact m_in
+    )
 
   def get_origin_list (scb : ChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) :
    (List ((trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) × Fin trg.val.mapped_head.length)) :=

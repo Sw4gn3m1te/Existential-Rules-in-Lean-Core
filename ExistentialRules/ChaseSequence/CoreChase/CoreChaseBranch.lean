@@ -62,6 +62,7 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
   exact b_in
   exact a_in
 
+-- ASK!: quantor node in after sinnvoll, wir geben ja schon die nächste node an eigentlich
 def exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
   ∀ node ∈ after,
   ∃ trg : (RTrigger (obs.toLaxObsolescenceCondition) rules),
@@ -228,6 +229,7 @@ namespace CoreChaseBranch
   theorem cb_first_core_finite (cb : CoreChaseBranch kb) : ((cb.branch.get? 0).get (by simp)).core.finite := CoreChaseNode.all_core_finite ((cb.branch.get? 0).get (by simp))
 
   @[simp, grind =]
+  -- ASK!: Wie zeige ich hier wieder dass die Equivalenz ?
   theorem cb_head_fs_eq (cb : CoreChaseBranch kb) : cb.head.fs = kb.db.toFactSet := by sorry
 
   @[simp, grind =]
@@ -275,7 +277,8 @@ namespace CoreChaseBranch
   theorem all_fs_in_cb_finite (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (eq : cn ∈ cb.branch.get? n) : cn.fs.finite := by
     exact cn.fs_fin
 
-
+  -- ASK!: Macht dieses Resultat so noch sinn ? Wir müssen ja jetzt immer die nächste node angeben schon. Was ist wenn wir für einen beweis nur active trigger haben aber wir die nächste node nicht explizit haben ?
+  -- isSome_next_iff_trg_ex
   @[grind .]
   theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
      (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
