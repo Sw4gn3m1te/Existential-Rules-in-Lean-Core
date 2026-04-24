@@ -257,6 +257,7 @@ namespace CoreChaseBranch
         -/
 
 
+
   @[grind .]
   theorem result_of_trigger_introducing_functional_term_occurs_in_chase_core' (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsolescenceCondition kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
@@ -526,5 +527,18 @@ namespace CoreChaseBranch
                 exact obs.monotone this trg_obs_k_core
               have := trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn_succ (n + (k + 1)) cn_succ_eq ((cn.origin.get cn_origin_some).fst.val) ⟨trg_obs_succ_fs, trg_loaded_cn_succ_core⟩
               exact this
+
+
+   @[grind .]
+  theorem no_succ_chase_node_if_not_exists_active_trigger (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n)
+    (no_act_trg : ∀ (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules), ¬ trg.val.active cn.core) : (cb.branch.get? (n+1)).isNone := by
+      apply Classical.byContradiction
+      intro contra
+      simp only [Option.isNone_iff_eq_none, ne_eq] at contra
+      have ex_cn_succ : ∃ (cn_succ : CoreChaseNode kb.rules), cn_succ ∈ cb.branch.get? (n+1) := Option.ne_none_iff_exists'.mp contra
+      rcases ex_cn_succ with ⟨cn_succ, cn_succ_eq⟩
+      have trg_act := cb.triggers_active n cn cn_eq cn_succ cn_succ_eq
+      rcases trg_act with ⟨trg, trg_act, h⟩
+      exact Ne.elim (fun a => no_act_trg trg.fst h) cn_eq
 
 end CoreChaseBranch

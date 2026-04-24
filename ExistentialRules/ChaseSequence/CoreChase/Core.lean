@@ -104,14 +104,13 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) (trg_act_cn : trg.val.active cn.core) :
       ¬ trg.val.active cn_succ.core := by sorry
 
-
+  --set_option trace.Meta.synthInstance true
   noncomputable def inductive_homomorphism_core_with_prev_node_and_trg_if_next_node_some (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb kb) (kb_det : kb.isDeterministic)
     (prev_depth : Nat) (prev_node : CoreChaseNode kb.rules) (prev_node_eq : prev_node ∈ cb.branch.get? prev_depth)
-    (prev_gtm : GroundTermMapping sig) (prev_gtm_hom : prev_gtm.isHomomorphism prev_node.fs m)
-    (next_node : CoreChaseNode kb.rules) (next_node_eq : next_node ∈ cb.branch.get? (prev_depth.succ))
-    (trg_ex : exists_trigger_opt_fs_core kb.rules prev_node next_node) :
-      ∃ (next_gtm : GroundTermMapping sig), GroundTermMapping.isHomomorphism next_gtm next_node.fs m := by
+    (prev_gtm : GroundTermMapping sig) (prev_gtm_hom : prev_gtm.isHomomorphism prev_node.fs m) :
+      ∀ next_node ∈ cb.branch.get? (prev_depth.succ), ∃ (next_gtm : GroundTermMapping sig), GroundTermMapping.isHomomorphism next_gtm next_node.fs m := by
 
+        intro next_node next_node_eq
 
         have prev_core_eq : (cb.prev_node prev_depth (Option.isSome_of_mem next_node_eq)).core = prev_node.core := by grind
 
@@ -216,8 +215,17 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
         have next_gtm_eq_prev_gtm_on_terms_in_node : ∀ t ∈ prev_node.core.terms, next_gtm t = prev_gtm t := by
           intro t t_mem
-            -- have : ¬ t ∈ trg_on_prev_node.val.existential_var_for_fresh_term ↑fin_disj fin_disj.isLt t := by sorry
-          sorry
+          have : ¬ t ∈ trg_on_prev_node.val.fresh_terms_for_head_disjunct fin_disj.val fin_disj.isLt := by
+            intro contra
+            apply trg_active_prev_core.right
+            apply obs.contains_trg_result_implies_cond disj_on_prev_node
+            have := cb.result_of_trigger_introducing_functional_term_occurs_in_chase_core' prev_node disj_on_prev_node prev_depth (Classical.choose trg_act).fst
+              (Option.mem_def.mpr prev_node_eq) t fin_disj.isLt (by grind) (fs_terms_sub_core_terms prev_node t t_mem)
+            rcases this with ⟨gtm, gtm_idc, gtm_af⟩
+            intro f f_in
+            specialize gtm_af f sorry -- ASK: overcooked ?
+            exact gtm_af
+          simp  [next_gtm, this]
 
         exists next_gtm
 
@@ -269,58 +277,63 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               --exact f_mem
 
 
-  noncomputable def inductive_homomorphism_core_with_prev_node (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb  kb)
-    (kb_det : kb.isDeterministic) (prev_depth : Nat) (prev_result : InductiveHomomorphismResultCore cb m prev_depth) (prev_node : CoreChaseNode kb.rules)
-    (prev_node_eq : prev_node ∈ cb.branch.get? prev_depth) : InductiveHomomorphismResultCore cb m (prev_depth + 1) :=
-
-      let trg_ex_dec := Classical.propDecidable (exists_trigger_opt_fs_core kb.rules prev_node (cb.branch.infinite_list prev_depth.succ))
-      match trg_ex_dec with
-        -- es gibt keinen nächsten knoten
-        | .isFalse contra =>
-          let ⟨prev_hom, prev_cond⟩ := prev_result
-          ⟨prev_hom, by
-            intro cn cn_eq
-            have trg_ex := cb.triggers_exist prev_depth prev_node prev_node_eq cn cn_eq
-            rcases trg_ex with ⟨trg, i, c, c_sub, c_wc, eq⟩
-            rcases c_wc.right  with ⟨h, h_hom⟩
-            specialize prev_cond prev_node prev_node_eq
-            rw [eq]
-            sorry
-            ⟩
-        -- es gibt einen nächsten knoten
-        | .isTrue trg_ex =>
-          inductive_homomorphism_core_with_prev_node_and_trg_if_next_node_some cb m m_mod kb_det prev_depth prev_result prev_node prev_node_eq trg_ex
-
-
   noncomputable def inductive_homomorphism_core (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
-    | .zero => ⟨id, by
+      | .zero => ⟨id, by
         intro cn cn_eq
         rw [cb.database_first] at cn_eq
         constructor
-        exact @Function.comp ((fun a => id (GroundTerm.const a)) = GroundTerm.const) ((fun a => id (GroundTerm.const a)) = GroundTerm.const) (GroundTermMapping.isIdOnConstants id) congrFun (fun a => a) rfl
-        intro f f_in
-        apply m_mod.left
-        rw [FactSet.applyFactSetIdEq] at f_in
-        simp only [Option.mem_def, Option.some.injEq] at cn_eq
-        rw [← cn_eq] at f_in
-        exact f_in
-
+        · intro c; rfl
+        · intro f f_in
+          apply m_mod.left
+          rw [Option.mem_some] at cn_eq
+          simp only [FactSet.applyFactSetIdEq, ← cn_eq] at f_in
+          exact f_in
       ⟩
-    | .succ j =>
-      let prev_hom := (inductive_homomorphism_core cb m m_mod kb_det j).val
-      let prev_cond := (inductive_homomorphism_core cb m m_mod kb_det j).property
-      let prev_node := cb.branch.infinite_list j
 
-      match prev_node_eq : prev_node with
-        | .none => ⟨prev_hom, by
-          intro cn cn_eq
-          rw [none_get_eq] at prev_node_eq
-          have := @PossiblyInfiniteList.no_holes' _ cb.branch j prev_node_eq
-          rw [Option.mem_def, this] at cn_eq
-          contradiction
-            ⟩
-        | .some cn =>
-          inductive_homomorphism_core_with_prev_node cb m m_mod kb_det j ⟨prev_hom, prev_cond⟩ cn prev_node_eq
+      | .succ j =>
+        let prev_gtm := (inductive_homomorphism_core cb m m_mod kb_det j).val
+        let prev_gtm_hom := (inductive_homomorphism_core cb m m_mod kb_det j).property
+        let prev_node := cb.branch.infinite_list j
+
+        match prev_node_eq : prev_node with
+          | .none => ⟨prev_gtm, by
+            intro cn cn_eq
+            rw [none_get_eq] at prev_node_eq
+            have := @PossiblyInfiniteList.no_holes' _ cb.branch j prev_node_eq
+            rw [Option.mem_def, this] at cn_eq
+            contradiction
+              ⟩
+          | .some cn =>
+            match c1 : Classical.propDecidable (∃ (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules), trg.val.active (prev_node.get (Option.isSome_of_mem prev_node_eq)).core) with
+              | isTrue tr =>
+                let trg := Classical.choose tr
+                let trg_act := Classical.choose_spec tr
+                have ex_next_node := exNextNodeIfExActiveTrigger cb j cn prev_node_eq trg (by grind)
+                let next_node := Classical.choose ex_next_node
+                let next_node_eq := Classical.choose_spec ex_next_node
+                have := inductive_homomorphism_core_with_prev_node_and_trg_if_next_node_some
+                  cb m m_mod kb_det j cn prev_node_eq prev_gtm (GroundTermMapping.subPreservesHom cn.fs m cn.fs (Set.subset_refl) prev_gtm (prev_gtm_hom cn prev_node_eq)) next_node next_node_eq
+                let next_gtm := Classical.choose this
+                have next_gtm_hom := Classical.choose_spec this
+                ⟨next_gtm, by
+                  intro cn' cn'_eq
+                  have : cn' = next_node := mem_eq cb cn' next_node j.succ cn'_eq next_node_eq
+                  subst next_gtm this
+                  exact next_gtm_hom
+                  ⟩
+              | isFalse fa =>
+                ⟨prev_gtm, by
+                  intro cn' cn'_eq
+                  have t := prev_gtm_hom cn prev_node_eq
+                  simp only [not_exists] at fa
+                  have next_none : (cb.branch.get? j.succ) = none := by
+                    have := cb.no_succ_chase_node_if_not_exists_active_trigger cn j (Option.mem_def.mpr prev_node_eq) (by grind)
+                    exact Option.isNone_iff_eq_none.mp this
+                  rw [next_none] at cn'_eq
+                  contradiction
+                  ⟩
+
+
 
   theorem coreChaseResultIsUniversal (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
     intro m m_mod
