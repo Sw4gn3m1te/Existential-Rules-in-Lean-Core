@@ -2,7 +2,6 @@ import ExistentialRules.ChaseSequence.CoreChase.Util
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
-import ExistentialRules.ChaseSequence.CoreChase.Termination
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
@@ -113,31 +112,14 @@ namespace CoreChaseBranch
         exact GroundTermMapping.id_is_hom
       | succ m ih =>
         intro y y_eq
-        let prev_node := cb.prev_node (n + m) (Option.isSome_of_mem y_eq)
-        specialize ih prev_node
-        grind
-
-  @[grind .]
-  theorem exHomResultIfIsSome (cb : CoreChaseBranch kb) (ter' : cb.terminates') (m : Nat) (cn cn_res : CoreChaseNode kb.rules)
-    (cn_eq : cn ∈ cb.branch.get? m) (cn_res_eq : cn_res ∈ cb.branch.get? (cb.last_element_index ter')) :
-      ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.fs cn_res.core := by
-        rcases ter' with ⟨n, term_at_n⟩
-        have ter'_eq : cb.last_element_index (Exists.intro n term_at_n : ∃ n, cb.terminates_at_step n) = n := last_element_index_eq_termintes'_index cb n term_at_n
-        simp only [ter'_eq] at cn_res_eq
-        by_cases case : m < n
-        have := exHomCoreAllFollowingCore cb m cn cn_eq
-        specialize this (n - m)
-        have eq : m + (n - m) = n := by grind
-        grind
-        have case : m = n ∨ m > n:= Nat.eq_or_lt_of_not_lt case
-        cases case with
-          | inl eq =>
-            grind
-          | inr gt =>
-            have contra := CoreChaseBranch.last_element_index_eq_termintes'_index_leq cb n term_at_n m
-            unfold CoreChaseBranch.last_element_index at ter'_eq
-            have := all_succ_of_last_index_none cb n term_at_n m gt
-            grind
+        have ex_z := cb.ex_prev_node_at_each_leq (n+m+1) (Option.isSome_of_mem y_eq) (n+m) (Nat.le_add_right (n + m) 1)
+        rcases ex_z with ⟨z, z_eq⟩
+        specialize ih z z_eq
+        rcases ih with ⟨gtm_x_z, gtm_x_z_hom⟩
+        have : ∃ (h : GroundTermMapping sig), h.isHomomorphism z.fs y.fs := cb.exHomFsSuccFsIfSuccIsSome (n + m) z y z_eq y_eq
+        rcases this with ⟨gtm_z_y, gtm_z_y_hom⟩
+        exists (gtm_z_y ∘ gtm_x_z)
+        exact GroundTermMapping.isHomomorphism_compose gtm_x_z gtm_z_y x.fs z.fs y.fs gtm_x_z_hom gtm_z_y_hom
 
   @[grind .]
   theorem homFsToFsAlsoHomCoreToFs (fs : FactSet sig) (cn : CoreChaseNode kb.rules) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism cn.fs fs) : h.isHomomorphism cn.core fs := by

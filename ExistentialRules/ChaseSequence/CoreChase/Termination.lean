@@ -15,6 +15,7 @@ import ExistentialRules.ChaseSequence.CoreChase.Util
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
+import ExistentialRules.ChaseSequence.CoreChase.Triggers
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
@@ -304,6 +305,38 @@ namespace CoreChaseBranch
       exact Option.isSome_iff_ne_none.mpr this
       )
 
+  @[grind .]
+  theorem exHomResultIfIsSome (cb : CoreChaseBranch kb) (ter' : cb.terminates') (m : Nat) (cn cn_res : CoreChaseNode kb.rules)
+    (cn_eq : cn ∈ cb.branch.get? m) (cn_res_eq : cn_res ∈ cb.branch.get? (cb.last_element_index ter')) :
+      ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.fs cn_res.core := by
+        rcases ter' with ⟨n, term_at_n⟩
+        have ter'_eq : cb.last_element_index (Exists.intro n term_at_n : ∃ n, cb.terminates_at_step n) = n := last_element_index_eq_termintes'_index cb n term_at_n
+        simp only [ter'_eq] at cn_res_eq
+        by_cases case : m < n
+        · have := exHomCoreAllFollowingCore cb m cn cn_eq
+          specialize this (n - m)
+          have eq : m + (n - m) = n := by grind
+          rw [← eq] at cn_res_eq
+          specialize this cn_res cn_res_eq
+          rcases this with ⟨gtm_cn_core_cn_res_core, gtm_cn_core_cn_res_core_hom⟩
+          rcases cn.core_sse.right with ⟨gtm_cn_fs_cn_core, gtm_cn_fs_cn_core_hom⟩
+          exists (gtm_cn_core_cn_res_core ∘ gtm_cn_fs_cn_core)
+          exact GroundTermMapping.isHomomorphism_compose gtm_cn_fs_cn_core gtm_cn_core_cn_res_core cn.fs
+              cn.core cn_res.core gtm_cn_fs_cn_core_hom gtm_cn_core_cn_res_core_hom
+
+        · have case : m = n ∨ m > n:= Nat.eq_or_lt_of_not_lt case
+          cases case with
+            | inl eq =>
+              have : cn = cn_res := by grind
+              rw [this]
+              exact exHomFsCore cb n cn_res cn_res_eq
+            | inr gt =>
+              have contra := CoreChaseBranch.last_element_index_eq_termintes'_index_leq cb n term_at_n m
+              unfold CoreChaseBranch.last_element_index at ter'_eq
+              have := all_succ_of_last_index_none cb n term_at_n m gt
+              grind
+
+
   @[grind]
   theorem cbNoneAfterLastIndex (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.branch.infinite_list ((cb.last_element_index ter') + 1) = none := by
     apply Classical.byContradiction
@@ -351,7 +384,10 @@ namespace CoreChaseBranch
       rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
       exists i
 
-    have ex_next_node := exNextNodeIfExLoadedNonObsoleteTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') ⟨trg, r_in⟩ sub trg_not_obsolete
+    have trg_act : trg.active (cb.result ter') := by
+      unfold Trigger.active
+      exact not_imp.mp fun a => subs_not_obsolete (a sub)
+    have ex_next_node := CoreChaseBranch.exNextNodeIfExActiveTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') ⟨trg, r_in⟩ trg_act
     grind
     -- entweder gibt es active trigger in result, dann muss es aber eine nachfolger node geben → contradiction to termainates at result
     -- es gibt keine active trigger → models ist trivial erfüllt

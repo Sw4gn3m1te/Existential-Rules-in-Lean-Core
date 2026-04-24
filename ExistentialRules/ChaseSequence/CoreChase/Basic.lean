@@ -446,6 +446,12 @@ namespace ChaseBranch
   @[grind .]
   theorem all_succ_none_if_none_std (scb : ChaseBranch obs kb) (n : Nat) (is_some : (scb.branch.get? n).isNone) : ∀ m, m ≥ n → (scb.branch.get? m).isNone := by grind
 
+  @[simp, grind .]
+  theorem first_facts_eq (scb : ChaseBranch obs kb) (cn : ChaseNode obs kb.rules) (cn_eq : cn ∈ scb.branch.get? 0) : cn.facts = kb.db.toFactSet.val := by
+    have dbf := scb.database_first
+    rw [PossiblyInfiniteList.head_eq] at dbf
+    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
+    rw [← cn_eq]
 
   @[grind .]
   theorem terminating_has_last_index_std (scb : ChaseBranch obs kb) : scb.terminates ↔ ∃ n, (scb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> scb.branch.infinite_list m = none := by
@@ -520,7 +526,7 @@ namespace ChaseBranch
     induction n generalizing cn with
       | zero =>
         have dbf := cb.database_first
-        have : cn.facts = kb.db.toFactSet.val := by sorry
+        have : cn.facts = kb.db.toFactSet.val := first_facts_eq cb cn cn_eq
         grind
       | succ n ih =>
         have := ex_prev_node_at_each_leq_std cb (n+1) (Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
@@ -555,14 +561,8 @@ namespace ChaseBranch
           exact Option.mem_def.mpr succ_scn_eq
           constructor
           have dbf := scb.database_first
-          rw [PossiblyInfiniteList.head_eq] at dbf
-          rw [dbf, Option.mem_def, Option.some_inj] at init_scn_eq
-          rw [← init_scn_eq] at f_in
-          simp only at f_in
           · exact Set.mem_of_subset_of_mem (fun e a => a) ih
-
-          -- !ASK: wenn ich weiß, dass init_scn ∈ scb.branch.get? 0 wie zeige ich die equivalenz der felder ?
-          · have eq : init_scn.facts = kb.db.toFactSet.val := by sorry
+          · have eq : init_scn.facts = kb.db.toFactSet.val := first_facts_eq scb init_scn init_scn_eq
             rw [eq] at f_in
             exact (db_funfree f ∘ fun a => f_in) sig
 
@@ -596,12 +596,9 @@ namespace ChaseBranch
       rcases term_at_n with ⟨is_some, is_none⟩
       let last_node := (scb.branch.get? last_index).get is_some
       have := @ChaseDerivationSkeleton.facts_node_subset_result _ _ _ _ _ _ scb.toChaseDerivationSkeleton last_node
-      exists last_index, last_node
-      intro last_node_in
-      apply Set.ext
       sorry
 
-  -- ASK!: Idee für einfacher ?
+
   def get_used_trigger_list (scb : ChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) : (List (RTrigger obs.toLaxObsolescenceCondition kb.rules)) :=
   idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
       have m_in : m ∈ idx_l := hm

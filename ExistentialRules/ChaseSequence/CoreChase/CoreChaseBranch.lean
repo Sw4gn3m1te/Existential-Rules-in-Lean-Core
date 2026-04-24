@@ -19,6 +19,7 @@ import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 
 
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
 
@@ -122,8 +123,6 @@ namespace CoreChaseBranch
 
   def head (cb : CoreChaseBranch kb) : CoreChaseNode kb.rules := cb.branch.head.get (Option.isSome_of_mem cb.database_first)
 
-  def next (cb : CoreChaseBranch kb) : Option (CoreChaseNode kb.rules) := cb.branch.tail.head
-
   def IsSuffix (cb1 cb2 : CoreChaseBranch kb) : Prop := cb1.branch <:+ cb2.branch
   infixl:50 " <:+ " => IsSuffix
 
@@ -136,11 +135,25 @@ namespace CoreChaseBranch
   @[grind <-]
   theorem head_mem {cb : CoreChaseBranch kb} : cb.head ∈ cb := by exists 0; simp [head, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?]
 
-  --@[grind ->]
-  theorem isSome_origin_next {cb : CoreChaseBranch kb} {next : CoreChaseNode kb.rules} (eq : cb.next = some next) : next.origin.isSome := by
-    have trg_ex := cb.triggers_exist 0 cb.head (by simp [head]; exact Eq.symm PossiblyInfiniteList.head_eq)
-    specialize trg_ex _ eq
-    grind
+  @[simp, grind =]
+  theorem head_eq {cb: CoreChaseBranch kb} : cb.head = cb.branch.get? 0 := by
+    have dbf := cb.database_first
+    unfold CoreChaseBranch.head
+    simp_all
+    exact Option.mem_def.mp dbf
+
+  @[simp, grind .]
+  theorem first_fs_eq (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? 0) : cn.fs = kb.db.toFactSet.val := by
+    have dbf := cb.database_first
+    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
+    rw [← cn_eq]
+
+  @[simp, grind .]
+  theorem fist_core_eq (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? 0) : cn.core = kb.db.toFactSet.val := by
+    have dbf := cb.database_first
+    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
+    rw [← cn_eq]
+
 
   /-
   @[grind ->]
@@ -196,7 +209,7 @@ namespace CoreChaseBranch
       simp [prev_node]
 
   @[grind .]
-  theorem origin_isSome (cb : CoreChaseBranch kb) (n : Nat) {node : CoreChaseNode kb.rules} (eq : cb.branch.get? (n + 1) = node) : node.origin.isSome := by
+  theorem origin_isSome (cb : CoreChaseBranch kb) (n : Nat) {node : CoreChaseNode kb.rules} (eq : node ∈ cb.branch.get? (n + 1)) : node.origin.isSome := by
     have ex_before := ex_prev_node_at_each_leq cb n (by grind) n (Nat.le_refl n)
     rcases ex_before with ⟨before, before_eq⟩
     have trg_ex := cb.triggers_exist n before before_eq node eq
@@ -229,11 +242,22 @@ namespace CoreChaseBranch
   theorem cb_first_core_finite (cb : CoreChaseBranch kb) : ((cb.branch.get? 0).get (by simp)).core.finite := CoreChaseNode.all_core_finite ((cb.branch.get? 0).get (by simp))
 
   @[simp, grind =]
-  -- ASK!: Wie zeige ich hier wieder dass die Equivalenz ?
-  theorem cb_head_fs_eq (cb : CoreChaseBranch kb) : cb.head.fs = kb.db.toFactSet := by sorry
+  theorem cb_head_fs_eq (cb : CoreChaseBranch kb) : cb.head.fs = kb.db.toFactSet := by
+    have dbf := cb.database_first
+    have : ∃ cn, cn ∈ cb.branch.get? 0 := Option.isSome_iff_exists.mp (Option.isSome_of_mem dbf)
+    rcases this with ⟨cn, cn_eq⟩
+    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
+    have eq : cb.head = cb.branch.get? 0 := head_eq
+    grind
 
   @[simp, grind =]
-  theorem cb_head_core_eq (cb : CoreChaseBranch kb) : cb.head.core = kb.db.toFactSet := by sorry
+  theorem cb_head_core_eq (cb : CoreChaseBranch kb) : cb.head.core = kb.db.toFactSet := by
+    have dbf := cb.database_first
+    have : ∃ cn, cn ∈ cb.branch.get? 0 := Option.isSome_iff_exists.mp (Option.isSome_of_mem dbf)
+    rcases this with ⟨cn, cn_eq⟩
+    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
+    have eq : cb.head = cb.branch.get? 0 := head_eq
+    grind
 
   @[grind .]
   -- exPrevCoreChaseNodeIfOriginIsSome
@@ -272,41 +296,33 @@ namespace CoreChaseBranch
       simp_all
       constructor
 
+
+  @[grind .]
+  theorem prev_node_eq_db_if_origin_none (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (cn_origin_none : cn.origin.isNone) :
+    cn.fs = kb.db.toFactSet ∧ cn.core = kb.db.toFactSet := by
+      by_cases c : n = 0
+      have := cb.database_first
+      subst c
+      grind
+      have gt : n > 0 := Nat.zero_lt_of_ne_zero c
+      have eq : n - 1 + 1 = n := Nat.sub_add_cancel gt
+      have := @origin_isSome _ _ _ _ _ cb (n - 1) cn (by rw [eq]; exact cn_eq)
+      grind
+
   @[grind .]
   -- all_fs_finite
   theorem all_fs_in_cb_finite (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (eq : cn ∈ cb.branch.get? n) : cn.fs.finite := by
     exact cn.fs_fin
 
-  -- ASK!: Macht dieses Resultat so noch sinn ? Wir müssen ja jetzt immer die nächste node angeben schon. Was ist wenn wir für einen beweis nur active trigger haben aber wir die nächste node nicht explizit haben ?
-  -- isSome_next_iff_trg_ex
+
   @[grind .]
-  theorem exNextNodeIfExLoadedNonObsoleteTrigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
-     (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) (trg_loaded : trg.val.loaded cn.core) (trg_non_obs : ¬ obs.cond trg.val cn.core) :
-        ∃ (cn' : CoreChaseNode kb.rules), cn' ∈ cb.branch.infinite_list (n+1) := by
-          have trg_ex := cb.triggers_exist n cn cn_eq
-          cases h : cb.branch.infinite_list (n+1) with
-            | none =>
+  theorem not_first_if_origin_some (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_origin_some : cn.origin.isSome) :
+    ∀ (n : Nat), cn ∈ cb.branch.get? n → n > 0 := by
+      intro n cn_eq
+      have dbf := cb.database_first
+      grind
 
 
-              sorry
-              /-
-              have trg_ex := cb.triggers_exist n
-              rw [h, Option.is_none_or_iff] at trg_ex
-              specialize trg_ex cn cn_eq
-              cases trg_ex with
-                | inl ex =>
-                  unfold exists_trigger_opt_fs_core at ex
-                  rcases ex with ⟨trg', trg'_act_c, ⟨i, c, c_eq⟩⟩
-                  contradiction
-                | inr nex =>
-                  unfold not_exists_trigger_opt_fs_core at nex
-                  unfold Trigger.active at nex
-                  simp only [not_exists, not_and, Classical.not_not, and_true] at nex
-                  specialize nex trg trg_loaded
-                  contradiction
-              -/
-            | some succ_cn =>
-              exists succ_cn
 
   /-
   theorem isSome_next_iff_trg_ex {cb : CoreChaseBranch kb} : cb.next.isSome ↔ ∃ (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules), trg.val.active cb.head.fs := by
@@ -335,7 +351,11 @@ namespace CoreChaseBranch
 
   @[grind .]
   theorem cbNextFsEq (cb : CoreChaseBranch kb) (n : Nat) (a b : CoreChaseNode kb.rules) (eq_a : a ∈ cb.branch.get? n) (eq_b : b ∈ cb.branch.get? (n + 1)) :
-    b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by grind
+    b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by
+      have trg_ex := cb.triggers_exist n a eq_a b eq_b
+      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
+      subst b
+      exact Set.unionSym a.core trg.val.mapped_head[↑i].toSet
 
   @[grind .]
   theorem next_step_finite_if_finite (cb : CoreChaseBranch kb) (n : Nat) (a b : CoreChaseNode kb.rules) (eq_a : cb.branch.infinite_list n = some a) (eq_b : cb.branch.infinite_list (n + 1) = some b) (a_fin : a.core.finite) :
