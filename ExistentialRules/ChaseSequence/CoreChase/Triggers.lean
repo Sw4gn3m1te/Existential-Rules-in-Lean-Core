@@ -26,6 +26,14 @@ namespace CoreChaseBranch
       | func func ts arity_ok => exists func, ts, arity_ok
 
   @[grind .]
+  theorem trg_loaded_in_fs_if_loaded_in_core (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n) (trg : Trigger obs.toLaxObsolescenceCondition) :
+    trg.loaded cn.core → trg.loaded cn.fs := by
+      intro trg_loaded
+      intro f f_in
+      specialize trg_loaded f f_in
+      exact cn.core_sse.left f trg_loaded
+
+  @[grind .]
     theorem origin_trg_inactive_in_fs (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (cn_origin_some : cn.origin.isSome) :
       ¬ (cn.origin.get cn_origin_some).fst.val.active cn.fs := by
           have trg_ex := cb.triggers_exist (n - 1)

@@ -63,7 +63,6 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
   exact b_in
   exact a_in
 
--- ASK!: quantor node in after sinnvoll, wir geben ja schon die nächste node an eigentlich
 def exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
   ∀ node ∈ after,
   ∃ trg : (RTrigger (obs.toLaxObsolescenceCondition) rules),
