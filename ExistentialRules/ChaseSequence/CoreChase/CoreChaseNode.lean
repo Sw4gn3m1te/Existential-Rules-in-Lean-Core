@@ -42,6 +42,11 @@ namespace CoreChaseNode
     apply CoreChaseNode.core_finite_if_fs_finite
     exact node.fs_fin
 
+  @[grind .]
+  theorem fs_terms_sub_core_terms (cn : CoreChaseNode kb.rules) (t : GroundTerm sig) (t_in_core : t ∈ cn.core.terms) : t ∈ cn.fs.terms := by
+      rcases t_in_core with ⟨f, f_c, f_t⟩
+      have f_fs : f ∈ cn.fs := cn.core_sse.left f f_c
+      exists f
 
 
 end CoreChaseNode

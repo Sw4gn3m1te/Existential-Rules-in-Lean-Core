@@ -341,5 +341,4 @@ namespace PseudoCoreChaseBranch
       core_node_eq := by grind
     }
 
-
 end PseudoCoreChaseBranch

@@ -257,6 +257,22 @@ namespace CoreChaseBranch
         -/
 
 
+  ---------------------------------
+
+  @[grind .]
+  theorem func_term_not_mem_head_core {cb : CoreChaseBranch kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
+      ¬ t ∈ ((cb.branch.get? 0).get (cb_fist_is_some cb)).fs.terms := by
+        intro t_mem
+        simp only [cb.database_first] at t_mem
+        rcases t_mem with ⟨f, f_mem, t_mem⟩
+        rcases kb.db.toFactSet.property.right f f_mem t t_mem with ⟨c, t_eq⟩
+        rcases t_is_func with ⟨_, _, _, t_eq'⟩
+        rw [t_eq'] at t_eq
+        simp [GroundTerm.func_neq_const] at t_eq
+
+
+------------------------
+
 
   @[grind .]
   theorem result_of_trigger_introducing_functional_term_occurs_in_chase_core' (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
@@ -530,7 +546,7 @@ namespace CoreChaseBranch
 
 
    @[grind .]
-  theorem no_succ_chase_node_if_not_exists_active_trigger (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n)
+  theorem no_succ_chase_node_if_not_exists_active_trigger_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n)
     (no_act_trg : ∀ (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules), ¬ trg.val.active cn.core) : (cb.branch.get? (n+1)).isNone := by
       apply Classical.byContradiction
       intro contra
