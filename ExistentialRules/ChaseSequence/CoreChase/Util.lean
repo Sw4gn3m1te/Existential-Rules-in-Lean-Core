@@ -138,6 +138,9 @@ namespace PossiblyInfiniteList
     simp only [Option.isNone_iff_eq_none]
     grind
 
+  def prefixUpTo (l : PossiblyInfiniteList α) (n : Nat) : List α :=
+    (List.range (n + 1)).filterMap (fun i => (l.infinite_list i))
+
 end PossiblyInfiniteList
 
 namespace InfiniteList
@@ -156,9 +159,13 @@ end InfiniteList
 
 namespace List
 
+  @[grind .]
   theorem range'_allElementsInRange (b : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 b)) : ∀ n, n ∈ idx_l → n ≥ 1 ∧ n ≤ b := by
     intro n h
     grind
+
+  @[grind .]
+  theorem range_head_eq (l : List Nat) (n : Nat) (l_eq : l = List.range (n + 1)) : l.head (by grind) = 0 := by grind
 
   theorem mem_map_iff_mem_map_eraseDupsKeepRight (l : List α) (h : α → β) (e : β) [DecidableEq α] : e ∈ List.map h l ↔ e ∈ List.map h l.eraseDupsKeepRight := by
     repeat rw [List.mem_map]

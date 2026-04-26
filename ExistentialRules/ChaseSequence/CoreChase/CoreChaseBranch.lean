@@ -110,29 +110,58 @@ structure CoreChaseBranch (kb : KnowledgeBase sig) where
     ∧ (∀ (j : Nat), j > i → ∀ node2  ∈ branch.get? j, ¬ trg.val.active node2.fs)
 
 
+namespace FactSet
+
+
+
+end FactSet
 
 
 
 namespace CoreChaseBranch
 
+
+  def InCoreChaseBranch (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
+    ∃ n : Nat, ∃ x,
+      cb.branch.infinite_list n = some x ∧ (fs = x.fs ∨ fs = x.core)
+
+  def InCoreChaseBranch.fsOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
+  ∃ n x,
+    cb.branch.infinite_list n = some x ∧
+    fs = x.fs
+
+  def InCoreChaseBranch.coreOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
+  ∃ n x,
+    cb.branch.infinite_list n = some x ∧
+    fs = x.core
+
+  instance : Membership (FactSet sig) (CoreChaseBranch kb) :=
+    ⟨fun fs cb => InCoreChaseBranch cb fs⟩
+  infix:50 " ∈_fs " => InCoreChaseBranch.fsOnly
+  infix:50 " ∈_c " => InCoreChaseBranch.coreOnly
+
+
+  def InCoreChaseBranchNode
+    (kb : KnowledgeBase sig)
+    (x : Option (CoreChaseNode kb.rules))
+    (cb : CoreChaseBranch kb) : Prop :=
+    match x with
+    | none => False
+    | some node =>
+        ∃ n, cb.branch.infinite_list n = some node
+
+  instance (kb : KnowledgeBase sig) : Membership (Option (CoreChaseNode kb.rules)) (CoreChaseBranch kb) :=
+    ⟨fun cb opt_cn => InCoreChaseBranchNode kb opt_cn cb⟩
+
+
   instance : Membership (CoreChaseNode kb.rules) (CoreChaseBranch kb) where
   mem cd node := node ∈ cd.branch
 
-  theorem mem_iff {cd : CoreChaseBranch kb} : ∀ {e}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl
+
+  --theorem mem_iff {cd : CoreChaseBranch kb} : ∀ {e : Option (CoreChaseNode kb.rules)}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl
 
   def head (cb : CoreChaseBranch kb) : CoreChaseNode kb.rules := cb.branch.head.get (Option.isSome_of_mem cb.database_first)
 
-  def IsSuffix (cb1 cb2 : CoreChaseBranch kb) : Prop := cb1.branch <:+ cb2.branch
-  infixl:50 " <:+ " => IsSuffix
-
-  def predecessor {cb1 : CoreChaseBranch kb} (cn1 cn2 : CoreChaseNode kb.rules) : Prop := ∃ cb2, cb2 <:+ cb1 ∧ cb2.head = cn1 ∧ cn2 ∈ cb2
-  infixl:50 " ≼ " => predecessor
-
-  def strict_predecessor {cb : CoreChaseBranch kb} (cn1 cn2 : CoreChaseNode kb.rules) : Prop := @CoreChaseBranch.predecessor _ _ _ _ _ cb cn1 cn2 ∧ cn1 ≠ cn2
-  infixl:50 " ≺ " => strict_predecessor
-
-  @[grind <-]
-  theorem head_mem {cb : CoreChaseBranch kb} : cb.head ∈ cb := by exists 0; simp [head, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?]
 
   @[simp, grind =]
   theorem head_eq {cb: CoreChaseBranch kb} : cb.head = cb.branch.get? 0 := by

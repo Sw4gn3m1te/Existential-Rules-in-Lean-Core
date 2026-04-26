@@ -657,6 +657,28 @@ namespace ChaseBranch
           exact m_in
         )
 
+  @[grind .]
+  theorem stepIsSubsetOfAllFollowing (scb : ChaseBranch obs kb) (i : Nat) (scn : ChaseNode obs kb.rules) (scn_eq : scn ∈ scb.branch.get? i) :
+      ∀ j scn_succ, (scn_succ ∈ scb.branch.get? j → scn.facts ⊆ scn_succ.facts) := by
+        intro j scn_succ scn_succ_eq
+        induction j generalizing scn_succ with
+        | zero =>
+          sorry
+        | succ j ih =>
+          have ex_prev_cn := ChaseBranch.ex_prev_node_at_each_leq_std scb (j + 1) (Option.isSome_of_mem scn_succ_eq) j (Nat.le_add_right j 1)
+          rcases ex_prev_cn with ⟨prev_cn, prev_cn_eq⟩
+          specialize ih prev_cn prev_cn_eq
+          sorry
+
+  @[grind .]
+  theorem stepIsSubsetOfResult (cb : ChaseBranch obs kb) : ∀ (n : Nat) (cn : ChaseNode obs kb.rules), (cn ∈ cb.branch.get? n → cn.facts ⊆ cb.result) := by
+    intro n cn cn_eq f f_in
+    unfold ChaseDerivationSkeleton.result
+    exists cn
+    constructor
+    rw [@ChaseDerivationSkeleton.mem_iff]
+    exists n
+    exact f_in
 
 
 end ChaseBranch
