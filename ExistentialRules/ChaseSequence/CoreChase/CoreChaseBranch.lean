@@ -120,6 +120,12 @@ end FactSet
 
 namespace CoreChaseBranch
 
+  instance : Membership (CoreChaseNode kb.rules) (CoreChaseBranch kb) where
+  mem cb node := node ∈ cb.branch
+
+  instance : Membership (CoreChaseNode kb.rules) (CoreChaseBranch kb) where
+  mem cb node := node ∈ cb
+
 
   def InCoreChaseBranch (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
     ∃ n : Nat, ∃ x,
@@ -137,8 +143,14 @@ namespace CoreChaseBranch
 
   instance : Membership (FactSet sig) (CoreChaseBranch kb) :=
     ⟨fun fs cb => InCoreChaseBranch cb fs⟩
+
   infix:50 " ∈_fs " => InCoreChaseBranch.fsOnly
   infix:50 " ∈_c " => InCoreChaseBranch.coreOnly
+
+  def get? (cb : CoreChaseBranch kb) (n : Nat) : Option (FactSet sig) :=
+    match cb.branch.infinite_list n with
+    | none => none
+    | some x => some x.fs
 
 
   def InCoreChaseBranchNode
@@ -154,8 +166,13 @@ namespace CoreChaseBranch
     ⟨fun cb opt_cn => InCoreChaseBranchNode kb opt_cn cb⟩
 
 
-  instance : Membership (CoreChaseNode kb.rules) (CoreChaseBranch kb) where
-  mem cd node := node ∈ cd.branch
+  noncomputable def CoreChaseBranch.prefixAux (cb : CoreChaseBranch kb) : Nat → List (CoreChaseNode kb.rules)
+    | n =>
+      match cb.branch.infinite_list n with
+        | none => []
+        | some x => x :: prefixAux cb (n + 1)
+
+
 
 
   --theorem mem_iff {cd : CoreChaseBranch kb} : ∀ {e : Option (CoreChaseNode kb.rules)}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl

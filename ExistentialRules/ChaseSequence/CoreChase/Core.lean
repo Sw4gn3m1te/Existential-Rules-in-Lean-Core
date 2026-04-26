@@ -725,7 +725,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     rcases S_fin with ⟨l, l_nd, l_eq⟩
     exists l
 
-  noncomputable def generateNextCoreChangeBranchElement (o : (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) × Fin trg.val.mapped_head.length) (last_node : CoreChaseNode kb.rules) : CoreChaseNode kb.rules :=
+  noncomputable def generateNextCoreChaseBranchElement (o : (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) × Fin trg.val.mapped_head.length) (last_node : CoreChaseNode kb.rules) : CoreChaseNode kb.rules :=
 
 
     let trg_result : FactSet sig := (o.fst.val.mapped_head[o.snd]).toSet
@@ -759,6 +759,39 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     next_ccn
 
 
+    -- generator from node to succ node
+
+    noncomputable def generateNextCoreChaseBranchElement_usingTrigger (ccn : CoreChaseNode kb.rules) (o : (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) × Fin trg.val.mapped_head.length) : CoreChaseNode kb.rules :=
+
+      let trg_result : FactSet sig := (o.fst.val.mapped_head[o.snd]).toSet
+
+      let trg_result_fin : trg_result.finite := List.finite_toSet o.fst.val.mapped_head[o.snd]
+
+      let new_fs := ccn.core ∪ trg_result
+      let new_fs_fin : new_fs.finite := by
+        apply Set.union_finite_of_both_finite
+        exact CoreChaseNode.all_core_finite ccn
+        exact trg_result_fin
+
+    let ex_new_fs_core := finFactSetHasCore new_fs new_fs_fin
+
+    let new_fs_core := Classical.choose ex_new_fs_core
+    let new_fs_core_h := Classical.choose_spec ex_new_fs_core
+
+    let ccn_succ : CoreChaseNode kb.rules := {
+        fs := new_fs
+        fs_fin := new_fs_fin
+        core := new_fs_core
+        is_core := new_fs_core_h.left
+        core_sse := new_fs_core_h.right
+        origin := o
+        fs_contains_origin_result := by intro _ eq; rw [Option.mem_def, Option.some_inj] at eq; rw [← eq]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
+      }
+
+    ccn_succ
+
+
+
 
   noncomputable def buildCoreChaseBranchFromChaseBranch_rec (scb : ChaseBranch obs kb) (n n_max: Nat) (ccn_list : List (CoreChaseNode kb.rules)) : List (CoreChaseNode kb.rules) :=
 
@@ -785,7 +818,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               }
               buildCoreChaseBranchFromChaseBranch_rec scb (n + 1) n_max [init_ccn]
             | some o =>
-              let next_ccn := generateNextCoreChangeBranchElement o (ccn_list.getLast (by sorry))
+              let next_ccn := generateNextCoreChaseBranchElement o (ccn_list.getLast (by sorry))
               buildCoreChaseBranchFromChaseBranch_rec scb (n + 1) n_max (ccn_list ++ [next_ccn])
     else
       ccn_list
@@ -858,7 +891,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
 
   noncomputable def buildCoreChaseBranchFromChaseBranch (scb : ChaseBranch obs kb) (scb_term : scb.terminates) : CoreChaseBranch kb :=
-
     have : ∃ (n : Nat), (scb.branch.infinite_list n).isSome ∧ (scb.branch.infinite_list (n+1)).isNone := by
       have := ChaseBranch.terminating_has_last_index_std scb
       rw [this] at scb_term
@@ -891,6 +923,75 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     }
 
     ccb
+
+
+  noncomputable def buildCoreChaseBranchFromChaseBranch_vs (scb : ChaseBranch obs kb) (scb_term : scb.terminates) : CoreChaseBranch kb :=
+
+
+    have : ∃ (n : Nat), (scb.branch.infinite_list n).isSome ∧ (scb.branch.infinite_list (n+1)).isNone := by
+      have := ChaseBranch.terminating_has_last_index_std scb
+      rw [this] at scb_term
+      rcases scb_term with ⟨n_ter, eq⟩
+      exists n_ter
+      grind
+
+    let origin_list := ChaseBranch.get_origin_list scb _ _ _ _
+
+    let init_ccn : CoreChaseNode kb.rules := {
+              fs := kb.db.toFactSet
+              fs_fin := kb.db.toFactSet.property.left
+              core := kb.db.toFactSet
+              is_core := eachKbDbIsWeakCore kb
+              core_sse := by
+                constructor
+                exact fun _ a => a
+                exists id
+                exact GroundTermMapping.id_is_hom
+              origin := none,
+              fs_contains_origin_result := by simp
+              }
+
+  /-
+  computes node list
+
+    origin_list = [o1, o2, o3]
+
+    cn1 = generateNextCoreChaseBranchElement_usingTrigger init_ccn o1
+    cn2 = generateNextCoreChaseBranchElement_usingTrigger cn1 o1
+    cn3 = generateNextCoreChaseBranchElement_usingTrigger cn2 o1
+
+    node_list = [cn1, cn2, cn3]
+
+
+  -/
+  let node_list :=
+    let (_, history) :=
+      origin_list.foldl
+        (fun (state, hist) t =>
+          let next := generateNextCoreChaseBranchElement_usingTrigger state t
+          (next, hist.concat next))
+        (init_ccn, [init_ccn])
+    history
+
+    let new_ccb : CoreChaseBranch kb := {
+
+      branch := PossiblyInfiniteList.from_list node_list
+      database_first := by sorry
+
+      triggers_active := by sorry
+      triggers_exist := sorry
+      fairness := sorry
+    }
+
+  new_ccb
+
+
+
+
+
+
+
+
 
 
 
@@ -934,9 +1035,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     simp only [Option.some_get]
     rfl
     simp_all
-
-
-
 
 
   --theorem exChaseBranchIfExCoreChaseBranch (ccb : CoreChaseBranch kb) : ∃ scb : ChaseBranch obs kb, True := by sorry
@@ -1187,6 +1285,8 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         intro n gt
         constructor
         unfold PossiblyInfiniteList.prefixUpTo
+        sorry
+        sorry
 
 
 
