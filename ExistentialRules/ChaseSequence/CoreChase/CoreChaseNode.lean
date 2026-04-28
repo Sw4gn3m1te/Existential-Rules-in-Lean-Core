@@ -28,6 +28,10 @@ structure CoreChaseNode (rules : RuleSet sig) where
 
 namespace CoreChaseNode
 
+  noncomputable instance : DecidableEq (CoreChaseNode kb.rules) := by
+    exact Classical.typeDecidableEq (CoreChaseNode kb.rules)
+
+
   def origin_result {rules : RuleSet sig} (node : CoreChaseNode rules) (isSome : node.origin.isSome) : List (Fact sig) :=
     let origin := node.origin.get isSome
     origin.fst.val.mapped_head[origin.snd.val]

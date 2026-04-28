@@ -110,13 +110,6 @@ structure CoreChaseBranch (kb : KnowledgeBase sig) where
     ∧ (∀ (j : Nat), j > i → ∀ node2  ∈ branch.get? j, ¬ trg.val.active node2.fs)
 
 
-namespace FactSet
-
-
-
-end FactSet
-
-
 
 namespace CoreChaseBranch
 
@@ -164,15 +157,6 @@ namespace CoreChaseBranch
 
   instance (kb : KnowledgeBase sig) : Membership (Option (CoreChaseNode kb.rules)) (CoreChaseBranch kb) :=
     ⟨fun cb opt_cn => InCoreChaseBranchNode kb opt_cn cb⟩
-
-
-  noncomputable def CoreChaseBranch.prefixAux (cb : CoreChaseBranch kb) : Nat → List (CoreChaseNode kb.rules)
-    | n =>
-      match cb.branch.infinite_list n with
-        | none => []
-        | some x => x :: prefixAux cb (n + 1)
-
-
 
 
   --theorem mem_iff {cd : CoreChaseBranch kb} : ∀ {e : Option (CoreChaseNode kb.rules)}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl
@@ -366,6 +350,37 @@ namespace CoreChaseBranch
       intro n cn_eq
       have dbf := cb.database_first
       grind
+
+  @[grind .]
+  theorem ex_facts (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈ cb := by
+    exists ((cb.branch.get? 0).get (cb_fist_is_some cb)).fs
+    have dbf := cb.database_first
+    simp [dbf, Membership.mem, InCoreChaseBranch]
+    exists 0, ((cb.branch.get? 0).get (cb_fist_is_some cb))
+    constructor
+    simp only [Option.some_get]
+    rfl; · left; · simp_all
+
+  theorem ex_facts_fs (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈_fs cb := by
+    exists ((cb.branch.get? 0).get (cb_fist_is_some cb)).fs
+    have dbf := cb.database_first
+    simp [dbf, InCoreChaseBranch.fsOnly]
+    exists 0, ((cb.branch.get? 0).get (cb_fist_is_some cb))
+    constructor
+    simp only [Option.some_get]
+    rfl
+    simp_all
+
+  theorem ex_facts_core (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈_c cb := by
+    exists ((cb.branch.get? 0).get (cb_fist_is_some cb)).core
+    have dbf := cb.database_first
+    simp [dbf, InCoreChaseBranch.coreOnly]
+    exists 0, ((cb.branch.get? 0).get (cb_fist_is_some cb))
+    constructor
+    simp only [Option.some_get]
+    rfl
+    simp_all
+
 
 
 

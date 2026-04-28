@@ -386,6 +386,7 @@ namespace FactSet
             exists id
             exact GroundTermMapping.id_is_hom
 
+  @[grind .]
   theorem exists_weak_core_for_finite_set (fs : FactSet sig) (fs_fin : fs.finite):
     ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by
       rcases fs_fin with ⟨l, nd, eq⟩
