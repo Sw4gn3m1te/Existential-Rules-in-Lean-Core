@@ -225,15 +225,15 @@ namespace CoreChaseBranch
     apply h
     simp only [gt_iff_lt, Nat.lt_add_one]
 
-  @[grind]
+  @[grind .]
   theorem exLastNodeOfTerminatingCoreChaseBranch (cb : CoreChaseBranch kb) (ter' : cb.terminates') : ∃ cn, cn = cb.last_node ter' := by
     exists cb.last_node ter'
 
-  @[grind]
+  @[grind .]
   theorem exResultOfTerminatingCoreChaseBranch (cb : CoreChaseBranch kb) (ter' : cb.terminates') : ∃ fs, fs = cb.result ter' := by
     exists cb.result ter'
 
-  @[grind]
+  @[grind .]
   theorem coreChaseResultIsCore (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (cb.result ter').isWeakCore := by
     unfold CoreChaseBranch.result
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
@@ -243,13 +243,13 @@ namespace CoreChaseBranch
     rcases cn with ⟨_,_,_,is_core,_,_,_⟩
     exact is_core
 
-  @[grind]
+  @[grind .]
     theorem all_succ_of_last_index_none (cb : CoreChaseBranch kb) (n : Nat) (term_at_n : cb.terminates_at_step n) : ∀ m, m > n → cb.branch.infinite_list m = none := by
       intro m gt
       rcases term_at_n with ⟨is_some, is_none⟩
       grind
 
-  @[grind]
+  @[grind .]
   theorem exLastNodeWithLastIndexIfTerminates' (cb : CoreChaseBranch kb) (ter' : cb.terminates') : ∃ last_cn, cb.branch.infinite_list (cb.last_element_index ter') = some last_cn := by
     exists cb.last_node ter'
     unfold last_node
@@ -264,7 +264,7 @@ namespace CoreChaseBranch
     rw [Option.isSomeIffNeqNone] at all_some
     contradiction
 
-  @[grind]
+  @[grind .]
   theorem neqTerminatesIffCbAllSome (cb : CoreChaseBranch kb) : (∀ (n : Nat), (cb.branch.infinite_list n).isSome) ↔ ¬ cb.terminates := by
     constructor
     intro all_some ⟨n, n_none⟩
@@ -290,14 +290,14 @@ namespace CoreChaseBranch
       exact Option.isSome_iff_ne_none.mpr this
       ))
 
-  @[grind]
+  @[grind .]
   theorem result_finite_if_cb_terminates (cb : CoreChaseBranch kb) (ter' : cb.terminates') : Set.finite (cb.result ter') := by
     have : ∃ cn, cn = cb.last_node ter' := by exact exLastNodeOfTerminatingCoreChaseBranch cb ter'
     rcases this with ⟨cn, cn_eq⟩
     unfold last_node at cn_eq
     exact result_finite_if_cb_terminates2 cb ter'
 
-  @[grind]
+  @[grind .]
   theorem resultIsSome (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.branch.infinite_list (cb.last_element_index ter') = some (cb.last_node ter') := by
     unfold last_element_index last_node
     exact Option.eq_some_of_isSome (by
@@ -337,7 +337,7 @@ namespace CoreChaseBranch
               grind
 
 
-  @[grind]
+  @[grind .]
   theorem cbNoneAfterLastIndex (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.branch.infinite_list ((cb.last_element_index ter') + 1) = none := by
     apply Classical.byContradiction
     rcases ter' with ⟨n_ter, n_ter_at⟩
@@ -348,7 +348,7 @@ namespace CoreChaseBranch
       | succ n_ter ih =>
         grind
 
-  @[grind]
+  @[grind .]
   theorem cbDbSubsetResult (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (kb.db.toFactSet.val ⊆ cb.result ter') := by
     let init_node := (cb.branch.infinite_list 0).get (Option.isSome_of_mem cb.database_first)
     rcases (exLastNodeWithLastIndexIfTerminates' cb ter') with ⟨last_node, last_node_eq⟩
@@ -364,6 +364,7 @@ namespace CoreChaseBranch
     rw [result]
     simp_all
 
+  @[grind .]
   theorem coreChaseResultModelsKb (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
     intro f f_in

@@ -399,35 +399,12 @@ namespace FactSet
         rw [eq'] at wc_sub
         exact wc_sub
 
-  -- !ASK: gibt es schon so eine funktion ? -- strong_core_of_model_is_mode + finite = also weak core, universality wird auch erhalten
+  -- !ASK: gibt es schon so eine funktion ? -- strong_core_of_model_is_model + finite = also weak core, universality wird auch erhalten
   -- paper preserving constraints with the stable chase hat gegenbesipiele ggf. Example 14
-  theorem core_preserves_model {obs : ObsolescenceCondition sig} (kb : KnowledgeBase sig) (m c : FactSet sig) (m_mod : m.modelsKb kb) (c_core : c.isWeakCore) (c_homsub : c.homSubset m) : c.modelsKb kb := by
-    rcases m_mod with ⟨mod_db, mod_rs⟩
-    rcases c_homsub with ⟨sub', gtm, gtm_hom⟩
-    constructor
-    · intro f f_in
-      specialize mod_db f f_in
-      apply gtm_hom.right
-      have f_ff := kb.db.toFactSet.property.right f f_in
-      have := gtm.homApplyFactFunctionFreeId m c f f_ff gtm_hom
-      grind
-    · intro r r_in gs sub
-      apply Classical.byContradiction
-      intro subs_not_obsolete
-      let trg : Trigger obs := ⟨r, gs⟩
-      have trg_loaded : trg.loaded c := by apply sub
-      have trg_not_obsolete : ¬ obs.cond trg c := by
-        intro contra
-        have obs_impl_sat := obs.cond_implies_trg_is_satisfied contra
-        apply subs_not_obsolete
-        rcases obs_impl_sat with ⟨i, s', obs_impl_sat⟩
-        exists i, gs
-        constructor
-        intro v v_in
-        rfl
-        intro f f_in
-        sorry
-      sorry
+  theorem core_preserves_model {obs : ObsolescenceCondition sig} (kb : KnowledgeBase sig) (m c : FactSet sig) (m_mod : m.modelsKb kb) (c_wc : c.isWeakCore) (c_homsub : c.homSubset m) : c.modelsKb kb := by
+    have c_fin : c.finite := by sorry
+    have c_sc : c.isStrongCore := isStrongCore_of_isWeakCore_of_finite c c_wc c_fin
+    exact strong_core_of_model_is_model m m_mod c c_homsub c_sc
 
 end FactSet
 
@@ -503,6 +480,12 @@ namespace ChaseBranch
     exact Option.isSome_iff_exists.mp this
 
   @[grind .]
+  theorem all_succ_none_if_none (cb : ChaseBranch obs kb) (n : Nat) (is_some : (cb.branch.get? n).isNone) : ∀ m, m ≥ n → (cb.branch.get? m).isNone := by
+    intro m geq
+    grind
+
+
+  @[grind .]
   theorem ex_prev_cn_if_origin_some_std (cb : ChaseBranch obs kb) (cn : ChaseNode obs kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (origin_some : cn.origin.isSome) :
   ∃ prev_cn, prev_cn ∈ cb.branch.get? (n-1) := by
     induction n generalizing cn with
@@ -567,28 +550,6 @@ namespace ChaseBranch
             rw [eq] at f_in
             exact (db_funfree f ∘ fun a => f_in) sig
 
-  @[grind .]
-  theorem prev_is_some_if_is_some_std (cb : ChaseBranch obs kb) (n : Nat) (is_some_at : cb.branch.infinite_list n ≠ none) : ∀ m, m < n → cb.branch.infinite_list m ≠ none := by
-    intro m lt
-    intro contra
-    have := cb.branch.get?_eq_none_of_le_of_eq_none contra n (Nat.le_of_lt lt)
-    simp only [PossiblyInfiniteList.get?, InfiniteList.get] at this
-    rw [this] at is_some_at
-    simp at is_some_at
-
-  @[grind .]
-  theorem prev_is_some_if_is_some'_std (cb : ChaseBranch obs kb) (n : Nat) (is_some_at : (cb.branch.get? n).isSome) : ∀ m, m < n → (cb.branch.infinite_list m).isSome := by
-    intro m lt
-    have := prev_is_some_if_is_some_std cb n ((Option.isSomeIffNeqNone (cb.branch.infinite_list n)).mp is_some_at) m lt
-    exact (Option.isSomeIffNeqNone (cb.branch.infinite_list m)).mpr this
-
-  @[grind .]
-  theorem prev_eq_is_some_if_is_some_std (scb : ChaseBranch obs kb) (n : Nat) (is_some_at : scb.branch.infinite_list n ≠ none) : ∀ m, m ≤ n → scb.branch.infinite_list m ≠ none := by
-    grind
-
-   @[grind .]
-  theorem prev_eq_is_some_if_is_some'_std (scb : ChaseBranch obs kb) (n : Nat) (is_some_at : (scb.branch.infinite_list n).isSome) : ∀ m, m ≤ n → scb.branch.infinite_list m ≠ none := by
-    grind
 
   -- ASK!: Wie verwende ich das neue result ?lastnode ⊆ result zeigen -- resultat gibts nocht nicht
   theorem ex_fact_set_eq_scb_result_if_term (scb : ChaseBranch obs kb) (last_index : Nat) (term_at_n : (scb.branch.infinite_list last_index).isSome ∧ (scb.branch.infinite_list (last_index+1)).isNone) :
@@ -597,6 +558,7 @@ namespace ChaseBranch
       rcases term_at_n with ⟨is_some, is_none⟩
       let last_node := (scb.branch.get? last_index).get is_some
       have := @ChaseDerivationSkeleton.facts_node_subset_result _ _ _ _ _ _ scb.toChaseDerivationSkeleton last_node
+      intro last_node last_node_eq
       sorry
 
 
@@ -606,14 +568,15 @@ namespace ChaseBranch
       have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
       rcases this with ⟨geq, leq⟩
       subst idx_l
-      have := prev_eq_is_some_if_is_some'_std scb n term m leq
-      exact Option.isSome_iff_ne_none.mpr this
+
+      have := all_prev_some_if_is_some_std scb n term m leq
+      exact Eq.symm (Bool.le_antisymm (fun a => this) (congrFun rfl))
     )).origin.get (by
       have m_in : m ∈ idx_l := hm
       have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
       rcases this with ⟨geq, leq⟩
       subst idx_l
-      have := prev_eq_is_some_if_is_some'_std scb n term m leq
+      have := all_prev_some_if_is_some_std scb n term m leq
       have := @origin_isSome_std _ _ _ _ _ _ scb (m - 1)
       have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
         ChaseBranch.ex_prev_node_at_each_leq_std scb n term m leq
@@ -636,14 +599,14 @@ namespace ChaseBranch
           have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
           rcases this with ⟨geq, leq⟩
           subst idx_l
-          have := prev_eq_is_some_if_is_some'_std scb n term m leq
-          exact Option.isSome_iff_ne_none.mpr this
+          have := all_prev_some_if_is_some_std scb n term m leq
+          exact Eq.symm (Bool.le_antisymm (fun a => this) (congrFun rfl))
         )).origin.get (by
           have m_in : m ∈ idx_l := hm
           have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
           rcases this with ⟨geq, leq⟩
           subst idx_l
-          have := prev_eq_is_some_if_is_some'_std scb n term m leq
+          have := all_prev_some_if_is_some_std scb n term m leq
           have := @origin_isSome_std _ _ _ _ _ _ scb (m - 1)
           have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
             ChaseBranch.ex_prev_node_at_each_leq_std scb n term m leq
@@ -659,17 +622,25 @@ namespace ChaseBranch
         )
 
   @[grind .]
-  theorem stepIsSubsetOfAllFollowing (scb : ChaseBranch obs kb) (i : Nat) (scn : ChaseNode obs kb.rules) (scn_eq : scn ∈ scb.branch.get? i) :
-      ∀ j scn_succ, (scn_succ ∈ scb.branch.get? j → scn.facts ⊆ scn_succ.facts) := by
-        intro j scn_succ scn_succ_eq
-        induction j generalizing scn_succ with
+  theorem stepIsSubsetOfAllFollowing (scb : ChaseBranch obs kb) (i m: Nat)
+    (scn scn_succ: ChaseNode obs kb.rules) (scn_eq : scn ∈ scb.branch.get? i) (scn_succ_eq : scn_succ ∈ scb.branch.get? (i + m)) :
+      scn.facts ⊆ scn_succ.facts := by
+        induction m generalizing scn_succ with
         | zero =>
-          sorry
-        | succ j ih =>
-          have ex_prev_cn := ChaseBranch.ex_prev_node_at_each_leq_std scb (j + 1) (Option.isSome_of_mem scn_succ_eq) j (Nat.le_add_right j 1)
-          rcases ex_prev_cn with ⟨prev_cn, prev_cn_eq⟩
-          specialize ih prev_cn prev_cn_eq
-          sorry
+          have eq : scn = scn_succ := by
+            simp only [Nat.add_zero, Option.mem_def] at scn_succ_eq
+            grind
+          rw [eq]
+          exact Set.subset_refl
+        | succ m ih =>
+          have ex_cm : ∃ (cm : ChaseNode obs kb.rules), cm ∈ scb.branch.get? (i + m) :=
+            ChaseBranch.ex_prev_node_at_each_leq_std scb (i + m + 1) (Option.isSome_of_mem scn_succ_eq) (i + m) (Nat.le_add_right (i + m) 1)
+          rcases ex_cm with ⟨cm, cm_eq⟩
+          intro f f_in
+          specialize ih cm cm_eq f f_in
+          have := scb.triggers_exist (i + m) cm cm_eq scn_succ scn_succ_eq
+          rcases this with ⟨trg, i, eq⟩
+          grind
 
   @[grind .]
   theorem stepIsSubsetOfResult (cb : ChaseBranch obs kb) : ∀ (n : Nat) (cn : ChaseNode obs kb.rules), (cn ∈ cb.branch.get? n → cn.facts ⊆ cb.result) := by

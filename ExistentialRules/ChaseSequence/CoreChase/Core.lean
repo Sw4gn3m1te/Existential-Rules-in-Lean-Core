@@ -409,8 +409,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
           simp_all only [Option.some.injEq]
         | succ n ih =>
           have prev_cn_ex : ∃ prev_cn, scb.branch.infinite_list n = some prev_cn:= by
-            have := ChaseBranch.prev_is_some_if_is_some_std scb (n + 1) (Option.NeqNoneIfIsSome (scb.branch.infinite_list (n + 1)) scn scn_eq) n (Nat.lt_add_one n)
-            exact Option.ne_none_iff_exists'.mp this
+            exact ChaseBranch.ex_prev_node_at_each_leq_std scb (n + 1) (Option.isSome_of_mem scn_eq) n (Nat.le_add_right n 1)
           intro f f_in
           rcases prev_cn_ex with ⟨prev_cn, prev_cn_eq⟩
           specialize ih prev_cn (by grind) f f_in
@@ -567,8 +566,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       ∃ (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules), trg.val.active ((scb.branch.infinite_list m).get (by
       have len_eq : origin_list.length = n := get_origin_list_length_eq_term_n_scb scb n term_at_n origin_list origin_list_eq
       rw [len_eq] at lt
-      have := ChaseBranch.prev_eq_is_some_if_is_some'_std scb n term_at_n.left m (by exact Nat.le_of_succ_le lt)
-      exact Option.isSome_iff_ne_none.mpr this
+      exact ChaseBranch.all_prev_some_if_is_some_std scb n term_at_n.left m (Nat.le_of_succ_le lt)
       )).facts := by
         have len_eq : origin_list.length = n := get_origin_list_length_eq_term_n_scb scb n term_at_n origin_list origin_list_eq
         rw [len_eq] at lt
@@ -577,8 +575,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
           rw [c]
           exact term_at_n.left
           have c : m + 1 < n := by exact Nat.lt_of_le_of_ne lt c
-          have := ChaseBranch.prev_eq_is_some_if_is_some'_std scb n term_at_n.left (m+1) lt
-          exact Option.isSome_iff_ne_none.mpr this
+          exact ChaseBranch.all_prev_some_if_is_some_std scb n term_at_n.left (m+1) (Nat.succ_le_of_lt lt)
           ))
 
         have := origin_trg_is_active_prev_fs_std scb (m) cm (by
@@ -610,7 +607,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       subst c
       exact term_at_n.left
       have gt : n > 0 := Nat.zero_lt_of_ne_zero c
-      exact ChaseBranch.prev_is_some_if_is_some'_std scb n term_at_n.left 0 gt
+      exact ChaseBranch.all_prev_some_if_is_some_std scb n term_at_n.left 0 (Nat.zero_le n)
     )).facts := by
       intro h
       apply Classical.byContradiction
@@ -624,7 +621,8 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         subst c
         exact term_at_n.left
         have gt : n > 0 := Nat.zero_lt_of_ne_zero c
-        exact ChaseBranch.prev_is_some_if_is_some'_std scb n term_at_n.left 0 gt)
+        exact ChaseBranch.all_prev_some_if_is_some_std scb n term_at_n.left 0 (Nat.zero_le n)
+      )
       have : ∃ (scn : ChaseNode obs kb.rules), (scb.branch.infinite_list 1) = some scn := by
         exact active_trigger_yields_next_chase_node_std scb init_scn 0 (by grind) trg ⟨trg_loaded, trg_non_obs⟩
 
@@ -644,8 +642,8 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
       intro contra
       simp only [Option.isNone_iff_eq_none, ne_eq, ← Option.isSome_iff_ne_none] at contra
       have ex_cn_succ : ∃ (cn_succ : ChaseNode obs kb.rules), scb.branch.infinite_list (n+1) = some cn_succ := by
-        have := ChaseBranch.prev_eq_is_some_if_is_some'_std scb m contra (n + 1) gt
-        exact Option.ne_none_iff_exists'.mp this
+        exact ChaseBranch.ex_prev_node_at_each_leq_std scb m contra (n + 1) gt
+
       rcases ex_cn_succ with ⟨cn_succ, cn_succ_eq⟩
       have trg_act := scb.triggers_active n
       unfold PossiblyInfiniteList.drop InfiniteList.drop PossiblyInfiniteList.tail PossiblyInfiniteList.head InfiniteList.head InfiniteList.get InfiniteList.tail InfiniteList.get at trg_act
@@ -954,9 +952,8 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
     have monotonicity : ∀ (n : Nat), ((scb.branch.infinite_list (n)).get (scb_all_some (n))).facts ⊆ ((scb.branch.infinite_list (n+1)).get (scb_all_some (n+1))).facts := by
       intro n f f_in
-      exact ChaseBranch.stepIsSubsetOfAllFollowing scb n ((scb.branch.get? n).get (scb_all_some n)) (Option.get_mem (scb_all_some n))
-        (n+1) ((scb.branch.get? (n+1)).get (scb_all_some (n+1))) (Option.get_mem (scb_all_some (n+1))) f f_in
-
+      exact ChaseBranch.stepIsSubsetOfAllFollowing scb n 1 ((scb.branch.get? n).get (scb_all_some n)) ((scb.branch.get? (n+1)).get (scb_all_some (n+1)))
+        (Option.get_mem (scb_all_some n)) (Option.get_mem (scb_all_some (n + 1))) f f_in
 
     -- 7.
     have f_first_somewhere : ∀ (f : Fact sig), f ∈ R → ∃ (n_min : Nat), f ∈ ((scb.branch.infinite_list (n_min)).get (scb_all_some (n_min))).facts ∧

@@ -32,7 +32,7 @@ theorem min_le_of_mem_set (x : Nat) (S : Set Nat) (x_in : x ∈ S) : ∃ m : Nat
         | succ n =>
             exact Nat.add_le_add_right (hmin n n_in) 1
 
--- well order principle 
+-- well order principle
 theorem wop (S : Set Nat) (S_non_empty : ∃ (n : Nat), n ∈ S) : ∃ (m : Nat), m ∈ S ∧ ∀ (n : Nat), n ∈ S → m ≤ n := by
   rcases S_non_empty with ⟨n, h⟩
   exact min_le_of_mem_set n S h
@@ -228,7 +228,7 @@ end Function
 
 namespace Option
 
-  @[grind]
+  @[grind .]
   theorem isSomeIffNeqNone (o : Option α) : o.isSome ↔ o ≠ none := by
     constructor
     grind
@@ -257,7 +257,7 @@ namespace Option
   @[simp]
   def castisSomeIfEqSome (o : Option α) (a : α) : (o = some a) → o.isSome := by apply Option.isSome_of_mem
 
-  @[simp, grind]
+  @[simp, grind .]
   theorem isNone_and_isSome_False (o : Option α) : o.isNone ∧ o.isSome → False := by
     simp_all
 
@@ -266,11 +266,11 @@ end Option
 
 namespace Set
 
-    @[grind]
+  @[grind .]
   theorem subsetOfFiniteIsFinite [DecidableEq α] (A B : Set α) (b_fin : B.finite) (sub : A ⊆ B) : A.finite := by
     exact Set.finite_of_subset_finite b_fin sub
 
-  @[grind]
+  @[grind .]
   theorem unionOfFinteIsFinte [DecidableEq α] (A B : Set α) : A.finite ∧ B.finite ↔ (A ∪ B).finite := by
     constructor
     intro ⟨⟨al, al_nodup, al_eq⟩, ⟨bl, bl_nodup, bl_eq⟩⟩
@@ -310,17 +310,17 @@ namespace Set
     exact subsetOfFiniteIsFinite A (A ∪ B) ab_fin a_sub
     exact subsetOfFiniteIsFinite B (A ∪ B) ab_fin b_sub
 
-  @[grind]
+  @[grind .]
   theorem union_iff (A B : Set α) (e : α) : e ∈ A ∪ B ↔ e ∈ A ∨ e ∈ B := by
     exact Eq.to_iff rfl
 
-  @[grind]
+  @[grind =]
   theorem unionSym (A B : Set α) : A ∪ B = B ∪ A := by
     apply Set.ext
     intro e
     grind
 
-  @[grind]
+  @[grind .]
   theorem exListOfSetIfFin (S : Set α) (fin : S.finite) : ∃ (l : List α), ∀ e, e ∈ l ↔ e ∈ S := by
     rcases fin with ⟨l, l_nodup, l_eq⟩
     exact Exists.intro l l_eq
@@ -340,7 +340,7 @@ namespace PossiblyInfiniteList
         rfl
     }
 
-  @[grind]
+  @[grind .]
   theorem singleton_none_at_gt_zero (n : Nat) (gt : n > 0) : ((PossiblyInfiniteList.singleton α).infinite_list n).isNone := by
     unfold singleton
     simp only [Option.isNone_iff_eq_none]
