@@ -202,11 +202,11 @@ theorem foldl_save_hist_opt_nodup_trace_adjacent_ne [DecidableEq β] (l : List �
         (foldl_save_hist_opt_nodup_trace l init f)[n]'(Nat.lt_of_succ_lt h) = (state, o) ∧
         (foldl_save_hist_opt_nodup_trace l init f)[n+1]'(by exact Nat.lt_of_succ_le h) = (next, o) ∧
         next ≠ state := by
-
           induction l generalizing n with
           | nil =>
             exists init
           | cons hd tl ih =>
+            
             sorry
       exact this
     -- contradiciton of state = next and state ≠ next

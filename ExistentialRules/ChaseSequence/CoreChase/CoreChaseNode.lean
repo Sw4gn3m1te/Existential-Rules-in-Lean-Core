@@ -36,7 +36,7 @@ namespace CoreChaseNode
     let origin := node.origin.get isSome
     origin.fst.val.mapped_head[origin.snd.val]
 
-  @[grind]
+  @[grind .]
   theorem core_finite_if_fs_finite {rules : RuleSet sig} (node : CoreChaseNode rules) (fs_fin : node.fs.finite) : node.core.finite := by
     rcases node.core_sse with ⟨sub, ⟨gtm, gtm_hom⟩⟩
     exact Set.finite_of_subset_finite fs_fin sub

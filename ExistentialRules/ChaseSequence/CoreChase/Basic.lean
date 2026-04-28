@@ -33,7 +33,7 @@ namespace Fact
     rw [GeneralizedAtom.mk.injEq]
     exact ⟨congrArg GeneralizedAtom.predicate h, congrArg GeneralizedAtom.terms h⟩
 
-  @[grind]
+  @[grind .]
   theorem FactGeneralizedAtomEq (f : Fact sig) (ga : GeneralizedAtom sig (GroundTerm sig)) : f = ga ↔ f.predicate = ga.predicate ∧ f.terms = ga.terms := by
       constructor
       · intro eq
@@ -51,7 +51,7 @@ namespace GroundTermMapping
       h.isHomomorphism A B ∧ Function.injective_for_domain_set h A.terms ∧ Function.surjective_for_domain_and_image_set h A.terms B.terms ∧ h.strong A.terms A B
 
 
-  @[simp, grind]
+  @[simp, grind .]
   theorem homApplyFactFunctionFreeId (fs1 fs2 : FactSet sig) (f : Fact sig) (f_is_ff : f.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFact f = f := by
       rw [GeneralizedAtom.mk.injEq]
       constructor
@@ -63,7 +63,7 @@ namespace GroundTermMapping
         rw [c_eq]
         exact @gtm_hom.left c
 
-  @[simp, grind]
+  @[simp, grind .]
   theorem homApplyFactSetFunctionFreeId (fs1 fs2 : FactSet sig) (fs1_is_ff : fs1.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFactSet fs1 = fs1 := by
     unfold GroundTermMapping.applyFactSet
     apply Set.ext
@@ -80,7 +80,7 @@ namespace GroundTermMapping
         rw [homApplyFactFunctionFreeId fs1 fs2 f (fs1_is_ff f h) gtm gtm_hom]
 
 
-  @[grind]
+  @[grind .]
   theorem hom_on_db_id (f : Fact sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (f_in_db : f ∈ kb.db.toFactSet.val) :
     gtm.applyFact f = f := by
       unfold GroundTermMapping.applyFact
@@ -104,7 +104,7 @@ namespace GroundTermMapping
         rw [c_eq]
         exact @gtm_c c
 
-  @[grind]
+  @[grind .]
   theorem hom_on_db_term_id (t : GroundTerm sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (t_in_db_terms : t ∈ kb.db.toFactSet.val.terms) :
     gtm t = t := by
       have db_funfree := kb.db.toFactSet.property.right
@@ -117,7 +117,7 @@ namespace GroundTermMapping
       exact @gtm_hom.left c
 
 
-  @[grind]
+  @[grind .]
   theorem memApplyFactSetIfMemApplyFactSetSubSet (h : GroundTermMapping sig) (fs1 fs2 : FactSet sig) (f : Fact sig) (f_af_in_f1 : f ∈ h.applyFactSet fs1) (sub : fs1 ⊆ fs2) :  f ∈ h.applyFactSet fs2 := by
     unfold GroundTermMapping.applyFactSet
     rcases f_af_in_f1 with ⟨f', f'_in, f'_af_eq⟩
@@ -135,7 +135,7 @@ namespace GroundTermMapping
     specialize this t
     exact id (Eq.symm this)
 
- @[grind]
+ @[grind .]
   theorem subPreservesHom (A B C : FactSet sig) (sub : C ⊆ A) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism  A B) : h.isHomomorphism C B := by
     rcases h_hom with ⟨idc, af⟩
     constructor
@@ -174,7 +174,7 @@ namespace FactSet
       exists f
       exact ⟨f_in, Eq.symm (Fact.applyFactIdEq f (TermMapping.apply_generalized_atom id f) rfl)⟩
 
-  @[grind]
+  @[grind .]
   theorem exHomSubToSet (A B : FactSet sig) (sub : A ⊆ B) : ∃ (h : GroundTermMapping sig), h.isHomomorphism A B := by
     exists id
     constructor

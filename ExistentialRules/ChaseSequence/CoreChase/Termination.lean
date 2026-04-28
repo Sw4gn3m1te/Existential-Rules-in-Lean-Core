@@ -389,10 +389,12 @@ namespace CoreChaseBranch
       unfold Trigger.active
       exact not_imp.mp fun a => subs_not_obsolete (a sub)
     have ex_next_node := CoreChaseBranch.exNextNodeIfExActiveTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') ⟨trg, r_in⟩ trg_act
-    grind
-    -- entweder gibt es active trigger in result, dann muss es aber eine nachfolger node geben → contradiction to termainates at result
-    -- es gibt keine active trigger → models ist trivial erfüllt
 
-
+    -- grind
+    rcases ex_next_node with ⟨cn_contra,  cn_contra_eq⟩
+    have t1 := cbNoneAfterLastIndex cb ter'
+    have : cb.branch.infinite_list (cb.last_element_index ter' + 1) = some cn_contra := Option.mem_def.mp cn_contra_eq
+    rw [t1] at this
+    contradiction
 
 end CoreChaseBranch

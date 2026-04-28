@@ -63,8 +63,11 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsolescenceCondition kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
     (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
-      ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.core ∧ gtm.isHomomorphism cn.core cn.core ∧ (Function.surjective_for_domain_and_image_set gtm cn.core.terms cn.core.terms) := by
-        sorry
+      ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.core ∧
+        gtm.isHomomorphism cn.core cn.core ∧ (Function.surjective_for_domain_and_image_set gtm cn.core.terms cn.core.terms) := by
+          have : trg.val.satisfied_for_disj cn.fs ⟨disj_idx, Nat.lt_of_succ_le lt⟩ := by
+            sorry
+          sorry
 
   -- jeder surjektive endomorphisms auf endlichen mengen ist auch ein isomorphismus
 
@@ -211,7 +214,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                 have := func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms t contra) from_db
                 contradiction
               | inr from_trg =>
-                -- gtm.isHomomorphism (Classical.choose trg_act).fst.val.mapped_head[↑disj_on_prev_node].toSet prev_node.core
                 rcases ex_gtm with ⟨gtm, gtm_idc, gtm_af⟩
 
                 have : f ∈ gtm.applyFactSet (Classical.choose trg_act).fst.val.mapped_head[↑disj_on_prev_node].toSet := by
@@ -257,6 +259,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
                   rcases ex_reps with ⟨k_rep, h_rep⟩
                   specialize h_rep t (by grind)
+
 
                   sorry
 
@@ -394,7 +397,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
   -- ∃ fs, Set.finite fs ∧ fs.universalmodels kb → cb.terminates
 
 
-  @[grind]
+  @[grind .]
   theorem cbDbInAllSucc_std (scb : ChaseBranch obs kb) (ccb : CoreChaseBranch kb) (n : Nat) (scn : ChaseNode obs kb.rules) (init : CoreChaseNode kb.rules) (init_eq : init ∈ ccb.branch.infinite_list 0) (scn_eq : scb.branch.infinite_list n = some scn):
     init.fs ⊆ scn.facts := by
       have db_funfree := kb.db.toFactSet.property.right
@@ -600,7 +603,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             } (id (Eq.symm h))
       -/
 
-  @[grind]
+  @[grind .]
   theorem no_active_triggers_in_scb_if_empty_get_origin_list_empty (scb : ChaseBranch obs kb) (n : Nat) (term_at_n : (scb.branch.infinite_list n).isSome ∧ (scb.branch.infinite_list (n+1)).isNone) :
     ChaseBranch.get_origin_list scb n (List.range' 1 n) rfl term_at_n.left = [] → ¬ ∃ (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules), trg.val.active ((scb.branch.infinite_list 0).get (by
       by_cases c : n = 0
