@@ -8,15 +8,6 @@ import ExistentialRules.ChaseSequence.CoreChase.Termination
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
 
-theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
-      (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsolescenceCondition kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
-      (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
-      (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
-        ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.core ∧
-          gtm.isHomomorphism cn.core cn.core ∧ (Function.surjective_for_domain_and_image_set gtm cn.core.terms cn.core.terms) := by
-            have : trg.val.satisfied_for_disj cn.fs ⟨disj_idx, Nat.lt_of_succ_le lt⟩ := by
-              sorry
-            sorry
 
   abbrev InductiveHomomorphismResultCore (cb : CoreChaseBranch kb) (m : FactSet sig) (depth : Nat) :=
     {gtm : GroundTermMapping sig // ∀ cn, cn ∈ cb.branch.get? depth → gtm.isHomomorphism cn.fs m}
@@ -54,7 +45,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         let new_trg : PreTrigger sig := ⟨trg_on_prev_node.val.rule, (prev_gtm ∘ trg_on_prev_node.val.subs)⟩
 
         have new_trg_loaded : new_trg.loaded m := by
-          --have : new_trg.mapped_body.toSet ⊆ prev_gtm.applyFactSet prev_node.fs := by
 
           apply Set.subset_trans _ prev_gtm_hom.right
           apply PreTrigger.term_mapping_preserves_loadedness
@@ -132,105 +122,6 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
             rw [PreTrigger.existential_var_for_fresh_term_after_functional_term_for_var]
             exact v_exis
 
-        have next_gtm_eq_prev_gtm_on_terms_in_prev_node : ∀ t ∈ prev_node.core.terms, next_gtm t = prev_gtm t := by
-          intro t t_mem
-          have n_eq : (cb.prevNode prev_depth (Option.isSome_of_mem next_node_eq)) = prev_node := by grind
-
-          have : ¬ t ∈ trg_on_prev_node.val.fresh_terms_for_head_disjunct fin_disj.val fin_disj.isLt := by
-            intro contra
-            apply trg_active_prev_core.right
-            simp only [obs, RestrictedObsolescence]
-            unfold PreTrigger.satisfied
-            /-
-              -- trigger_introducing_function_term_occurs_in_chase :
-              knoten mit fresh term, dann gibt es knoten vorher dessen trigger equiv zu dem trigger der den fresh term erzeugen könnte
-              this yields an equiv trigger trg2
-              trg2 wurde angewand also trg nicht
-              wenn trg2 sat dann trg sat
-              wenn trg2 nicht loaded folgt nicht dass trg loaded ist (wir wissen trg loaded aus trg_active_prev_core.left)
-              wir wisen dass trg2 loaded war weil er angewand wurde
-              z.z. trg2 loade an der stelle wo trg loaded
-
-              lemma, einmal sat trg bleibt sat (prop falsch)
-
-              wenn ein trg angewendet wurde ist danach jeder equiv trigger nicht active
-              A(c), A(x)→∃y, R(x,y), R(x,y)→ R(x,x) ∧ S(x,y) ∧ S(x,x)
-              A(c), R(c,n), R(c,c), S(c,n), S(c,c)
-              A(c), R(c,c), S(c,c)
-          -/
-
-            --apply trg_on_prev_node.sat
-            --apply cb.triggerInactiveAfterApplication prev_node next_node prev_depth sorry sorry sorry
-
-            apply obs.contains_trg_result_implies_cond disj_on_prev_node
-
-            intro f f_mem
-
-            have ex_gtm := cb.result_of_trigger_introducing_functional_term_occurs_in_chase_core' prev_node disj_on_prev_node prev_depth (Classical.choose trg_act).fst
-              (Option.mem_def.mpr prev_node_eq) t fin_disj.isLt (by grind) (CoreChaseNode.fs_terms_sub_core_terms prev_node t t_mem)
-
-            have := CoreChaseBranch.functional_term_originates_from_some_trigger_or_database_core cb prev_depth prev_node prev_node_eq t
-              (PreTrigger.term_functional_of_mem_fresh_terms t contra) (CoreChaseNode.fs_terms_sub_core_terms prev_node t t_mem)
-
-            cases this with
-              | inl from_db =>
-                have := CoreChaseBranch.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms t contra) from_db
-                contradiction
-              | inr from_trg =>
-                rcases ex_gtm with ⟨gtm, gtm_idc, gtm_af⟩
-
-                have : f ∈ gtm.applyFactSet (Classical.choose trg_act).fst.val.mapped_head[↑disj_on_prev_node].toSet := by
-                  unfold GroundTermMapping.applyFactSet
-                  rw [GroundTermMapping.mem_applyFactSet]
-                  exists f
-                  constructor
-                  exact List.mem_toSet.mpr f_mem
-                  specialize gtm_af (gtm.applyFact f)
-                    (TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set gtm f (Classical.choose trg_act).fst.val.mapped_head[↑disj_on_prev_node].toSet f_mem)
-                  rcases from_trg with ⟨m, cm, cm_eq, cm_o, cm_o_eq, h⟩
-
-                  have ex_endo := ex_endo_hom cb prev_node disj_on_prev_node prev_depth trg_on_prev_node prev_node_eq
-                    t fin_disj.isLt (by grind) (CoreChaseNode.fs_terms_sub_core_terms prev_node t t_mem)
-
-                  rcases ex_endo with ⟨gtm_endo, gtm_endo_hom, gtm_endo_endo, gtm_endo_surj⟩
-
-
-                  have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = prev_node.core.terms := by
-                    have := Set.exListOfSetIfFin prev_node.core.terms (by
-                      have := CoreChaseNode.core_finite prev_node
-                      exact FactSet.terms_finite_of_finite prev_node.core this
-                      )
-                    rcases this with ⟨l, l_eq⟩
-                    exists l
-                    exact Set.ext l.toSet prev_node.core.terms l_eq
-
-                  rcases ex_eq_list with ⟨tl, tl_eq⟩
-
-                  have gtm_surj_list : Function.surjective_for_domain_and_image_list gtm_endo tl tl := by
-
-                    unfold Function.surjective_for_domain_and_image_list
-                    intro b b_in
-                    exists b
-                    constructor
-                    exact b_in
-                    have : b ∈ prev_node.core.terms := by grind
-                    have : ∃ g, g ∈ prev_node.core ∧ b ∈ g.terms := Exists.imp (fun a a_1 => a_1) this
-                    rcases this with ⟨g, g_in, g_term_in⟩
-                    sorry
-
-                  have ex_reps := gtm_endo.exists_repetition_that_is_inverse_of_surj tl gtm_surj_list
-
-                  rcases ex_reps with ⟨k_rep, h_rep⟩
-                  specialize h_rep t (by grind)
-
-
-                  sorry
-
-                specialize gtm_af f this
-                exact gtm_af
-
-          simp [next_gtm, this]
-
         exists next_gtm
         constructor
         · exact next_gtm_is_id_on_const
@@ -247,11 +138,21 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               exists f
               constructor
               · exact prev_node.core_sse.left f (by rw [prev_core_eq] at f_mem; exact f_mem)
-              · apply TermMapping.apply_generalized_atom_congr_left
+              · unfold next_gtm
+                apply TermMapping.apply_generalized_atom_congr_left
                 intro t t_mem
-                apply next_gtm_eq_prev_gtm_on_terms_in_prev_node
-                exists f
-                grind
+                have : ¬ t ∈ (trg_on_prev_node.val.fresh_terms_for_head_disjunct ↑fin_disj fin_disj.isLt) := by
+                  intro contra
+                  apply trg_active_prev_core.right
+                  simp only [obs, RestrictedObsolescence]
+                  unfold PreTrigger.satisfied
+                  apply obs.contains_trg_result_implies_cond disj_on_prev_node
+                  simp_all
+                  have t_mem' : t ∈ prev_node.core.terms := by sorry
+                  have := cb.result_of_trigger_introducing_functional_term_occurs_in_chase_hom prev_node disj_on_prev_node prev_depth trg_on_prev_node prev_node_eq t fin_disj.isLt contra t_mem'
+                  sorry
+
+                simp only [this, ↓reduceDIte]
             -- f comes from trg result
             | inr f_mem =>
               apply subs_contained
@@ -357,5 +258,5 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
   -- ## <= direction of Theorem 7 in 'The Chase Revisited'
   theorem result_is_universal_model (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : (cb.result ter').universallyModelsKb kb := by
     constructor
-    exact CoreChaseBranch.result_ModelsKb cb ter'
+    exact cb.result_ModelsKb ter'
     exact result_is_universal cb ter' kb_det

@@ -10,12 +10,6 @@ variable {kb : KnowledgeBase sig}
 
 namespace CoreChaseBranch
 
-
-  @[grind .]
-  theorem functional_term_originates_from_some_trigger {cb : CoreChaseBranch kb} (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n) (t : GroundTerm sig)
-    (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) (t_mem : t ∈ cn.fs.terms) :
-      ∃ (m : Nat) (prev_cn : CoreChaseNode kb.rules), m ≤ n ∧ prev_cn ∈ cb.branch.get? m ∧ ∃ o ∈ cn.origin, t ∈ o.fst.val.fresh_terms_for_head_disjunct o.snd.val (by rw [← PreTrigger.length_mapped_head]; exact o.snd.isLt) := by sorry
-
   @[grind .]
   theorem ex_func_eq {disj_idx : Nat} {t : GroundTerm sig} {trg : RTrigger obs.toLaxObsolescenceCondition kb.rules} {lt : disj_idx < trg.val.rule.head.length} (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok := by
@@ -219,43 +213,25 @@ namespace CoreChaseBranch
         exact is_obs
 
 
-  theorem trigger_introducing_functional_term_occurs_in_chase_core
-    {cb : CoreChaseBranch kb} {cn : CoreChaseNode kb.rules}
-    {disj_idx n : Nat}
-    (cn_eq : cn ∈ cb.branch.get? n)
-    {t : GroundTerm sig}
-    (t_mem_node : t ∈ cn.fs.terms)
-    {trg : RTrigger obs.toLaxObsolescenceCondition kb.rules}
-    {lt : disj_idx < trg.val.rule.head.length}
-    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
-    ∃ (m : Nat) (prev_cn : CoreChaseNode kb.rules), m ≤ n ∧ prev_cn ∈ cb.branch.get? m → ∀ o, o ∈ prev_cn.origin → o.fst.equiv trg ∧ o.snd.val = disj_idx := by
-      have := functional_term_originates_from_some_trigger n cn cn_eq t (ex_func_eq t_mem_trg) (Set.mem_of_subset_of_mem (fun e a => a) t_mem_node)
-      rcases this with ⟨m, prev_cn, leq, prev_cn_eq, o, o_eq, t_mem⟩
-      exists m, prev_cn
-      intro h o' o'_in
-      constructor
-      sorry
-      sorry
+  theorem functional_term_originates_from_some_trigger {cb : CoreChaseBranch kb} (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n) (t : GroundTerm sig)
+    (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) (t_mem : t ∈ cn.core.terms) :
+      let init_node := ((cb.branch.get? 0).get (cb_fist_isSome cb))
+      t ∈ init_node.fs.terms ∨
+      ∃ (m : Nat) (prev_cn : CoreChaseNode kb.rules), m ≤ n ∧ prev_cn ∈ cb.branch.get? m ∧
+      ∃ o ∈ cn.origin, t ∈ o.fst.val.fresh_terms_for_head_disjunct o.snd.val (by rw [← PreTrigger.length_mapped_head]; exact o.snd.isLt) := by sorry
 
-  theorem result_of_trigger_introducing_functional_term_occurs_in_chase_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
+
+  theorem result_of_trigger_introducing_functional_term_occurs_in_chase_hom (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
     (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsolescenceCondition kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
     (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
-    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
-      ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.fs := by
-        rcases trigger_introducing_functional_term_occurs_in_chase_core cn_eq t_mem_node t_mem_trg with ⟨n2, lt, h⟩
-        sorry
-        /-
-        rcases h with ⟨cn2, cn2_eq, origin, origin_eq, equiv, index_eq⟩
-        have ex_hom_following := exHomStepToAllFollowing cb n2 cn2 cn2_eq n lt
-        simp only [cn_eq, Option.is_none_or] at ex_hom_following
-        have := cn2.fs_contains_origin_result
-        simp only [origin_eq, Option.is_none_or] at this
-        simp only [← PreTrigger.result_eq_of_equiv equiv, ← index_eq]
-        rcases ex_hom_following with ⟨gtm, h2⟩
-        have := GroundTermMapping.subPreservesHom cn2.fs cn.fs origin.fst.val.mapped_head[↑origin.snd].toSet this gtm h2
-        exact Exists.intro gtm this
-        -/
-
+    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.core.terms) :
+      ∃ (h : GroundTermMapping sig), h.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.core := by
+        cases (functional_term_originates_from_some_trigger n cn cn_eq t (ex_func_eq t_mem_trg) t_mem_node) with
+          | inl t_mem =>
+            apply False.elim
+            exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
+          | inr t_mem =>
+            sorry
 
   @[grind .]
   theorem func_term_not_mem_head_core {cb : CoreChaseBranch kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
@@ -269,53 +245,12 @@ namespace CoreChaseBranch
         simp [GroundTerm.func_neq_const] at t_eq
 
 
-  @[grind .]
-  theorem result_of_trigger_introducing_functional_term_occurs_in_chase_core' (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
-    (disj_idx n : Nat) (trg: RTrigger obs.toLaxObsolescenceCondition kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
-    (t : GroundTerm sig ) (lt : disj_idx < trg.val.rule.head.length)
-    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) (t_mem_node : t ∈ cn.fs.terms) :
-      ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet cn.core := by
-      rcases result_of_trigger_introducing_functional_term_occurs_in_chase_core cb cn disj_idx n trg cn_eq t lt t_mem_trg t_mem_node with ⟨gtm, gtm_hom⟩
-      rcases ex_hom_fs_core cb n cn cn_eq with ⟨gtm2, gtm2_hom⟩
-      exists gtm2 ∘ gtm
-      exact GroundTermMapping.isHomomorphism_compose gtm gtm2 (trg.val.mapped_head[disj_idx]'(by grind)).toSet cn.fs cn.core gtm_hom gtm2_hom
-
-
-    -- ASK!: Macht dieses Resultat so noch sinn ? Wir müssen ja jetzt immer die nächste node angeben schon. Was ist wenn wir für einen beweis nur active trigger haben aber wir die nächste node nicht explizit haben ?
     -- isSome_next_iff_trg_ex
     @[grind .]
     -- exNextNodeIfExLoadedNonObsoleteTrigger
     theorem ex_next_if_ex_active_trigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
       (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) (trg_act : trg.val.active cn.core) :
-          ∃ (cn' : CoreChaseNode kb.rules), cn' ∈ cb.branch.infinite_list (n+1) := by
-            have trg_ex := cb.triggers_exist n cn cn_eq
-            cases h : cb.branch.infinite_list (n+1) with
-              | none =>
-                apply Classical.byContradiction
-                intro contra
-
-                rcases (cb.fairness trg) with ⟨i, ⟨node, node_mem, not_active⟩, fair⟩
-                apply not_active
-
-                sorry
-                /-
-                have trg_ex := cb.triggers_exist n
-                rw [h, Option.is_none_or_iff] at trg_ex
-                specialize trg_ex cn cn_eq
-                cases trg_ex with
-                  | inl ex =>
-                    unfold exists_trigger_opt_fs_core at ex
-                    rcases ex with ⟨trg', trg'_act_c, ⟨i, c, c_eq⟩⟩
-                    contradiction
-                  | inr nex =>
-                    unfold not_exists_trigger_opt_fs_core at nex
-                    unfold Trigger.active at nex
-                    simp only [not_exists, not_and, Classical.not_not, and_true] at nex
-                    specialize nex trg trg_loaded
-                    contradiction
-                -/
-              | some succ_cn =>
-                exists succ_cn
+          ∃ (cn' : CoreChaseNode kb.rules), cn' ∈ cb.branch.infinite_list (n+1) := by sorry
 
 
   theorem trigger_inactive_after_application (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)

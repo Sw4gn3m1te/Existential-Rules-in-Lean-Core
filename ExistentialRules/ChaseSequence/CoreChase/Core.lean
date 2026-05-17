@@ -643,6 +643,7 @@ namespace CoreChaseBranch
       have : (gtm_M_R.applyFactSet M) ⊆ R := by sorry
       let I_hm := fun (n : Nat) => ∃ f, f ∈ R ∧ ∃ n_min, f ∈ ((scb.branch.infinite_list n_min).get (by grind)).facts ∧
         ∀ (m : Nat), m < n_min → ¬f ∈ ((scb.branch.infinite_list m).get (by grind)).facts
+      sorry
 
 
 
