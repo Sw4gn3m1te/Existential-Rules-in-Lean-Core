@@ -32,7 +32,7 @@ theorem min_le_of_mem_set (x : Nat) (S : Set Nat) (x_in : x ∈ S) : ∃ m : Nat
         | succ n =>
             exact Nat.add_le_add_right (hmin n n_in) 1
 
--- well order principle
+-- well-ordering principle
 theorem wop (S : Set Nat) (S_non_empty : ∃ (n : Nat), n ∈ S) : ∃ (m : Nat), m ∈ S ∧ ∀ (n : Nat), n ∈ S → m ≤ n := by
   rcases S_non_empty with ⟨n, h⟩
   exact min_le_of_mem_set n S h
@@ -51,25 +51,17 @@ theorem wop (S : Set Nat) (S_non_empty : ∃ (n : Nat), n ∈ S) : ∃ (m : Nat)
 
 -/
 
-def foldl_save_hist (l : List α) (init_elem : β) (f : β → α → β) : List β :=
-  let (_, history) :=
-    l.foldl
-      (fun (state, hist) t =>
-        let next := f state t
-        (next, hist.concat next))
-      (init_elem, [init_elem])
-  history
 
--- foldl_save_hist variant for function returning options, if none is retuned by f the argument is not applied and the previous element which was some is returned
+-- foldl_save_hist variant for function returning options, if none is returned by f the argument is not applied and the previous element which was some is returned
+
 def foldl_save_hist_opt (l : List α) (init_elem : β) (f : β → α → Option β) : List β :=
   let (_, history) :=
   l.foldl
     (fun (state, hist) t =>
-      let next :=
-        match (f state t) with
-          | some s' => s'
-          | none    => state
-      (next, hist.concat next))
+      match (f state t) with
+        | some s' => (s', hist.concat s')
+        | none    => (state, hist)
+      )
     (init_elem, [init_elem])
 history
 
@@ -85,26 +77,24 @@ def foldl_save_hist_opt_nodup [DecidableEq β] (l : List α) (init_elem : β) (f
       (init_elem, [init_elem])
   history
 
-def foldl_save_hist_opt_nodup_trace [DecidableEq β] (l : List α) (init : β) (f : β → α → Option β) : List (β × Option α) :=
-  let (_, history) :=
-    l.foldl
-      (fun (state, history) o =>
-        let next := (f state o).getD state
-        if next = state then
-          (state, history)
+def foldl_save_hist_opt_nodup_trace [DecidableEq β](l : List α) (init : β) (f : β → α → Option β) : List (β × Option α) :=
+  (l.foldl
+    (fun
+      | (state, hist), o =>
+        if (f state o).getD state = state then
+          (state, hist)
         else
-          (next, history.concat (next, some o)))
-      (init, [(init, none)])
-  history
+          ((f state o).getD state,
+           hist ++ [((f state o).getD state, some o)]))
+    (init, [(init, none)])).2
 
-#eval foldl_save_hist [1, 2, 3, 0, 1] 5 (fun a b => a + b)
 
 def test_fun (a b : Nat) : Option (Nat) :=
     if (a > b) then a - b else none
 
 #eval foldl_save_hist_opt [5, 20, 20, 1, 10, 5, 0, 1] 20 test_fun
 
-#eval foldl_save_hist_opt_nodup [5, 20, 20, 1, 10, 5, 0, 1] 20 test_fun
+#eval foldl_save_hist_opt_nodup [10, 5, 8, 3] 20 test_fun
 
 #eval foldl_save_hist_opt_nodup_trace [5, 20, 20, 1, 10, 5, 0, 1] 20 test_fun
 
@@ -117,41 +107,6 @@ theorem head_concat (l : List β) (x : β) (h : l ≠ []) :
     contradiction
   | cons hd tl =>
     simp [List.concat]
-
-@[grind =]
-theorem foldl_save_hist_head_eq (l : List α) (init_elem : β) (f : β → α → β) :
-  (foldl_save_hist l init_elem f).head? = some init_elem := by
-    unfold foldl_save_hist
-    have h : ∀ (l : List α) (state : β) (hist : List β),
-      hist.head? = some init_elem → (l.foldl (fun (state, hist) t =>
-        let next := f state t
-        (next, hist.concat next))
-        (state, hist)).snd.head? = some init_elem := by
-          intro l
-          induction l with
-          | nil =>
-            grind
-          | cons hd tl ih =>
-            grind
-
-    exact h l init_elem [init_elem] rfl
-
-theorem foldl_save_hist_opt_head_eq (l : List α) (init_elem : β) (f : β → α → Option β) :
-  (foldl_save_hist_opt l init_elem f).head? = some init_elem := by
-    unfold foldl_save_hist_opt
-    have h : ∀ (l : List α) (state : β) (hist : List β),
-      hist.head? = some init_elem → (l.foldl (fun (state, hist) t =>
-        let next := (f state t).getD state
-        (next, hist.concat next))
-        (state, hist)).snd.head? = some init_elem := by
-          intro l
-          induction l with
-            | nil =>
-              grind
-            | cons hd tl ih =>
-              grind
-
-    exact h l init_elem [init_elem] rfl
 
 theorem foldl_save_hist_opt_nodup_head_eq [DecidableEq β] (l : List α) (init_elem : β) (f : β → α → Option β) :
 (foldl_save_hist_opt_nodup l init_elem f).head? = some init_elem := by
@@ -206,7 +161,7 @@ theorem foldl_save_hist_opt_nodup_trace_adjacent_ne [DecidableEq β] (l : List �
           | nil =>
             exists init
           | cons hd tl ih =>
-            
+
             sorry
       exact this
     -- contradiciton of state = next and state ≠ next

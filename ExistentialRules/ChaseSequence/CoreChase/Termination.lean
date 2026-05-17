@@ -143,8 +143,8 @@ namespace CoreChaseBranch
     exact term_at_n.left
 
   def last_node (cb : CoreChaseBranch kb) (ter' : cb.terminates') : CoreChaseNode kb.rules :=
-    (cb.branch.infinite_list (last_element_index cb ter')).get (by
       have := last_index_is_some cb ter'
+    (cb.branch.infinite_list (last_element_index cb ter')).get (by
       exact Option.isSome_iff_ne_none.mpr this
       )
 
@@ -368,8 +368,6 @@ namespace CoreChaseBranch
   theorem coreChaseResultModelsKb (cb : CoreChaseBranch kb) (ter' : cb.terminates') : (cb.result ter').modelsKb kb := by
     constructor
     intro f f_in
-    unfold result
-    have last_index := (cb.last_element_index ter')
     have := cb.cbDbSubsetResult ter'
     exact this f f_in
 
@@ -390,7 +388,6 @@ namespace CoreChaseBranch
       exact not_imp.mp fun a => subs_not_obsolete (a sub)
     have ex_next_node := CoreChaseBranch.exNextNodeIfExActiveTrigger cb (cb.last_element_index ter') (cb.last_node ter') (resultIsSome cb ter') ⟨trg, r_in⟩ trg_act
 
-    -- grind
     rcases ex_next_node with ⟨cn_contra,  cn_contra_eq⟩
     have t1 := cbNoneAfterLastIndex cb ter'
     have : cb.branch.infinite_list (cb.last_element_index ter' + 1) = some cn_contra := Option.mem_def.mp cn_contra_eq

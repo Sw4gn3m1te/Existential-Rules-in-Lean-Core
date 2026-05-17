@@ -104,11 +104,10 @@ namespace CoreChaseBranch
       intro m
       induction m with
       | zero =>
-        simp only [Nat.add_zero, Option.mem_def]
-        intro cn cn_eq
-        have eq : cn = x := by grind
-        exists id
+        intro y y_eq
+        have eq : x = y := by grind
         rw [eq]
+        exists id
         exact GroundTermMapping.id_is_hom
       | succ m ih =>
         intro y y_eq
@@ -116,8 +115,8 @@ namespace CoreChaseBranch
         rcases ex_z with ⟨z, z_eq⟩
         specialize ih z z_eq
         rcases ih with ⟨gtm_x_z, gtm_x_z_hom⟩
-        have : ∃ (h : GroundTermMapping sig), h.isHomomorphism z.fs y.fs := cb.exHomFsSuccFsIfSuccIsSome (n + m) z y z_eq y_eq
-        rcases this with ⟨gtm_z_y, gtm_z_y_hom⟩
+        have ex_gtm_z_y : ∃ (h : GroundTermMapping sig), h.isHomomorphism z.fs y.fs := cb.exHomFsSuccFsIfSuccIsSome (n + m) z y z_eq y_eq
+        rcases ex_gtm_z_y with ⟨gtm_z_y, gtm_z_y_hom⟩
         exists (gtm_z_y ∘ gtm_x_z)
         exact GroundTermMapping.isHomomorphism_compose gtm_x_z gtm_z_y x.fs z.fs y.fs gtm_x_z_hom gtm_z_y_hom
 
@@ -138,5 +137,6 @@ namespace CoreChaseBranch
       specialize sc gtm (homFsToFsAlsoHomCoreToFs cn.core cn gtm gtm_hom)
       rcases sc with ⟨s1, s2, s3⟩
       exact s3
+
 
 end CoreChaseBranch

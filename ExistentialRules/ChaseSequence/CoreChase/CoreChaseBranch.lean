@@ -630,4 +630,13 @@ namespace CoreChaseBranch
                         exact Option.get_mem (origin_isSome cb n cn_eq)
                         exact t_mem
 
+  theorem func_term_not_mem_head {cb : CoreChaseBranch kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
+    ¬ t ∈ cb.head.fs.terms := by
+      intro t_mem
+      rcases t_mem with ⟨f, f_mem, t_mem⟩
+      rcases kb.db.toFactSet.property.right f (by grind) t t_mem with ⟨c, t_eq⟩
+      rcases t_is_func with ⟨_, _, _, t_eq'⟩
+      rw [t_eq'] at t_eq
+      simp [GroundTerm.func_neq_const] at t_eq
+
 end CoreChaseBranch

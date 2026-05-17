@@ -21,6 +21,13 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 variable {kb : KnowledgeBase sig}
 
 
+@[grind .]
+theorem kb_det_head_len_eq (kb_det : kb.isDeterministic): ∀ (r : Rule sig), r ∈ kb.rules.rules → r.head.length = 1 := by
+  unfold KnowledgeBase.isDeterministic RuleSet.isDeterministic Rule.isDeterministic at kb_det
+  intro r r_in
+  specialize kb_det r r_in
+  grind
+
 namespace Fact
 
   def Fact.hom_mem (f : Fact sig) (fs : FactSet sig) :=
@@ -328,6 +335,7 @@ namespace FactSet
           exact f_in_l
 
         specialize h neq
+
         contradiction
 
   theorem exists_weak_core_for_list (l : List (Fact sig)) :
