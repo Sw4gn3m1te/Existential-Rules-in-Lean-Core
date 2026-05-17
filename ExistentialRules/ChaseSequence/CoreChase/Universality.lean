@@ -21,20 +21,17 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
   abbrev InductiveHomomorphismResultCore (cb : CoreChaseBranch kb) (m : FactSet sig) (depth : Nat) :=
     {gtm : GroundTermMapping sig // ∀ cn, cn ∈ cb.branch.get? depth → gtm.isHomomorphism cn.fs m}
 
-  theorem disjoin_hom_is_hom (h1 h2 h3 : GroundTermMapping sig) (A B C : FactSet sig) [DecidablePred A.terms]
-    (h1_hom : h1.isHomomorphism A C) (h2_hom : h2.isHomomorphism B C) (hdisj : ∀ x, x ∈ A → x ∈ B → False) :
-      GroundTermMapping.isHomomorphism (fun t => if (t ∈ A.terms) then (h1 t) else (h2 t)) A B := by sorry
 
-  noncomputable def inductive_homomorphism_core_with_prev_node_and_trg_if_next_node_some (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb kb) (kb_det : kb.isDeterministic)
+  noncomputable def inductiveHomomorphismCoreWithPrevNodeAndTrgIfNextSome (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb kb) (kb_det : kb.isDeterministic)
     (prev_depth : Nat) (prev_node : CoreChaseNode kb.rules) (prev_node_eq : prev_node ∈ cb.branch.get? prev_depth)
     (prev_gtm : GroundTermMapping sig) (prev_gtm_hom : prev_gtm.isHomomorphism prev_node.fs m) :
       ∀ next_node ∈ cb.branch.get? (prev_depth.succ), ∃ (next_gtm : GroundTermMapping sig), GroundTermMapping.isHomomorphism next_gtm next_node.fs m := by
 
         intro next_node next_node_eq
 
-        have prev_core_eq : (cb.prev_node prev_depth (Option.isSome_of_mem next_node_eq)).core = prev_node.core := by grind
+        have prev_core_eq : (cb.prevNode prev_depth (Option.isSome_of_mem next_node_eq)).core = prev_node.core := by grind
 
-        have prev_gtm_hom_core : prev_gtm.isHomomorphism prev_node.core m := CoreChaseBranch.homFsToFsAlsoHomCoreToFs m prev_node prev_gtm prev_gtm_hom
+        have prev_gtm_hom_core : prev_gtm.isHomomorphism prev_node.core m := CoreChaseBranch.gtm_core_set_if_gtm_fs_set m prev_node prev_gtm prev_gtm_hom
 
         have trg_act := cb.triggers_active prev_depth prev_node prev_node_eq next_node next_node_eq
 
@@ -62,7 +59,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
           apply Set.subset_trans _ prev_gtm_hom.right
           apply PreTrigger.term_mapping_preserves_loadedness
           . exact prev_gtm_hom.left
-          . have trg_origin_act := (cb.origin_trg_is_active_prev_core prev_depth next_node next_node_eq ⟨trg_on_prev_node, disj_on_prev_node⟩ next_node_origin_some).left
+          . have trg_origin_act := (cb.origin_trg_active_prev_core prev_depth next_node next_node_eq ⟨trg_on_prev_node, disj_on_prev_node⟩ next_node_origin_some).left
             simp [prev_core_eq] at trg_origin_act
             have := cb.trg_loaded_in_fs_if_loaded_in_core prev_depth prev_node prev_node_eq trg_on_prev_node.val trg_origin_act
             exact this
@@ -137,7 +134,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
         have next_gtm_eq_prev_gtm_on_terms_in_prev_node : ∀ t ∈ prev_node.core.terms, next_gtm t = prev_gtm t := by
           intro t t_mem
-          have n_eq : (cb.prev_node prev_depth (Option.isSome_of_mem next_node_eq)) = prev_node := by grind
+          have n_eq : (cb.prevNode prev_depth (Option.isSome_of_mem next_node_eq)) = prev_node := by grind
 
           have : ¬ t ∈ trg_on_prev_node.val.fresh_terms_for_head_disjunct fin_disj.val fin_disj.isLt := by
             intro contra
@@ -200,7 +197,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
 
                   have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = prev_node.core.terms := by
                     have := Set.exListOfSetIfFin prev_node.core.terms (by
-                      have := CoreChaseNode.all_core_finite prev_node
+                      have := CoreChaseNode.core_finite prev_node
                       exact FactSet.terms_finite_of_finite prev_node.core this
                       )
                     rcases this with ⟨l, l_eq⟩
@@ -240,7 +237,7 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         · intro f'
           rw [GroundTermMapping.mem_applyFactSet]
           intro ⟨f, f_mem, f'_eq⟩
-          rw [cb.origin_trg_result_yields_next_node_fs prev_depth next_node next_node_eq] at f_mem
+          rw [cb.next_fs_eq prev_depth next_node next_node_eq] at f_mem
           rw [f'_eq]
           cases f_mem with
             -- f comes from prev core
@@ -278,14 +275,14 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               rw [this]
               apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
               simp [CoreChaseNode.origin_result] at f_mem
-              have n_eq : (cb.prev_node prev_depth (Option.isSome_of_mem next_node_eq)) = prev_node := by grind
+              have n_eq : (cb.prevNode prev_depth (Option.isSome_of_mem next_node_eq)) = prev_node := by grind
               have eq1 : ⟨trg_on_prev_node, disj_on_prev_node⟩ ∈ next_node.origin := Option.mem_def.mpr next_node_origin_some
               have eq2 : (next_node.origin.get (cb.origin_isSome prev_depth next_node_eq)).fst = trg_on_prev_node := by simp_all
               have eq3 : (next_node.origin.get (cb.origin_isSome prev_depth next_node_eq)).snd.val = disj_on_prev_node := by simp_all; grind
               simp only [eq2, eq3] at f_mem
               exact f_mem
 
-  noncomputable def inductive_homomorphism_core (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
+  noncomputable def inductiveHomomorphismCore (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb  kb) (kb_det : kb.isDeterministic) : (depth : Nat) → InductiveHomomorphismResultCore cb m depth
       | .zero => ⟨id, by
         intro cn cn_eq
         rw [cb.database_first] at cn_eq
@@ -294,13 +291,13 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
         · intro f f_in
           apply m_mod.left
           rw [Option.mem_some] at cn_eq
-          simp only [FactSet.applyFactSetIdEq, ← cn_eq] at f_in
+          simp only [FactSet.applyFactSet_id_eq, ← cn_eq] at f_in
           exact f_in
       ⟩
 
       | .succ j =>
-        let prev_gtm := (inductive_homomorphism_core cb m m_mod kb_det j).val
-        let prev_gtm_hom := (inductive_homomorphism_core cb m m_mod kb_det j).property
+        let prev_gtm := (inductiveHomomorphismCore cb m m_mod kb_det j).val
+        let prev_gtm_hom := (inductiveHomomorphismCore cb m m_mod kb_det j).property
         let prev_node := cb.branch.infinite_list j
 
         match prev_node_eq : prev_node with
@@ -316,11 +313,11 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
               | isTrue tr =>
                 let trg := Classical.choose tr
                 let trg_act := Classical.choose_spec tr
-                have ex_next_node := cb.exNextNodeIfExActiveTrigger j cn prev_node_eq trg (by grind)
+                have ex_next_node := cb.ex_next_if_ex_active_trigger j cn prev_node_eq trg (by grind)
                 let next_node := Classical.choose ex_next_node
                 let next_node_eq := Classical.choose_spec ex_next_node
-                have := inductive_homomorphism_core_with_prev_node_and_trg_if_next_node_some
-                  cb m m_mod kb_det j cn prev_node_eq prev_gtm (GroundTermMapping.subPreservesHom cn.fs m cn.fs (Set.subset_refl) prev_gtm (prev_gtm_hom cn prev_node_eq)) next_node next_node_eq
+                have := inductiveHomomorphismCoreWithPrevNodeAndTrgIfNextSome
+                  cb m m_mod kb_det j cn prev_node_eq prev_gtm (GroundTermMapping.sub_preserves_hom cn.fs m cn.fs (Set.subset_refl) prev_gtm (prev_gtm_hom cn prev_node_eq)) next_node next_node_eq
                 let next_gtm := Classical.choose this
                 have next_gtm_hom := Classical.choose_spec this
                 ⟨next_gtm, by
@@ -341,16 +338,24 @@ theorem ex_endo_hom  (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules)
                   contradiction
                   ⟩
 
-  theorem coreChaseResultIsUniversal (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
-    intro m m_mod
-    let result : FactSet sig := cb.result ter'
-    rcases ter' with ⟨n_ter, is_some, is_none⟩
-    let h:= inductive_homomorphism_core cb m m_mod kb_det n_ter
-    exists h
-    have p := h.property
-    unfold CoreChaseBranch.result
-    have : ∃ cn_res, cb.branch.infinite_list n_ter = some cn_res := Option.ne_none_iff_exists'.mp is_some
-    rcases this with ⟨cn_res, cn_res_eq⟩
-    specialize p cn_res cn_res_eq
-    have := CoreChaseBranch.homFsToFsAlsoHomCoreToFs m cn_res h.val p
-    grind
+  theorem result_is_universal (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) :
+    ∀ (m : FactSet sig), m.modelsKb kb → ∃ (h : GroundTermMapping sig), h.isHomomorphism (cb.result ter') m := by
+      intro m m_mod
+      let result : FactSet sig := cb.result ter'
+      rcases ter' with ⟨n_ter, is_some, is_none⟩
+      let h:= inductiveHomomorphismCore cb m m_mod kb_det n_ter
+      exists h
+      have p := h.property
+      unfold CoreChaseBranch.result
+      have : ∃ cn_res, cb.branch.infinite_list n_ter = some cn_res := Option.ne_none_iff_exists'.mp is_some
+      rcases this with ⟨cn_res, cn_res_eq⟩
+      specialize p cn_res cn_res_eq
+      have := CoreChaseBranch.gtm_core_set_if_gtm_fs_set m cn_res h.val p
+      grind
+
+
+  -- ## <= direction of Theorem 7 in 'The Chase Revisited'
+  theorem result_is_universal_model (cb : CoreChaseBranch kb) (ter' : cb.terminates') (kb_det : kb.isDeterministic) : (cb.result ter').universallyModelsKb kb := by
+    constructor
+    exact CoreChaseBranch.result_ModelsKb cb ter'
+    exact result_is_universal cb ter' kb_det

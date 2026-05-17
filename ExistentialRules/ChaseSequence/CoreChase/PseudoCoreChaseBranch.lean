@@ -7,7 +7,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 variable {kb : KnowledgeBase sig}
 
 
-def exists_trigger_opt_fs_psd (obs : ObsolescenceCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
+def existsTriggerOptFsPsd (obs : ObsolescenceCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
   ∀ node ∈ after,
   ∃ trg : (RTrigger (obs : LaxObsolescenceCondition sig) rules),
   ∃ i,
@@ -30,7 +30,7 @@ structure PseudoCoreChaseBranch (kb : KnowledgeBase sig) where
 
   triggers_exist : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     let after := (branch.drop n).tail.head
-    (exists_trigger_opt_fs_psd obs kb.rules before after)
+    (existsTriggerOptFsPsd obs kb.rules before after)
 
   fairness : ∀ trg : (RTrigger obs.toLaxObsolescenceCondition kb.rules), ∃ i : Nat, (∃ node ∈ (branch.drop i).head, ¬ trg.val.active node.facts)
     ∧ (∀ j : Nat, ∀ node2 ∈ (branch.drop i).tail.get? j, ¬ trg.val.active node2.facts)
@@ -113,7 +113,7 @@ namespace PseudoCoreChaseBranch
   def last_node (psc : PseudoCoreChaseBranch kb) : ChaseNode obs kb.rules :=
     (psc.branch.get? psc.last_index).get (psc.terminates_at (psc.last_index + 1) (Nat.lt_add_one psc.last_index)).left
 
-  def build_pseudo_core_chase_branch_from_terminating_chase_branch (scb : ChaseBranch obs kb) (last_index : Nat)
+  def buildPseudoCoreChaseBranchFromTerminatingChaseBranch (scb : ChaseBranch obs kb) (last_index : Nat)
     (term_at_n : (scb.branch.infinite_list last_index).isSome ∧ (scb.branch.infinite_list (last_index+1)).isNone) : PseudoCoreChaseBranch kb :=
       let last_node : ChaseNode obs kb.rules := (scb.branch.get? last_index).get (term_at_n.left)
 
@@ -129,7 +129,7 @@ namespace PseudoCoreChaseBranch
                 have : ∀ l, l ≤ last_index → (scb.branch.get? l).isSome := by
                   intro l geq
                   have := term_at_n.left
-                  exact ChaseBranch.all_prev_some_if_is_some_std scb last_index this l geq
+                  exact scb.leq_some_if_some last_index this l geq
                 specialize this k geq
                 exact Option.isSome_iff_exists.mp this
               have is_some : (scb.branch.get? m).isSome := by grind
@@ -147,7 +147,7 @@ namespace PseudoCoreChaseBranch
                       rw [eq]
                       exact Bool.eq_false_imp_eq_true.mp fun a => this
                     | inr gt =>
-                      exact ChaseBranch.all_succ_none_if_none_std scb (last_index + 1) this m geq
+                      exact scb.geq_none_if_none (last_index + 1) this m geq
                 grind
                 )
               rcases this with ⟨cm, cm_eq⟩
@@ -175,7 +175,7 @@ namespace PseudoCoreChaseBranch
         intro m gt
         constructor
         · exact term_at_n.left
-        · exact scb.all_succ_none_if_none_std (last_index+1) term_at_n.right m (Nat.succ_le_of_lt gt)
+        · exact scb.geq_none_if_none (last_index+1) term_at_n.right m (Nat.succ_le_of_lt gt)
       core_node := {
         fs := last_node.facts
         fs_fin := fs_fin
@@ -214,17 +214,17 @@ namespace PseudoCoreChaseBranch
 
 
   @[grind .]
-  theorem build_pseudo_core_chase_branch_from_terminating_chase_branch_scb_branch_eq (scb : ChaseBranch obs kb) (last_index : Nat)
+  theorem buildPseudoCoreChaseBranchFromTerminatingChaseBranch_branch_eq (scb : ChaseBranch obs kb) (last_index : Nat)
     (term_at_n : (scb.branch.infinite_list last_index).isSome ∧ (scb.branch.infinite_list (last_index+1)).isNone) (psc : PseudoCoreChaseBranch kb)
-    (psc_eq : psc = build_pseudo_core_chase_branch_from_terminating_chase_branch scb last_index term_at_n) : psc.branch = scb.branch := by
-      unfold build_pseudo_core_chase_branch_from_terminating_chase_branch at psc_eq
+    (psc_eq : psc = buildPseudoCoreChaseBranchFromTerminatingChaseBranch scb last_index term_at_n) : psc.branch = scb.branch := by
+      unfold buildPseudoCoreChaseBranchFromTerminatingChaseBranch at psc_eq
       rw [psc_eq]
 
 
   @[grind .]
-  theorem core_node_of_pseudo_core_chase_from_terminating_chase_branch_models_kb (scb : ChaseBranch obs kb) (last_index : Nat)
+  theorem core_node_buildPseudoCoreChaseBranchFromTerminatingChaseBranch_models_kb (scb : ChaseBranch obs kb) (last_index : Nat)
     (term_at_n : (scb.branch.infinite_list last_index).isSome ∧ (scb.branch.infinite_list (last_index+1)).isNone) (psc : PseudoCoreChaseBranch kb)
-    (psc_eq : psc = build_pseudo_core_chase_branch_from_terminating_chase_branch scb last_index term_at_n) : psc.core_node.core.modelsKb kb := by
+    (psc_eq : psc = buildPseudoCoreChaseBranchFromTerminatingChaseBranch scb last_index term_at_n) : psc.core_node.core.modelsKb kb := by
 
       have scb_mod := scb.result_models_kb
       have eq : scb.result = psc.last_node.facts := by sorry
@@ -238,7 +238,7 @@ namespace PseudoCoreChaseBranch
   noncomputable def buildPseudoCoreChaseBranchFromChaseBranch (scb : ChaseBranch obs kb) (scb_term : scb.terminates) : PseudoCoreChaseBranch kb :=
 
     have : ∃ (n : Nat), (scb.branch.infinite_list n).isSome ∧ (scb.branch.infinite_list (n+1)).isNone := by
-      have := ChaseBranch.terminating_has_last_index_std scb
+      have := scb.terminating_has_last_index
       rw [this] at scb_term
       rcases scb_term with ⟨n_ter, eq⟩
       exists n_ter
@@ -261,7 +261,7 @@ namespace PseudoCoreChaseBranch
               have : ∀ l, l ≤ scb_term_n → (scb.branch.get? l).isSome := by
                 intro l geq
                 have := scb_term_h.left
-                exact ChaseBranch.all_prev_some_if_is_some_std scb scb_term_n this l geq
+                exact scb.leq_some_if_some scb_term_n this l geq
               specialize this k geq
               exact Option.isSome_iff_exists.mp this
             have is_some : (scb.branch.get? m).isSome := by grind
@@ -279,7 +279,7 @@ namespace PseudoCoreChaseBranch
                     rw [eq]
                     exact Bool.eq_false_imp_eq_true.mp fun a => this
                   | inr gt =>
-                    exact ChaseBranch.all_succ_none_if_none_std scb (scb_term_n + 1) this m geq
+                    exact scb.geq_none_if_none (scb_term_n + 1) this m geq
               grind
               )
             rcases this with ⟨cm, cm_eq⟩
@@ -317,7 +317,7 @@ namespace PseudoCoreChaseBranch
               rw [eq]
               exact Bool.eq_false_imp_eq_true.mp fun a => scb_term_h.right
             | inr gt =>
-              exact ChaseBranch.all_succ_none_if_none_std scb ((Classical.choose this) + 1) scb_term_h.right k (Nat.le_of_succ_le gt)
+              exact scb.geq_none_if_none ((Classical.choose this) + 1) scb_term_h.right k (Nat.le_of_succ_le gt)
         grind
 
       core_node := {

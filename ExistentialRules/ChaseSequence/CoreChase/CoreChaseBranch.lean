@@ -23,12 +23,12 @@ import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
 
-theorem exFactIfExTerm (kb : KnowledgeBase sig) (t : GroundTerm sig) : t ∈ kb.db.toFactSet.val.terms → ∃ f, f ∈ kb.db.toFactSet.val := by
+theorem ex_fact_for_term (kb : KnowledgeBase sig) (t : GroundTerm sig) : t ∈ kb.db.toFactSet.val.terms → ∃ f, f ∈ kb.db.toFactSet.val := by
   intro ⟨f, f_in_fs, f_in_ter⟩
   exists f
 
 @[grind .]
-theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeakCore := by
+theorem db_isWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeakCore := by
   let db := kb.db
   let fs := db.val
   intro gtm gtm_hom
@@ -53,7 +53,7 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
     · contradiction
   -- id is injective
   intro a b a_in b_in eq
-  have a_mem : ∃ fa, fa ∈ kb.db.toFactSet.val := exFactIfExTerm kb a a_in
+  have a_mem : ∃ fa, fa ∈ kb.db.toFactSet.val := ex_fact_for_term kb a a_in
   rcases a_mem with ⟨fa, fa_in⟩
   have gtm_eq : ∀ f, f ∈ kb.db.toFactSet.val → gtm.applyFact f = f := by exact fun f a => GroundTermMapping.hom_on_db_id f gtm gtm_hom a
   specialize gtm_eq fa fa_in
@@ -63,7 +63,7 @@ theorem eachKbDbIsWeakCore (kb : KnowledgeBase sig) : kb.db.toFactSet.val.isWeak
   exact b_in
   exact a_in
 
-def exists_trigger_opt_fs_core (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
+def existsTriggerOptFsCore (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
   ∀ node ∈ after,
   ∃ trg : (RTrigger (obs.toLaxObsolescenceCondition) rules),
   ∃ (i : Fin trg.val.mapped_head.length),
@@ -90,7 +90,7 @@ structure CoreChaseBranch (kb : KnowledgeBase sig) where
     fs := kb.db.toFactSet
     fs_fin := kb.db.toFactSet.property.left
     core := kb.db.toFactSet
-    is_core := eachKbDbIsWeakCore kb
+    is_core := db_isWeakCore kb
     core_sse := by
       constructor
       · exact Set.subset_refl
@@ -104,7 +104,7 @@ structure CoreChaseBranch (kb : KnowledgeBase sig) where
 
   triggers_exist : ∀ n : Nat, ∀ before ∈ branch.get? n,
     let after := branch.get? (n+1)
-    (exists_trigger_opt_fs_core kb.rules before after)
+    (existsTriggerOptFsCore kb.rules before after)
 
   fairness : ∀ trg : (RTrigger obs.toLaxObsolescenceCondition kb.rules), ∃ (i : Nat), (∃ node ∈ branch.get? i, ¬ trg.val.active node.fs)
     ∧ (∀ (j : Nat), j > i → ∀ node2  ∈ branch.get? j, ¬ trg.val.active node2.fs)
@@ -120,25 +120,25 @@ namespace CoreChaseBranch
   mem cb node := node ∈ cb
 
 
-  def InCoreChaseBranch (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
+  def inCoreChaseBranch (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
     ∃ n : Nat, ∃ x,
       cb.branch.infinite_list n = some x ∧ (fs = x.fs ∨ fs = x.core)
 
-  def InCoreChaseBranch.fsOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
+  def inCoreChaseBranch.fsOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
   ∃ n x,
     cb.branch.infinite_list n = some x ∧
     fs = x.fs
 
-  def InCoreChaseBranch.coreOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
+  def inCoreChaseBranch.coreOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
   ∃ n x,
     cb.branch.infinite_list n = some x ∧
     fs = x.core
 
   instance : Membership (FactSet sig) (CoreChaseBranch kb) :=
-    ⟨fun fs cb => InCoreChaseBranch cb fs⟩
+    ⟨fun fs cb => inCoreChaseBranch cb fs⟩
 
-  infix:50 " ∈_fs " => InCoreChaseBranch.fsOnly
-  infix:50 " ∈_c " => InCoreChaseBranch.coreOnly
+  infix:50 " ∈_fs " => inCoreChaseBranch.fsOnly
+  infix:50 " ∈_c " => inCoreChaseBranch.coreOnly
 
   def get? (cb : CoreChaseBranch kb) (n : Nat) : Option (FactSet sig) :=
     match cb.branch.infinite_list n with
@@ -146,7 +146,7 @@ namespace CoreChaseBranch
     | some x => some x.fs
 
 
-  def InCoreChaseBranchNode
+  def inCoreChaseBranchNode
     (kb : KnowledgeBase sig)
     (x : Option (CoreChaseNode kb.rules))
     (cb : CoreChaseBranch kb) : Prop :=
@@ -156,7 +156,7 @@ namespace CoreChaseBranch
         ∃ n, cb.branch.infinite_list n = some node
 
   instance (kb : KnowledgeBase sig) : Membership (Option (CoreChaseNode kb.rules)) (CoreChaseBranch kb) :=
-    ⟨fun cb opt_cn => InCoreChaseBranchNode kb opt_cn cb⟩
+    ⟨fun cb opt_cn => inCoreChaseBranchNode kb opt_cn cb⟩
 
 
   --theorem mem_iff {cd : CoreChaseBranch kb} : ∀ {e : Option (CoreChaseNode kb.rules)}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl
@@ -214,28 +214,28 @@ namespace CoreChaseBranch
   theorem none_get_eq (cb : CoreChaseBranch kb) : cb.branch.infinite_list m = none ↔ cb.branch.get? m = none := Option.isSome_eq_isSome.mp rfl
 
   @[grind .]
-  theorem all_prev_some_if_is_some (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → (cb.branch.get? m).isSome := by
+  theorem leq_some_if_some (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → (cb.branch.get? m).isSome := by
     intro m leq
     grind
 
   @[grind .]
   theorem ex_prev_node_at_each_leq (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → ∃ cn, cn ∈ (cb.branch.get? m) := by
     intro m leq
-    have := all_prev_some_if_is_some cb n is_some m leq
+    have := leq_some_if_some cb n is_some m leq
     exact Option.isSome_iff_exists.mp this
 
   @[grind .]
-  theorem all_succ_none_if_none (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isNone) : ∀ m, m ≥ n → (cb.branch.get? m).isNone := by
+  theorem geq_none_if_none (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isNone) : ∀ m, m ≥ n → (cb.branch.get? m).isNone := by
     intro m geq
     grind
 
-  def prev_node (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) : CoreChaseNode kb.rules := by
+  def prevNode (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) : CoreChaseNode kb.rules := by
     exact (cb.branch.get? n).get (by grind)
 
   @[grind .]
-  theorem prev_node_eq (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) :
-    cb.branch.get? n = some (cb.prev_node n is_some) := by
-      simp [prev_node]
+  theorem prevNode_eq (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) :
+    cb.branch.get? n = some (cb.prevNode n is_some) := by
+      simp [prevNode]
 
   @[grind .]
   theorem origin_isSome (cb : CoreChaseBranch kb) (n : Nat) {node : CoreChaseNode kb.rules} (eq : node ∈ cb.branch.get? (n + 1)) : node.origin.isSome := by
@@ -261,14 +261,14 @@ namespace CoreChaseBranch
       exact Set.subset_union_of_subset_left fun e a => a
 
   @[simp]
-  theorem cb_fist_is_some (cb : CoreChaseBranch kb) : (cb.branch.get? 0).isSome := by
+  theorem cb_fist_isSome (cb : CoreChaseBranch kb) : (cb.branch.get? 0).isSome := by
     exact Option.isSome_of_mem cb.database_first
 
   @[simp]
-  theorem cb_first_fs_finite (cb : CoreChaseBranch kb) : ((cb.branch.get? 0).get (by simp)).fs.finite := ((cb.branch.get? 0).get (by simp)).fs_fin
+  theorem first_fs_finite (cb : CoreChaseBranch kb) : ((cb.branch.get? 0).get (by simp)).fs.finite := ((cb.branch.get? 0).get (by simp)).fs_fin
 
   @[simp]
-  theorem cb_first_core_finite (cb : CoreChaseBranch kb) : ((cb.branch.get? 0).get (by simp)).core.finite := CoreChaseNode.all_core_finite ((cb.branch.get? 0).get (by simp))
+  theorem fist_core_finite (cb : CoreChaseBranch kb) : ((cb.branch.get? 0).get (by simp)).core.finite := ((cb.branch.get? 0).get (by simp)).core_finite
 
   @[simp, grind =]
   theorem cb_head_fs_eq (cb : CoreChaseBranch kb) : cb.head.fs = kb.db.toFactSet := by
@@ -289,7 +289,6 @@ namespace CoreChaseBranch
     grind
 
   @[grind .]
-  -- exPrevCoreChaseNodeIfOriginIsSome
   theorem ex_prev_cn_if_origin_some (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (origin_some : cn.origin.isSome) :
     ∃ prev_cn, prev_cn ∈ cb.branch.get? (n-1) := by
       induction n generalizing cn with
@@ -306,24 +305,31 @@ namespace CoreChaseBranch
     intro _; rw [List.mem_toSet]
 
   @[grind .]
-  -- signature might be changed
-  theorem origin_trg_is_active_prev_core (cb : CoreChaseBranch kb) (n : Nat) (after : CoreChaseNode kb.rules) (after_eq : after ∈ cb.branch.get? (n+1)) :
-    let prev_node : CoreChaseNode kb.rules := cb.prev_node n (Option.isSome_of_mem after_eq)
+  theorem origin_trg_active_prev_core (cb : CoreChaseBranch kb) (n : Nat) (after : CoreChaseNode kb.rules) (after_eq : after ∈ cb.branch.get? (n+1)) :
+    let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem after_eq)
     ∀ o, o ∈ after.origin → o.fst.val.active prev_node.core := by
-      let prev_node : CoreChaseNode kb.rules := cb.prev_node n (Option.isSome_of_mem after_eq)
+      let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem after_eq)
       have trg_ex := cb.triggers_exist n prev_node (by grind) after after_eq
       have trg_act := cb.triggers_active n prev_node (by grind) after after_eq
       grind
 
   @[grind .]
-  theorem origin_trg_result_yields_next_node_fs (cb : CoreChaseBranch kb) (n : Nat) (node : CoreChaseNode kb.rules) (node_eq : node ∈ cb.branch.get? (n+1)) :
-    let prev_node : CoreChaseNode kb.rules := cb.prev_node n (Option.isSome_of_mem node_eq)
+  theorem next_fs_eq (cb : CoreChaseBranch kb) (n : Nat) (node : CoreChaseNode kb.rules) (node_eq : node ∈ cb.branch.get? (n+1)) :
+    let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem node_eq)
     node.fs = prev_node.core ∪ (node.origin_result (cb.origin_isSome n node_eq)).toSet := by
-      let prev_node : CoreChaseNode kb.rules := cb.prev_node n (Option.isSome_of_mem node_eq)
+      let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem node_eq)
       have trg_ex := cb.triggers_exist n prev_node (by grind) node node_eq
       rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
       simp_all
       constructor
+
+  @[grind .]
+  theorem next_fs_eq' (cb : CoreChaseBranch kb) (n : Nat) (a b : CoreChaseNode kb.rules) (eq_a : a ∈ cb.branch.get? n) (eq_b : b ∈ cb.branch.get? (n + 1)) :
+    b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by
+      have trg_ex := cb.triggers_exist n a eq_a b eq_b
+      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
+      subst b
+      exact Set.unionSym a.core trg.val.mapped_head[↑i].toSet
 
 
   @[grind .]
@@ -339,10 +345,8 @@ namespace CoreChaseBranch
       grind
 
   @[grind .]
-  -- all_fs_finite
-  theorem all_fs_in_cb_finite (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (eq : cn ∈ cb.branch.get? n) : cn.fs.finite := by
+  theorem fs_finite (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (eq : cn ∈ cb.branch.get? n) : cn.fs.finite := by
     exact cn.fs_fin
-
 
   @[grind .]
   theorem not_first_if_origin_some (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_origin_some : cn.origin.isSome) :
@@ -353,35 +357,33 @@ namespace CoreChaseBranch
 
   @[grind .]
   theorem ex_facts (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈ cb := by
-    exists ((cb.branch.get? 0).get (cb_fist_is_some cb)).fs
+    exists ((cb.branch.get? 0).get (cb_fist_isSome cb)).fs
     have dbf := cb.database_first
-    simp [dbf, Membership.mem, InCoreChaseBranch]
-    exists 0, ((cb.branch.get? 0).get (cb_fist_is_some cb))
+    simp [dbf, Membership.mem, inCoreChaseBranch]
+    exists 0, ((cb.branch.get? 0).get (cb_fist_isSome cb))
     constructor
     simp only [Option.some_get]
     rfl; · left; · simp_all
 
   theorem ex_facts_fs (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈_fs cb := by
-    exists ((cb.branch.get? 0).get (cb_fist_is_some cb)).fs
+    exists ((cb.branch.get? 0).get (cb_fist_isSome cb)).fs
     have dbf := cb.database_first
-    simp [dbf, InCoreChaseBranch.fsOnly]
-    exists 0, ((cb.branch.get? 0).get (cb_fist_is_some cb))
+    simp [dbf, inCoreChaseBranch.fsOnly]
+    exists 0, ((cb.branch.get? 0).get (cb_fist_isSome cb))
     constructor
     simp only [Option.some_get]
     rfl
     simp_all
 
   theorem ex_facts_core (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈_c cb := by
-    exists ((cb.branch.get? 0).get (cb_fist_is_some cb)).core
+    exists ((cb.branch.get? 0).get (cb_fist_isSome cb)).core
     have dbf := cb.database_first
-    simp [dbf, InCoreChaseBranch.coreOnly]
-    exists 0, ((cb.branch.get? 0).get (cb_fist_is_some cb))
+    simp [dbf, inCoreChaseBranch.coreOnly]
+    exists 0, ((cb.branch.get? 0).get (cb_fist_isSome cb))
     constructor
     simp only [Option.some_get]
     rfl
     simp_all
-
-
 
 
   /-
@@ -410,26 +412,7 @@ namespace CoreChaseBranch
   -/
 
   @[grind .]
-  theorem cbNextFsEq (cb : CoreChaseBranch kb) (n : Nat) (a b : CoreChaseNode kb.rules) (eq_a : a ∈ cb.branch.get? n) (eq_b : b ∈ cb.branch.get? (n + 1)) :
-    b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by
-      have trg_ex := cb.triggers_exist n a eq_a b eq_b
-      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
-      subst b
-      exact Set.unionSym a.core trg.val.mapped_head[↑i].toSet
-
-  @[grind .]
-  theorem next_step_finite_if_finite (cb : CoreChaseBranch kb) (n : Nat) (a b : CoreChaseNode kb.rules) (eq_a : cb.branch.infinite_list n = some a) (eq_b : cb.branch.infinite_list (n + 1) = some b) (a_fin : a.core.finite) :
-    b.core.finite := by
-      rcases a_fin with ⟨al, al_nodup, al_eq⟩
-      have b_fs_eq := cbNextFsEq cb n a b eq_a eq_b
-      apply CoreChaseNode.core_finite_if_fs_finite
-      rw [b_fs_eq, ← Set.unionOfFinteIsFinte]
-      constructor
-      · exact origin_result_finite b (origin_isSome cb n eq_b)
-      · exact Set.finite_of_list_with_same_elements al al_eq
-
-  @[grind .]
-  theorem allElemDbMappedId (cb : CoreChaseBranch kb) (init : CoreChaseNode kb.rules) (init_eq : init ∈  cb.branch.get? 0) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism init.fs fs2) :
+  theorem db_applyFact_eq_id (cb : CoreChaseBranch kb) (init : CoreChaseNode kb.rules) (init_eq : init ∈  cb.branch.get? 0) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism init.fs fs2) :
     ∀ f, f ∈ init.fs → gtm.applyFact f = f := by
       intro f f_in
       unfold GroundTermMapping.applyFact
@@ -449,10 +432,10 @@ namespace CoreChaseBranch
         exact @gtm_hom.left c
 
   @[grind .]
-  theorem ff_in_core_if_ff_in_fs (cb : CoreChaseBranch kb) (n : Nat) (x_eq : x ∈ cb.branch.get? n) (f : Fact sig) (f_in : f ∈ x.fs) (f_is_ff : f.isFunctionFree) : f ∈ x.core := by
+  theorem f_in_core_if_in_fs_if_f_isFunctionFree (cb : CoreChaseBranch kb) (n : Nat) (x_eq : x ∈ cb.branch.get? n) (f : Fact sig) (f_in : f ∈ x.fs) (f_is_ff : f.isFunctionFree) : f ∈ x.core := by
       have ex_gtm := x.core_sse.right
       rcases ex_gtm with ⟨gtm, gtm_hom⟩
-      have eq : gtm.applyFact f = f := GroundTermMapping.homApplyFactFunctionFreeId x.fs x.core f f_is_ff gtm gtm_hom
+      have eq : gtm.applyFact f = f := gtm.hom_applyFact_isFunctionFree_eq_id x.fs x.core f f_is_ff gtm_hom
       have x_core := x.is_core
       rcases gtm_hom with ⟨gtm_c, gtm_st⟩
       specialize gtm_st f
@@ -460,7 +443,7 @@ namespace CoreChaseBranch
       exists f
 
   @[grind .]
-  theorem allFfInNextFsIfSome (cb : CoreChaseBranch kb) (n : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
+  theorem f_isFunctionFree_in_next_if_some (cb : CoreChaseBranch kb) (n : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
     ∀ cn ∈ cb.branch.get? (n+1), ∀ f, f ∈ x.fs ∧ f.isFunctionFree → f ∈ cn.fs := by
       intro cn cn_eq f ⟨f_in, f_in_ff⟩
       have trg_ex := cb.triggers_exist n x x_eq cn cn_eq
@@ -469,7 +452,7 @@ namespace CoreChaseBranch
       grind
 
   @[grind .]
-  theorem allFfInAllSuccIfSome (cb : CoreChaseBranch kb) (n m : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
+  theorem f_isFunctionFree_in_geq (cb : CoreChaseBranch kb) (n m : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
      ∀ cn ∈ cb.branch.get? (n+m), ∀ f, f ∈ x.fs ∧ f.isFunctionFree → f ∈ cn.fs := by
       induction m with
         | zero =>
@@ -487,7 +470,7 @@ namespace CoreChaseBranch
           grind
 
   @[grind .]
-  theorem cbDbInAllSucc (cb : CoreChaseBranch kb) (n : Nat) (init cn : CoreChaseNode kb.rules) (init_eq : init ∈ cb.branch.get? 0) (cn_eq : cn ∈ cb.branch.get? n) :
+  theorem db_fs_sub_geq_core (cb : CoreChaseBranch kb) (n : Nat) (init cn : CoreChaseNode kb.rules) (init_eq : init ∈ cb.branch.get? 0) (cn_eq : cn ∈ cb.branch.get? n) :
     init.fs ⊆ cn.core := by
       have db_funfree := kb.db.toFactSet.property.right
       have init_eq' : init.fs = kb.db.toFactSet.val := by
@@ -498,17 +481,17 @@ namespace CoreChaseBranch
         | zero =>
           intro f f_in
           have eq : cn = init := by simp_all
-          exact ff_in_core_if_ff_in_fs cb 0 cn_eq f
+          exact f_in_core_if_in_fs_if_f_isFunctionFree cb 0 cn_eq f
             (by rw [eq]; exact f_in)
             (by rw [init_eq'] at f_in; exact db_funfree f f_in)
         | succ n ih =>
           have prev_cn_ex : ∃ prev_cn, prev_cn ∈ cb.branch.get? n :=
             cb.ex_prev_node_at_each_leq (n + 1) (Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
           intro f f_in
-          refine ff_in_core_if_ff_in_fs cb (n + 1) cn_eq f ?_ ?_
+          refine f_in_core_if_in_fs_if_f_isFunctionFree cb (n + 1) cn_eq f ?_ ?_
           · rcases prev_cn_ex with ⟨prev_cn, prev_cn_eq⟩
             specialize ih prev_cn (by grind) f f_in
-            have := allFfInNextFsIfSome cb n prev_cn prev_cn_eq cn cn_eq f
+            have := f_isFunctionFree_in_next_if_some cb n prev_cn prev_cn_eq cn cn_eq f
             have f_in_prev_fs : f ∈ prev_cn.fs := by
               have prev_cn_core_sse := prev_cn.core_sse.left f ih
               exact prev_cn_core_sse
@@ -521,7 +504,7 @@ namespace CoreChaseBranch
             exact db_funfree f f_in
 
 
- theorem exIntermeadiateCoreChaseNodeIfFactMissing (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
+ theorem ex_intermediate_if_f_mem_not_mem_succ (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
     (cn_eq : cn ∈ cb.branch.get? n) (cn_succ_eq : cn_succ ∈ cb.branch.get? (n + k))
     (f : Fact sig) (f_in : f ∈ cn.core) (f_nin : ¬ f ∈ cn_succ.core) :
       ∃ (cm : CoreChaseNode kb.rules), f ∈ cm.fs ∧ ¬ f ∈ cm.core := by
@@ -542,8 +525,8 @@ namespace CoreChaseBranch
           exact ih
 
   @[grind .]
-  theorem origin_trg_is_active_core (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? (n + 1)) :
-    (cn.origin.get (cb.origin_isSome n cn_eq)).fst.val.active (cb.prev_node n (Option.isSome_of_mem cn_eq)).core := by
+  theorem origin_trg_active_core (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? (n + 1)) :
+    (cn.origin.get (cb.origin_isSome n cn_eq)).fst.val.active (cb.prevNode n (Option.isSome_of_mem cn_eq)).core := by
       have ex_prev_node := ex_prev_node_at_each_leq cb (n+1) (by exact Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
       rcases ex_prev_node with ⟨prev_node, prev_node_eq⟩
       have trg_ex := cb.triggers_exist n prev_node prev_node_eq cn cn_eq
@@ -553,7 +536,7 @@ namespace CoreChaseBranch
   @[grind .]
   theorem functional_term_originates_from_some_trigger_or_database_core (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules)
     (cn_eq : cb.branch.get? n = some cn) (t : GroundTerm sig) (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) (t_mem : t ∈ cn.fs.terms) :
-      t ∈ ((cb.branch.get? 0).get (cb_fist_is_some cb)).fs.terms ∨
+      t ∈ ((cb.branch.get? 0).get (cb_fist_isSome cb)).fs.terms ∨
       ∃ (m : Nat) (node2 : CoreChaseNode kb.rules), node2 ∈ cb.branch.get? m ∧
       (∃ origin, origin ∈ node2.origin ∧ t ∈ origin.fst.val.fresh_terms_for_head_disjunct origin.snd.val (by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)) := by
         induction n generalizing cn with
@@ -571,11 +554,11 @@ namespace CoreChaseBranch
             rw [t_is_func] at func_free
             simp [GroundTerm.func, GroundTerm.const] at func_free
           | succ n ih =>
-            let prev_node := (cb.prev_node n (Option.isSome_of_mem cn_eq))
+            let prev_node := (cb.prevNode n (Option.isSome_of_mem cn_eq))
             cases Classical.em (t ∈ prev_node.core.terms) with
               | inl term_in_prev_node_core =>
                 have term_in_prev_node_fs : t ∈ prev_node.fs.terms := CoreChaseNode.fs_terms_sub_core_terms prev_node t term_in_prev_node_core
-                specialize ih prev_node (prev_node_eq cb n (Option.isSome_of_mem cn_eq)) term_in_prev_node_fs
+                specialize ih prev_node (prevNode_eq cb n (Option.isSome_of_mem cn_eq)) term_in_prev_node_fs
                 rcases ih with ⟨m2, ih⟩
                 left
                 exists m2
@@ -592,8 +575,8 @@ namespace CoreChaseBranch
                 let origin := cn.origin.get (origin_isSome cb n cn_eq)
                 exists origin
                 rcases t_mem with ⟨f, f_mem, t_mem⟩
-                rw [cb.origin_trg_result_yields_next_node_fs n cn cn_eq] at f_mem
-                change f ∈ (cb.prev_node n _).core ∨ f ∈ (cn.origin_result _).toSet at f_mem
+                rw [cb.next_fs_eq n cn cn_eq] at f_mem
+                change f ∈ (cb.prevNode n _).core ∨ f ∈ (cn.origin_result _).toSet at f_mem
                 cases f_mem with
                   | inl f_mem =>
                     apply False.elim
@@ -614,7 +597,7 @@ namespace CoreChaseBranch
                       cases t_mem with
                       | inl t_mem =>
                       apply False.elim; apply term_not_in_prev_node_core
-                      apply FactSet.terms_subset_of_subset (cb.origin_trg_is_active_core n cn cn_eq).left
+                      apply FactSet.terms_subset_of_subset (cb.origin_trg_active_core n cn cn_eq).left
                       rw [FactSet.mem_terms_toSet]
                       rw [PreTrigger.mem_terms_mapped_body_iff]
                       apply Or.inr
