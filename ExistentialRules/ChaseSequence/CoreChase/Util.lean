@@ -48,12 +48,10 @@ theorem wop (S : Set Nat) (S_non_empty : ∃ (n : Nat), n ∈ S) : ∃ (m : Nat)
   foldl_save_hist l init f = [init, (f init x1), (f (f init x1) x2), (f (f (f init x1) x2) x3)]
 
   foldl_save_hist l init f = [init, y1, y2, y3]
-
 -/
 
 
 -- foldl_save_hist variant for function returning options, if none is returned by f the argument is not applied and the previous element which was some is returned
-
 def foldl_save_hist_opt (l : List α) (init_elem : β) (f : β → α → Option β) : List β :=
   let (_, history) :=
   l.foldl
@@ -161,10 +159,8 @@ theorem foldl_save_hist_opt_nodup_trace_adjacent_ne [DecidableEq β] (l : List �
           | nil =>
             exists init
           | cons hd tl ih =>
-
             sorry
       exact this
-    -- contradiciton of state = next and state ≠ next
     grind
 
 namespace Function

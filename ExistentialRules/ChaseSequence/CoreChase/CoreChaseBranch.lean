@@ -183,28 +183,6 @@ namespace CoreChaseBranch
     rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
     rw [← cn_eq]
 
-
-  /-
-  @[grind ->]
-  theorem active_trigger_origin_next {cb : CoreChaseBranch kb} {next : CoreChaseNode kb.rules} (eq : cb.next = some next) :
-      (next.origin.get (cb.isSome_origin_next eq)).fst.val.active cb.head.fs := by
-    have trg_act := cb.triggers_active 0 cb.head
-      (by simp [CoreChaseBranch.head];exact Eq.symm PossiblyInfiniteList.head_eq) next
-      (by simp [← eq, CoreChaseBranch.next];exact Eq.symm PossiblyInfiniteList.head_eq)
-    rcases trg_act with ⟨orig, orig_mem, trg_act⟩
-    rw [Option.mem_def] at orig_mem
-    simp only [orig_mem, Option.get_some]
-    have eq : cb.head.fs = cb.head.core := by sorry
-    rw [eq]
-    exact trg_act
-
-  theorem active_trigger_origin_next_core {cb : CoreChaseBranch kb} {next : CoreChaseNode kb.rules} (eq : cb.next = some next) :
-      (next.origin.get (cb.isSome_origin_next eq)).fst.val.active cb.head.core := by sorry
-  -/
-
-  /--------------------------------------------------------------------------------
-  -/
-
   @[grind .]
   theorem mem_eq (cb : CoreChaseBranch kb) (cn1 cn2 : CoreChaseNode kb.rules) (n : Nat) (cn1_eq : cn1 ∈ cb.branch.get? n) (cn2_eq : cn2 ∈ cb.branch.get? n) : cn1 = cn2 := by
     rw [Option.mem_def] at cn1_eq cn2_eq
@@ -251,7 +229,6 @@ namespace CoreChaseBranch
     because ex trigger from n1 to n2 thus n2.fs = n1.core + trig.result thus n1.core ⊆ n2.fs
   -/
 
-  -- replaces prevCoreSubsetOfFactset
   theorem before_core_sub_after_fs (cb : CoreChaseBranch kb) (n : Nat) (before after : CoreChaseNode kb.rules) (before_eq : before ∈ cb.branch.get? n) (after_eq : after ∈ cb.branch.get? (n + 1)) :
     before.core ⊆ after.fs := by
       have trg_ex := cb.triggers_exist n before before_eq after after_eq
@@ -384,32 +361,6 @@ namespace CoreChaseBranch
     simp only [Option.some_get]
     rfl
     simp_all
-
-
-  /-
-  theorem isSome_next_iff_trg_ex {cb : CoreChaseBranch kb} : cb.next.isSome ↔ ∃ (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules), trg.val.active cb.head.fs := by
-    constructor
-    . rw [Option.isSome_iff_exists]
-      rintro ⟨next, eq⟩
-      exists (next.origin.get (cb.isSome_origin_next eq)).fst
-      exact active_trigger_origin_next eq
-    . rintro ⟨trg, active⟩
-      apply Decidable.byContradiction
-      rw [Option.not_isSome_iff_eq_none]
-      intro eq_none
-      have fair := cb.fairness trg
-      rcases cb.fairness trg with ⟨i, ⟨node, node_mem, not_active⟩, fair⟩
-      cases i with
-      | zero =>
-        apply not_active
-        have eq : cb.head = node := by unfold CoreChaseBranch.head; exact Option.get_of_eq_some (Option.isSome_of_mem cb.database_first) node_mem
-        rw [← eq]
-        exact active
-      | succ i =>
-        simp only [CoreChaseBranch.next, ← PossiblyInfiniteList.empty_iff_head_none] at eq_none
-        rw [← PossiblyInfiniteList.get?_tail, eq_none] at node_mem
-        simp at node_me
-  -/
 
   @[grind .]
   theorem db_applyFact_eq_id (cb : CoreChaseBranch kb) (init : CoreChaseNode kb.rules) (init_eq : init ∈  cb.branch.get? 0) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism init.fs fs2) :
@@ -621,5 +572,12 @@ namespace CoreChaseBranch
       rcases t_is_func with ⟨_, _, _, t_eq'⟩
       rw [t_eq'] at t_eq
       simp [GroundTerm.func_neq_const] at t_eq
+
+  theorem term_mem_cn_not_mem_trg_fresh_terms (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (cn_succ_eq : cn_succ ∈ cb.branch.get? (n+1))
+   (t : GroundTerm sig) (t_mem : t ∈ cn.core.terms) :
+    let trg := (cn_succ.origin.get (origin_isSome cb n cn_succ_eq)).fst
+    let disj := (cn_succ.origin.get (origin_isSome cb n cn_succ_eq)).snd
+    ¬ t ∈ trg.val.fresh_terms_for_head_disjunct disj (by grind) := by
+      sorry
 
 end CoreChaseBranch

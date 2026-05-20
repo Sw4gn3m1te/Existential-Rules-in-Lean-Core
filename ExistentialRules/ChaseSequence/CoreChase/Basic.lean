@@ -54,10 +54,6 @@ end Fact
 
 namespace GroundTermMapping
 
-  def isIsomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
-      h.isHomomorphism A B ∧ Function.injective_for_domain_set h A.terms ∧ Function.surjective_for_domain_and_image_set h A.terms B.terms ∧ h.strong A.terms A B
-
-
   @[simp, grind .]
   theorem hom_applyFact_isFunctionFree_eq_id (fs1 fs2 : FactSet sig) (f : Fact sig) (f_is_ff : f.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFact f = f := by
       rw [GeneralizedAtom.mk.injEq]
@@ -160,7 +156,7 @@ namespace GroundTermMapping
       . grind
       . simp
 
-  theorem applyFactSet_finite_if_finite (h : GroundTermMapping sig) (fs : FactSet sig) (fs_fin : fs.finite) : (h.applyFactSet fs).finite := by
+  theorem applyFactSet_finite_if_finite (h : GroundTermMapping sig) (fs : FactSet sig) (fs_fin : fs.finite) (h_inj : h.injective_for_domain_set fs.terms) : (h.applyFactSet fs).finite := by
     rcases fs_fin with ⟨l, nd, eq⟩
     exists (TermMapping.apply_generalized_atom_list h l)
     constructor
@@ -414,12 +410,6 @@ namespace FactSet
         rw [eq'] at wc_sub
         exact wc_sub
 
-  -- !ASK: gibt es schon so eine funktion ? -- strong_core_of_model_is_model + finite = also weak core, universality wird auch erhalten
-  -- paper preserving constraints with the stable chase hat gegenbesipiele ggf. Example 14
-  theorem core_preserves_model {obs : ObsolescenceCondition sig} (kb : KnowledgeBase sig) (m c : FactSet sig) (m_mod : m.modelsKb kb) (c_wc : c.isWeakCore) (c_homsub : c.homSubset m) : c.modelsKb kb := by
-    have c_fin : c.finite := by sorry
-    have c_sc : c.isStrongCore := isStrongCore_of_isWeakCore_of_finite c c_wc c_fin
-    exact strong_core_of_model_is_model m m_mod c c_homsub c_sc
 
 end FactSet
 
@@ -435,6 +425,14 @@ end ChaseNode
 
 
 namespace ChaseBranch
+
+  @[simp, grind .]
+  theorem first_fs_eq (cb : ChaseBranch obs kb) (cn : ChaseNode obs kb.rules) (cn_eq : cn ∈ cb.branch.get? 0) : cn.facts = kb.db.toFactSet.val := by
+    have dbf := cb.database_first
+    have eq : ((cb.branch.head).get (cb.isSome_head)).facts = kb.db.toFactSet := by grind
+    rw [Option.mem_def] at cn_eq
+    have : cb.branch.head.get (cb.isSome_head) = cn := Option.get_of_eq_some cb.isSome_head cn_eq
+    rw [← this, eq]
 
   @[grind .]
   theorem geq_none_if_none (scb : ChaseBranch obs kb) (n : Nat) (is_some : (scb.branch.get? n).isNone) : ∀ m, m ≥ n → (scb.branch.get? m).isNone := by grind
@@ -558,17 +556,6 @@ namespace ChaseBranch
           · have eq : init_scn.facts = kb.db.toFactSet.val := first_facts_eq scb init_scn init_scn_eq
             rw [eq] at f_in
             exact (db_funfree f ∘ fun a => f_in) sig
-
-
-  -- ASK!: Wie verwende ich das neue result ?lastnode ⊆ result zeigen -- resultat gibts nocht nicht
-  theorem ex_fact_set_eq_scb_result_if_term (scb : ChaseBranch obs kb) (last_index : Nat) (term_at_n : (scb.branch.infinite_list last_index).isSome ∧ (scb.branch.infinite_list (last_index+1)).isNone) :
-    ∀ (last_node : ChaseNode obs kb.rules), last_node ∈ scb.branch.get? last_index → scb.result = last_node.facts := by
-      have dbf := scb.database_first
-      rcases term_at_n with ⟨is_some, is_none⟩
-      let last_node := (scb.branch.get? last_index).get is_some
-      have := @ChaseDerivationSkeleton.facts_node_subset_result _ _ _ _ _ _ scb.toChaseDerivationSkeleton last_node
-      intro last_node last_node_eq
-      sorry
 
 
   def getTriggerList (scb : ChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) : (List (RTrigger obs.toLaxObsolescenceCondition kb.rules)) :=

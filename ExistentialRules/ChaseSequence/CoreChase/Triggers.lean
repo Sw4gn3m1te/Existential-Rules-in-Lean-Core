@@ -245,12 +245,10 @@ namespace CoreChaseBranch
         simp [GroundTerm.func_neq_const] at t_eq
 
 
-    -- isSome_next_iff_trg_ex
     @[grind .]
-    -- exNextNodeIfExLoadedNonObsoleteTrigger
-    theorem ex_next_if_ex_active_trigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
-      (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) (trg_act : trg.val.active cn.core) :
-          ∃ (cn' : CoreChaseNode kb.rules), cn' ∈ cb.branch.infinite_list (n+1) := by sorry
+  theorem ex_next_if_ex_active_trigger (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n)
+    (trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) (trg_act : trg.val.active cn.core) :
+        ∃ (cn' : CoreChaseNode kb.rules), cn' ∈ cb.branch.infinite_list (n+1) := by sorry
 
 
   theorem trigger_inactive_after_application (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
@@ -306,60 +304,6 @@ namespace CoreChaseBranch
 
               intro ⟨trg_loaded_succ, trg_non_obs_succ⟩
 
-              /-
-              Hi, ich habe mich nochmal an das Theorem "ein angewendeter Trigger kann nie wieder aktiv werden" gesetzt.
-              Dort machen wir eine Induktion über k. Induktionsanfang war schon fertig.
-              Im Induktionsschritt wollen wir zeigen, dass der Trigger an der Stelle (n+k+1) nicht active ist.
-
-              Die Situation ist also folgendermaßen:
-              `prev_cn (n-1)` → `cn (n)` → `cn_k (n+k)` → `cn_succ (n+k+1)`
-
-              Wir machen nun einen Wiederspruchsbeweis und nehemen an, dass der Trigger loaded auf cn_succ wäre
-
-              und wir wissen damit:
-                - trg active in prev_cn
-                - trg loaded und obs in cn.fs
-                - trg not loaded in cn_k.core
-                - trg loaded auf cn_succ.fs
-                - trg active auf cn_succ.core
-
-                Des Weiteren wissen wir, dass es einen Fakt `f` geben muss, der im Trigger result (und damit auch in cn.fs) vorkommt aber nicht in cn_k.core
-                Somit wissen wir auch, dass es eine weitere Node `cm` zwischen `prev_cn` und `cn_succ` geben muss s.d. f in `cm.fs` ist aber nicht in `cm.core`.
-
-                Hier bin ich mir jetzt nicht sicher, ob ich eine Fallunterscheidung machen muss ob `cm=cn` und ob `cm=cn_k` ist?
-
-                Hier bin ich mir dann auch nicht sicher wie genau es weiter geht.
-                Ich glaube wir hatten mal gesagt, dass sich jetzt zeigen lassen sollte, dass es einen Term geben muss, s.d. `t ∈ prev_cn.core.terms ∧ ¬ t ∈ cm.core.terms ∧ t ∈ cn_succ.core.terms` gilt.
-                Ist das richtig ?
-                Das würde dann bedeuten, dass es auch einen Fakt gibt s.d. `f ∈ prev_cn.core ∧ ¬ f ∈ cm.core ∧ f ∈ cn_succ.core` richtig ?
-
-                Jetzt weiß ich aber nicht mehr weiter, was wäre der Ansatz um hier weiter zu machen ?
-                Wir hatten in der Vergangenheit mal eine Fallunterscheidung gemacht ob `t` eine Konstante ist oder nicht.
-                Ich weiß aber nicht genau wie mich das hier weiter bringt.
-
-                Hast du vlt. noch ein Paar Ratschläge wie ich hier weiter komme ?
-
-                Danke im Voraus :)
-
-
-
-
-              -/
-
-
-              /-
-                prev_cn →     cn →                 cn_k →              cn_succ
-                (trg active)  trg in origin       (trg not loaded)    (show inactive here)
-                .             thus inactive in fs
-                .             loaded in fs
-                .             maybe unloaded in core
-
-
-
-                wir wissen dass nur in der core computation unloaded werden kann
-                zudem wissen wir, dass ein trg in core obsolete ist, falls er in in fs obs ist und loaded auf dem core ist
-              -/
-
               have trg_prev_cn_loaded := trg_active_prev_cn_core.left
               have trg_prev_cn_non_obs := trg_active_prev_cn_core.right
 
@@ -386,15 +330,7 @@ namespace CoreChaseBranch
               have eq : n - 1 + (k + 1) = n + k := by grind
               have ex_cm := cb.ex_intermediate_if_f_mem_not_mem_succ prev_cn cn_k (n-1) (k+1) prev_cn_eq (by rw [eq]; exact cn_k_eq) f (trg_prev_cn_loaded f f_in) f_nin
 
-              -- terms can only be removed during core calculation
-
-              -- we know that as trg loaded in prev_cn but not in cn_k that some term either got removed in cn.fs → cn.core or in cn_k.fs → cn_k.core
-              -- this term then got reintroduced as trg is loaded again in cn_succ
-
-              -- loaded in cn.fs → unloaded between cn.core and cn_k.core
-
               rcases ex_cm with ⟨cm, cm_eq⟩
-              -- cm can be (both including) between cn and cn_k
 
               have t_mem : ∃ (t : GroundTerm sig), t ∈ prev_cn.core.terms ∧ ¬ t ∈ cm.core.terms ∧ t ∈ cn_succ.core.terms := by
 
@@ -404,16 +340,15 @@ namespace CoreChaseBranch
                 sorry
 
               rcases t_mem with ⟨t, t_in_prev_cn, t_nin_cm, t_in_cn_succ⟩
-              have t_in_cn_fs : t ∈ cn.fs.terms := by sorry -- weil cn.fs ⊆ prec_cn.core
+              have t_in_cn_fs : t ∈ cn.fs.terms := by sorry
               cases eq : t with
                 | const c =>
-                  -- es gibt einen zugehörigen fakt für den term
+
                   have ex_f : ∃ (f : Fact sig), f ∈ cn.fs ∧ t ∈ f.terms := t_in_cn_fs
                   rcases ex_f with ⟨f, f_in_cn_fs, t_in_f⟩
 
                   have := f_isFunctionFree_in_next_if_some cb (n + k) cn_k cn_k_eq
                   specialize this cn_succ cn_succ_eq
-
 
 
                   have f_is_ff : f.isFunctionFree := by
@@ -422,7 +357,6 @@ namespace CoreChaseBranch
                     exists c
                     sorry
 
-
                   specialize this f
                   have ff_in_all_succ := f_isFunctionFree_in_geq cb n k cn cn_eq
                   specialize ff_in_all_succ cn_k cn_k_eq
@@ -430,7 +364,6 @@ namespace CoreChaseBranch
                     apply ff_in_all_succ
                     exact ⟨f_in_cn_fs, f_is_ff⟩
                   have f_nin_cn_k_fs : ¬ f ∈ cn_k.fs := by
-                    -- f enthält t von welchem wir wissen, dass es nicht in cn_k.fs ist daher kann t nicht in cn_k.fs.terms sein
                     sorry
                   contradiction
 
@@ -438,26 +371,6 @@ namespace CoreChaseBranch
                   have ex_snd_trg : ∃ (m : Nat), m < n ∧ t ∈ FactSet.terms (((cb.branch.infinite_list m).get sorry).origin_result sorry).toSet := by sorry
                   rcases ex_snd_trg with ⟨m, lt, t_in⟩
                   sorry
-                  /-
-                  have some_prev_nk1 := prev_is_some_if_is_some'' cb (n + k + 1) (Option.castisSomeIfEqSome (cb.branch.infinite_list (n + k + 1)) cn_succ cn_succ_eq)
-                  have lt' : m < n + k + 1 := Nat.lt_add_right (k + 1) lt
-                  have lt'' : m + k < n + k + 1 := Nat.lt_succ_of_lt (Nat.add_lt_add_right lt k)
-
-                  cases Decidable.em (m > 0) with
-                    | inl gt =>
-                      have m_origin_some : ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')).origin.isSome := by
-                        have := prev_is_some_if_is_some'' cb (n + k + 1) (Option.castisSomeIfEqSome (cb.branch.infinite_list (n + k + 1)) cn_succ cn_succ_eq) m lt'
-                        have := @origin_isSome _ _ _ _ _ cb n ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')) sorry
-                        exact this
-                      apply triggerInactiveAfterApplication cb ((cb.branch.infinite_list m).get (some_prev_nk1 m lt')) ((cb.branch.infinite_list (m + k)).get (some_prev_nk1 (m + k) lt''))
-                        m k (Option.eq_some_of_isSome (some_prev_nk1 m lt')) (Option.eq_some_of_isSome (some_prev_nk1 (m + k) lt'')) m_origin_some ?_
-                      sorry
-
-                    | inr eq =>
-                      have eq : m = 0 := Nat.eq_zero_of_not_pos eq
-                      sorry
-                      -/
-                      -- m_origin_some not given, thus theorem not recurively applicable :c
 
             | inr trg_obs_loaded =>
               rcases trg_obs_loaded with ⟨trg_obs_k_core, trg_loaded_k_core⟩

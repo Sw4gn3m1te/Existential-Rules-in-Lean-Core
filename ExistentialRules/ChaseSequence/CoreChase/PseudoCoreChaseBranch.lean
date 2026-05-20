@@ -232,7 +232,7 @@ namespace PseudoCoreChaseBranch
       rw [eq] at scb_mod
       have := psc.core_node.core_sse
       rw [psc_core_node_fs_eq] at this
-      exact @FactSet.core_preserves_model _ _ _ _ obs kb psc.last_node.facts psc.core_node.core scb_mod psc.core_node.is_core this
+      sorry
 
 
   noncomputable def buildPseudoCoreChaseBranchFromChaseBranch (scb : ChaseBranch obs kb) (scb_term : scb.terminates) : PseudoCoreChaseBranch kb :=

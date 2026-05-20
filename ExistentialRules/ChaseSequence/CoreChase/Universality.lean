@@ -8,6 +8,8 @@ import ExistentialRules.ChaseSequence.CoreChase.Termination
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}
 
+namespace CoreChaseBranch
+
 
   abbrev InductiveHomomorphismResultCore (cb : CoreChaseBranch kb) (m : FactSet sig) (depth : Nat) :=
     {gtm : GroundTermMapping sig // ∀ cn, cn ∈ cb.branch.get? depth → gtm.isHomomorphism cn.fs m}
@@ -141,18 +143,16 @@ variable {kb : KnowledgeBase sig}
               · unfold next_gtm
                 apply TermMapping.apply_generalized_atom_congr_left
                 intro t t_mem
-                have : ¬ t ∈ (trg_on_prev_node.val.fresh_terms_for_head_disjunct ↑fin_disj fin_disj.isLt) := by
-                  intro contra
-                  apply trg_active_prev_core.right
-                  simp only [obs, RestrictedObsolescence]
-                  unfold PreTrigger.satisfied
-                  apply obs.contains_trg_result_implies_cond disj_on_prev_node
-                  simp_all
-                  have t_mem' : t ∈ prev_node.core.terms := by sorry
-                  have := cb.result_of_trigger_introducing_functional_term_occurs_in_chase_hom prev_node disj_on_prev_node prev_depth trg_on_prev_node prev_node_eq t fin_disj.isLt contra t_mem'
-                  sorry
+                cases Classical.propDecidable (t ∈ (trg_on_prev_node.val.fresh_terms_for_head_disjunct ↑fin_disj fin_disj.isLt)) with
+                  | isTrue tr =>
+                    simp_all
+                    have t_mem' : t ∈ prev_node.core.terms := by sorry
+                    have t_nem := term_mem_cn_not_mem_trg_fresh_terms cb prev_node next_node prev_depth prev_node_eq next_node_eq t t_mem'
+                    -- should yield a contradiction of tr and t_nem
+                    sorry
+                  | isFalse fa =>
+                    simp_all
 
-                simp only [this, ↓reduceDIte]
             -- f comes from trg result
             | inr f_mem =>
               apply subs_contained
@@ -260,3 +260,5 @@ variable {kb : KnowledgeBase sig}
     constructor
     exact cb.result_ModelsKb ter'
     exact result_is_universal cb ter' kb_det
+
+end CoreChaseBranch

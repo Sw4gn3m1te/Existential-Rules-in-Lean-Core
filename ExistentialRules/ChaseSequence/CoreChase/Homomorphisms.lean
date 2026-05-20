@@ -138,5 +138,11 @@ namespace CoreChaseBranch
       rcases sc with ⟨s1, s2, s3⟩
       exact s3
 
+  @[grind .]
+  theorem core_extends_hom (A B C: FactSet sig) (C_homsub : C.homSubset B) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism A B) : ∃ (h' : GroundTermMapping sig), h'.isHomomorphism A C := by
+    rcases C_homsub with ⟨sub, h', h'_hom⟩
+    exists (h' ∘ h)
+    exact GroundTermMapping.isHomomorphism_compose h h' A B C h_hom h'_hom
+
 
 end CoreChaseBranch

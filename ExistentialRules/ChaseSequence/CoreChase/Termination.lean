@@ -380,9 +380,9 @@ namespace CoreChaseBranch
     have ex_next_node := cb.ex_next_if_ex_active_trigger (cb.lastElementIndex ter') (cb.lastNode ter') (result_isSome cb ter') ⟨trg, r_in⟩ trg_act
 
     rcases ex_next_node with ⟨cn_contra,  cn_contra_eq⟩
-    have t1 := succ_lastElementIndex_is_none cb ter'
-    have : cb.branch.infinite_list (cb.lastElementIndex ter' + 1) = some cn_contra := Option.mem_def.mp cn_contra_eq
-    rw [t1] at this
+    have succ_none := succ_lastElementIndex_is_none cb ter'
+    have eq : cb.branch.infinite_list (cb.lastElementIndex ter' + 1) = some cn_contra := Option.mem_def.mp cn_contra_eq
+    rw [succ_none] at eq
     contradiction
 
 end CoreChaseBranch
